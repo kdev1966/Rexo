@@ -1,4 +1,4 @@
-"""Visage et masque des personnes par Apple Vision (reto-segment face)."""
+"""Visage et masque des personnes par Apple Vision (rexo-segment face)."""
 
 from dataclasses import dataclass, field
 

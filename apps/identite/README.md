@@ -1,10 +1,10 @@
-# Identité
+# Rexo ID
 
 Photos d'identité **aux normes françaises** et planches à imprimer sur papier 10 × 15 cm,
 depuis un portrait pris en studio. **100 % locale** : Apple Vision et Core Image, sans modèle
 d'IA à télécharger. Aucune photo ne quitte la machine.
 
-## Ce que fait Identité
+## Ce que fait Rexo ID
 
 | Étape | Méthode |
 |---|---|
@@ -34,7 +34,7 @@ marge de chaque côté pour cette estimation.
   saisi au dépôt (modifiable) et archive la photo d'un clic.
 - **Archive** : les fichiers sont copiés dans
   `<archive>/NOM Prénom - téléphone/AAAA-MM-JJ Prénom Nom/` (photo, deux planches, original,
-  rapport). Le dossier de l'archive est `~/Pictures/Identité` par défaut (« Images » dans le
+  rapport). Le dossier de l'archive est `~/Pictures/Rexo ID` par défaut (« Images » dans le
   Finder) ; on le change dans l'onglet Clients (« Changer… »).
 - **Base** : une seule base SQLite pour tous les clients, `donnees/clients.sqlite`. Elle reste
   la même si l'on change de dossier d'archive. Les noms et téléphones ne quittent pas la
@@ -70,7 +70,7 @@ Prérequis : Mac Intel, macOS 12 ou plus, outils en ligne de commande d'Apple.
 
 ```bash
 shared/python/installer.sh          # Python 3.11.17 autonome (depuis la racine du hub)
-shared/natif/compiler.sh            # reto-segment (Apple Vision, Core Image)
+shared/natif/compiler.sh            # rexo-segment (Apple Vision, Core Image)
 cd apps/identite
 ../../.outils/python/bin/python3 -m venv .venv
 .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
@@ -82,10 +82,10 @@ cd apps/identite
 shared/lanceur/creer_app.sh identite --bureau     # depuis la racine du hub
 ```
 
-Crée `~/Applications/Identité.app` et un raccourci sur le Bureau. Un double-clic démarre le
+Crée `~/Applications/Rexo ID.app` et un raccourci sur le Bureau. Un double-clic démarre le
 serveur local et ouvre la page dans le navigateur ; quitter l'application (Cmd+Q) arrête le
 serveur. Le bouton **Quitter** de la page fait de même : il arrête le serveur, et l'application se
-ferme d'elle-même. Journal : `~/Library/Logs/RetoHub/identite.log`. Sans `--bureau`, pas de raccourci.
+ferme d'elle-même. Journal : `~/Library/Logs/Rexo/identite.log`. Sans `--bureau`, pas de raccourci.
 
 ## Utilisation
 

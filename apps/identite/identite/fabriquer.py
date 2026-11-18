@@ -37,7 +37,7 @@ OPENCV = {'.jpg', '.jpeg', '.jpe', '.png', '.tif', '.tiff', '.webp', '.bmp'}
 
 
 def lire(src, travail):
-    """Photo redressée (EXIF) en PNG de travail, lue pareil par OpenCV et par reto-segment."""
+    """Photo redressée (EXIF) en PNG de travail, lue pareil par OpenCV et par rexo-segment."""
     src = Path(src)
     if src.suffix.lower() not in OPENCV:
         tmp = travail / 'converti.png'

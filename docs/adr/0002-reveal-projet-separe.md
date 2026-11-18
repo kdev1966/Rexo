@@ -15,9 +15,9 @@ onnxruntime 1.19.2, OpenCV 4.10, modèles dans `~/.local/share/kdev-models`.
 Trois scénarios ont été étudiés :
 
 - **A.** Reveal devient un module de Rexo Studio.
-- **B.** Reveal vit seul dans RetoHub ; Rexo Studio reste un dépôt à part ; on partage d'abord
+- **B.** Reveal vit seul dans Rexo ; Rexo Studio reste un dépôt à part ; on partage d'abord
   les modèles, puis le code commun.
-- **C.** B, puis Rexo Studio rejoint RetoHub (`git subtree`, historique conservé).
+- **C.** B, puis Rexo Studio rejoint Rexo (`git subtree`, historique conservé).
 
 ## Décision
 
@@ -40,4 +40,4 @@ Contre-arguments acceptés :
 ## Conséquences
 
 - Les modèles sont déjà partagés : même dossier `~/.local/share/kdev-models`.
-- Le scénario C reste ouvert, une fois RetoHub rodé.
+- Le scénario C reste ouvert, une fois Rexo rodé.

@@ -1,1 +1,1 @@
-"""Code partagé entre les applications de RetoHub."""
+"""Code partagé entre les applications de Rexo."""

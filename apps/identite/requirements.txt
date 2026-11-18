@@ -1,4 +1,4 @@
-# Identité : environnement Python 3.11.17 autonome (shared/python/installer.sh), versions figées,
+# Rexo ID : environnement Python 3.11.17 autonome (shared/python/installer.sh), versions figées,
 # mêmes paquets et mêmes empreintes que Reveal.
 # Installer avec : .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
 

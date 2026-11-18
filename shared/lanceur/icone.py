@@ -3,7 +3,7 @@
     python icone.py identite|reveal <sortie.png>
 
 Carré arrondi sombre, pictogramme ambré : une photo d'identité (visage dans un cadre)
-pour Identité, un diaphragme pour Reveal.
+pour Rexo ID, un diaphragme pour Rexo Reveal.
 """
 
 import math

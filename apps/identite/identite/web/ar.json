@@ -1,5 +1,4 @@
 {
- "Identité": "صور الهوية",
  "Normes françaises · 35 × 45 mm · rien ne quitte cet ordinateur": "المعايير الفرنسية · 35 × 45 مم · لا شيء يغادر هذا الحاسوب",
  "Atelier": "الورشة",
  "Clients": "الحرفاء",
@@ -146,9 +145,7 @@
  "Fiche mise à jour.": "حُدّثت البطاقة.",
  "Choisissez le dossier dans la fenêtre du Finder.": "اختر المجلد في نافذة Finder.",
  "Les prochaines photos seront rangées dans {}": "ستُحفظ الصور القادمة في {}",
- "Identité est arrêté": "تم إيقاف صور الهوية",
  "Le serveur est fermé et la mémoire libérée. Vous pouvez fermer cet onglet.": "أُغلق الخادم وتحرّرت الذاكرة. يمكنك إغلاق هذه الصفحة.",
- "Pour reprendre, double-cliquez sur l'icône Identité du Bureau.": "للمتابعة، انقر مرتين على أيقونة Identité في سطح المكتب.",
  "{} a été mis à jour : cliquez sur Quitter, puis rouvrez {} depuis le Bureau.": "تم تحديث {1}: انقر على «خروج» ثم أعد فتحه من سطح المكتب.",
  "{} a été mis à jour. Redémarrez pour utiliser la nouvelle version.": "تم تحديث {}. أعد التشغيل لاستعمال النسخة الجديدة.",
  "Redémarrer": "إعادة التشغيل",
@@ -203,5 +200,7 @@
  "Une photo est en cours de fabrication, patientez.": "صورة قيد الإعداد، يرجى الانتظار.",
  "fabriquer d'abord les photos de ce portrait": "أعدّ أولًا صور الهوية لهذه الصورة",
  "Requête JSON attendue.": "يُنتظر طلب بصيغة JSON.",
- "{} mm du haut": "{} مم من الأعلى"
+ "{} mm du haut": "{} مم من الأعلى",
+ "Rexo ID est arrêté": "تم إيقاف Rexo ID",
+ "Pour reprendre, double-cliquez sur l'icône Rexo ID du Bureau.": "للمتابعة، انقر مرتين على أيقونة Rexo ID في سطح المكتب."
 }

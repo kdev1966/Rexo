@@ -1,29 +1,29 @@
 #!/bin/bash
 # ---------------------------------------------------------------------------
 # Crée une application macOS (double-clic) pour une application web du hub :
-#   shared/lanceur/creer_app.sh identite      -> ~/Applications/Identité.app
-#   shared/lanceur/creer_app.sh reveal        -> ~/Applications/Reveal.app
+#   shared/lanceur/creer_app.sh identite      -> ~/Applications/Rexo ID.app
+#   shared/lanceur/creer_app.sh reveal        -> ~/Applications/Rexo Reveal.app
 #   ... --bureau                              -> et un raccourci sur le Bureau
 #
 # L'application démarre le serveur local (127.0.0.1 seulement), ouvre la page dans le
 # navigateur par défaut, la rouvre si on clique sur son icône dans le Dock, et arrête le
 # serveur quand on la quitte (Cmd+Q) ; elle se ferme seule si le serveur s'arrête (bouton
 # « Quitter » de la page). Si le serveur tourne déjà, elle ouvre seulement la page.
-# Journal du serveur : ~/Library/Logs/RetoHub/<application>.log
+# Journal du serveur : ~/Library/Logs/Rexo/<application>.log
 # Icône dessinée par icone.py (Pillow de l'application). Relançable : remplace l'application
 # existante. Rien n'est installé hors de ~/Applications (et du raccourci sur le Bureau).
 # ---------------------------------------------------------------------------
 set -euo pipefail
 HUB="$(cd "$(dirname "$0")/../.." && pwd)"
 case "${1:-}" in
-  identite) NOM="Identité"; MODULE="identite.interface"; PORT=8766 ;;
-  reveal)   NOM="Reveal";   MODULE="reveal.interface";   PORT=8765 ;;
+  identite) NOM="Rexo ID"; MODULE="identite.interface"; PORT=8766 ;;
+  reveal)   NOM="Rexo Reveal";   MODULE="reveal.interface";   PORT=8765 ;;
   *) echo "usage : $0 identite|reveal" >&2; exit 1 ;;
 esac
 APP_DIR="$HUB/apps/$1"
 [ -x "$APP_DIR/.venv/bin/python" ] || { echo "environnement absent : $APP_DIR/.venv (voir le README de l'application)" >&2; exit 1; }
 DEST="$HOME/Applications/$NOM.app"
-LOGS="$HOME/Library/Logs/RetoHub"
+LOGS="$HOME/Library/Logs/Rexo"
 mkdir -p "$HOME/Applications" "$LOGS"
 SCRIPT="$(mktemp -t lanceur).applescript"
 trap 'rm -f "$SCRIPT"' EXIT

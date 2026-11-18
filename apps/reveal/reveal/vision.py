@@ -1,6 +1,6 @@
-"""Effets natifs d'Apple (Vision, Core Image) par l'outil partagé reto-segment (shared.natif).
+"""Effets natifs d'Apple (Vision, Core Image) par l'outil partagé rexo-segment (shared.natif).
 
-Reveal lui passe toujours ses PNG de travail (reto-segment ne lit pas l'AVIF sous macOS 12).
+Reveal lui passe toujours ses PNG de travail (rexo-segment ne lit pas l'AVIF sous macOS 12).
 """
 
 import cv2
@@ -9,7 +9,7 @@ import numpy as np
 from shared.natif import NatifError as VisionError  # noqa: F401  (nom utilisé par Reveal)
 from shared.natif import disponible, executer as _run  # noqa: F401
 
-# Rendus de couleur proposés par reto-segment (option --name de « style »)
+# Rendus de couleur proposés par rexo-segment (option --name de « style »)
 STYLES = {
     'chaud': 'Chaud',
     'froid': 'Froid',
@@ -30,7 +30,7 @@ def masque_personnes(src, dst):
     return m.astype(np.float32) / 255.0, float(res.get('coverage', m.mean() / 255.0))
 
 
-# Effets de studio (détourage des personnes par Apple Vision) : nom Reveal -> (effet reto-segment, libellé)
+# Effets de studio (détourage des personnes par Apple Vision) : nom Reveal -> (effet rexo-segment, libellé)
 STUDIO = {
     'fond-flou': ('blur', 'Fond flou'),
     'fond-noir-blanc': ('bw', 'Couleur sur fond noir et blanc'),
@@ -42,7 +42,7 @@ FORMATS_RECADRAGE = ('4:5', '1:1', '9:16', '16:9', '3:4', '2:3')
 
 
 def effet_studio(nom, src, dst, couleur='255,255,255', ratio='4:5'):
-    """Applique un effet de STUDIO ; renvoie la réponse de reto-segment (avec « box » pour le recadrage)."""
+    """Applique un effet de STUDIO ; renvoie la réponse de rexo-segment (avec « box » pour le recadrage)."""
     if nom not in STUDIO:
         raise VisionError('effet de studio inconnu : %s' % nom)
     tool = STUDIO[nom][0]

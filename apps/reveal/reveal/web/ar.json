@@ -3,9 +3,7 @@
  "Quitter": "خروج",
  "Arrêter le serveur et libérer la mémoire": "إيقاف الخادم وتحرير الذاكرة",
  "Arrêter le traitement ?": "إيقاف المعالجة؟",
- "Reveal est arrêté": "تم إيقاف Reveal",
  "Le serveur est fermé et la mémoire libérée. Vous pouvez fermer cet onglet.": "أُغلق الخادم وتحرّرت الذاكرة. يمكنك إغلاق هذه الصفحة.",
- "Pour reprendre, double-cliquez sur l'icône Reveal du Bureau.": "للمتابعة، انقر مرتين على أيقونة Reveal في سطح المكتب.",
  "{} a été mis à jour : cliquez sur Quitter, puis rouvrez {} depuis le Bureau.": "تم تحديث {1}: انقر على «خروج» ثم أعد فتحه من سطح المكتب.",
  "{} a été mis à jour. Redémarrez pour utiliser la nouvelle version.": "تم تحديث {}. أعد التشغيل لاستعمال النسخة الجديدة.",
  "Redémarrer": "إعادة التشغيل",
@@ -136,5 +134,7 @@
  "modèle MobileSAM absent": "نموذج MobileSAM غير موجود",
  "rien trouvé à effacer dans les zones désignées": "لم يُعثر على شيء لمسحه في المناطق المحددة",
  "modèle MI-GAN absent": "نموذج MI-GAN غير موجود",
- "Attention : « {} » est chargé sans licence commerciale claire ({}).": "تنبيه: يُحمَّل «{1}» دون رخصة تجارية واضحة ({2})."
+ "Attention : « {} » est chargé sans licence commerciale claire ({}).": "تنبيه: يُحمَّل «{1}» دون رخصة تجارية واضحة ({2}).",
+ "Rexo Reveal est arrêté": "تم إيقاف Rexo Reveal",
+ "Pour reprendre, double-cliquez sur l'icône Rexo Reveal du Bureau.": "للمتابعة، انقر مرتين على أيقونة Rexo Reveal في سطح المكتب."
 }

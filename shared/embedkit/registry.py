@@ -12,7 +12,7 @@ import yaml
 from . import EmbedkitError
 
 TASKS = {"detect", "ocr", "inpaint", "segment", "depth", "vlm", "asr", "classify",
-         "upscale", "restore", "colorize"}  # RetoHub : agrandissement, visages, colorisation
+         "upscale", "restore", "colorize"}  # Rexo : agrandissement, visages, colorisation
 RUNTIMES = {"onnx", "opencv_dnn", "llamacpp", "whispercpp"}
 BUILTIN_DIR = Path(__file__).parent / "models"
 ENV_PATH = "EMBEDKIT_MODELS_PATH"  # extra manifest folders, os.pathsep-separated

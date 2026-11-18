@@ -1,4 +1,4 @@
-"""Appel de reto-segment (Swift, Apple Vision et Core Image), commun aux applications du hub.
+"""Appel de rexo-segment (Swift, Apple Vision et Core Image), commun aux applications du hub.
 
 L'outil se compile avec shared/natif/compiler.sh (macOS 12 ou plus). Il lit les formats que
 macOS connaît (pas l'AVIF sous macOS 12) : lui passer des PNG ou des JPEG de travail.
@@ -9,7 +9,7 @@ import json
 import subprocess
 from pathlib import Path
 
-SEGMENT = Path(__file__).resolve().parent / 'bin' / 'reto-segment'
+SEGMENT = Path(__file__).resolve().parent / 'bin' / 'rexo-segment'
 
 
 class NatifError(RuntimeError):
@@ -21,19 +21,19 @@ def disponible():
 
 
 def executer(*args, timeout=300):
-    """Lance reto-segment avec `args` ; renvoie sa réponse JSON, ou lève NatifError."""
+    """Lance rexo-segment avec `args` ; renvoie sa réponse JSON, ou lève NatifError."""
     if not disponible():
-        raise NatifError('reto-segment absent : lancer shared/natif/compiler.sh')
+        raise NatifError('rexo-segment absent : lancer shared/natif/compiler.sh')
     try:
         r = subprocess.run([str(SEGMENT)] + [str(a) for a in args], capture_output=True, text=True,
                            timeout=timeout)
     except subprocess.TimeoutExpired:
-        raise NatifError('reto-segment : délai dépassé')
+        raise NatifError('rexo-segment : délai dépassé')
     lines = [l for l in r.stdout.splitlines() if l.strip().startswith('{')]
     try:
         res = json.loads(lines[-1]) if lines else {}
     except ValueError:
         res = {}
     if not res.get('ok'):
-        raise NatifError('reto-segment %s : %s' % (args[0], res.get('error') or r.stderr.strip()[:200]))
+        raise NatifError('rexo-segment %s : %s' % (args[0], res.get('error') or r.stderr.strip()[:200]))
     return res

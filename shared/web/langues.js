@@ -10,7 +10,7 @@
 // plus tard (messages, fiches…), est traduit s'il figure au catalogue.
 (function () {
   'use strict';
-  const CLE = 'retohub.langue';
+  const CLE = 'rexo.langue';
   let langue = 'fr';
   try { langue = localStorage.getItem(CLE) === 'ar' ? 'ar' : 'fr'; } catch (e) { /* stockage indisponible */ }
   const demandee = new URLSearchParams(location.search).get('langue');     // ?langue=ar : marque-page

@@ -1,6 +1,6 @@
 # embedkit
 
-Socle d'IA embarquée réutilisable, indépendant des applications qui l'utilisent. Repris de Rexo Studio (`vendor/embedkit`) ; dans RetoHub, les tâches `upscale`, `restore` et `colorize` ont été ajoutées.
+Socle d'IA embarquée réutilisable, indépendant des applications qui l'utilisent. Repris de Rexo Studio (`vendor/embedkit`) ; dans Rexo, les tâches `upscale`, `restore` et `colorize` ont été ajoutées.
 
 État (M0, en cours) :
 

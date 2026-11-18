@@ -1,4 +1,4 @@
-# ADR 0001 — RetoHub, un monorepo pour une suite de petits outils
+# ADR 0001 — Rexo, un monorepo pour une suite de petits outils
 
 - **Statut** : accepté
 - **Date** : 18 novembre 2026
@@ -15,7 +15,7 @@ macOS 12 sur Intel.
 
 ## Décision
 
-Un seul dépôt git, **RetoHub**, public :
+Un seul dépôt git, **Rexo**, public :
 
 - `apps/<application>/` : une application par dossier, avec son code, ses tests, son interface
   et son propre environnement Python ;

@@ -1,4 +1,4 @@
-"""Tests rapides d'Identité (sans Apple Vision : géométrie, couleurs, fond, planches).
+"""Tests rapides de Rexo ID (sans Apple Vision : géométrie, couleurs, fond, planches).
 
 Lancement (depuis apps/identite) : .venv/bin/python -m unittest discover tests
 """
@@ -478,7 +478,7 @@ class Archive(unittest.TestCase):
 
 
 class Langues(unittest.TestCase):
-    """Traduction arabe (shared/langues.py) et catalogue d'Identité."""
+    """Traduction arabe (shared/langues.py) et catalogue de Rexo ID."""
 
     def catalogue(self, contenu):
         import json

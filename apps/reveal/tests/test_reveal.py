@@ -136,12 +136,12 @@ def portrait_like():
 
 
 class Vision(unittest.TestCase):
-    """reto-segment (Apple Vision, Core Image) : sauté s'il n'est pas compilé sur la machine."""
+    """rexo-segment (Apple Vision, Core Image) : sauté s'il n'est pas compilé sur la machine."""
 
     def setUp(self):
         from reveal import vision
         if not vision.disponible():
-            self.skipTest('reto-segment non compilé (shared/natif/compiler.sh)')
+            self.skipTest('rexo-segment non compilé (shared/natif/compiler.sh)')
         self.vision = vision
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)

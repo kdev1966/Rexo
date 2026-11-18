@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interface web locale d'Identité.
+"""Interface web locale de Rexo ID.
 
 Lancement (depuis le dossier apps/identite) :
     .venv/bin/python -m identite.interface

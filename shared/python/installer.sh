@@ -1,6 +1,6 @@
 #!/bin/bash
 # ---------------------------------------------------------------------------
-# Installe le Python 3.11 autonome partagé par les applications de RetoHub dans
+# Installe le Python 3.11 autonome partagé par les applications de Rexo dans
 # <hub>/.outils/python (python-build-standalone, empreinte SHA-256 épinglée).
 # Chaque application crée ensuite son propre environnement à partir de lui.
 # Relançable : ne retélécharge rien si la bonne version est déjà là.

@@ -3,7 +3,7 @@
 Rangement :  <archive>/<NOM Prénom - téléphone>/<AAAA-MM-JJ Prénom Nom>/
                  identite.jpg, planche_8.jpg, planche_4_portrait.jpg, original.<ext>, rapport.json
 Une seule base pour tous les clients : donnees/clients.sqlite (base.py). Le dossier de
-l'archive choisi est retenu dans donnees/reglages.json (par défaut : ~/Pictures/Identité,
+l'archive choisi est retenu dans donnees/reglages.json (par défaut : ~/Pictures/Rexo ID,
 « Images » dans le Finder) ; en changer ne change pas de base.
 
 Rien n'est effacé définitivement : les fichiers supprimés vont dans la Corbeille de
@@ -21,7 +21,7 @@ from .config import DONNEES, ORIGINAL, RESULTATS
 
 REGLAGES = DONNEES / 'reglages.json'
 BASE = DONNEES / 'clients.sqlite'
-ARCHIVE_DEFAUT = Path.home() / 'Pictures' / 'Identité'
+ARCHIVE_DEFAUT = Path.home() / 'Pictures' / 'Rexo ID'
 CORBEILLE = Path.home() / '.Trash'
 FICHIERS = ('identite', 'planche_8', 'planche_4_portrait')
 

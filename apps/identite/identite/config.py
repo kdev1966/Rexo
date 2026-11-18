@@ -1,4 +1,4 @@
-"""Emplacements des données de l'application Identité."""
+"""Emplacements des données de l'application Rexo ID."""
 
 import os
 from pathlib import Path

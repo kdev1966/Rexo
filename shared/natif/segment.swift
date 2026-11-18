@@ -1,6 +1,6 @@
-// reto-segment : effets photo par detourage des personnes (Apple Vision, macOS 12+).
+// rexo-segment : effets photo par detourage des personnes (Apple Vision, macOS 12+).
 //
-//   reto-segment <effet> <entree> <sortie> [--quality accurate|balanced|fast]
+//   rexo-segment <effet> <entree> <sortie> [--quality accurate|balanced|fast]
 //                [--add-mask <png detoure>] [--max <px>]
 //
 // Effets :
@@ -83,7 +83,7 @@ func atOrigin(_ image: CIImage) -> CIImage {
 
 let args = CommandLine.arguments
 guard args.count >= 4 else {
-    fail("usage : reto-segment cutout|mask|face|bw|blur|uni|style|crop|orient <entree> <sortie> [options]")
+    fail("usage : rexo-segment cutout|mask|face|bw|blur|uni|style|crop|orient <entree> <sortie> [options]")
 }
 let effect = args[1]
 let input = URL(fileURLWithPath: args[2])
@@ -138,7 +138,7 @@ if effect == "trim" {
     trimTransparent()
 }
 
-// Carton de fin (reto-segment card <logo|-> <sortie.png> --size LxH --lines <json>) :
+// Carton de fin (rexo-segment card <logo|-> <sortie.png> --size LxH --lines <json>) :
 // fond noir, logo centre, lignes de texte dessinees par Core Text (arabe lie et de
 // droite a gauche, textes mixtes). json : [[texte, taille relative], ...].
 func drawCard() -> Never {

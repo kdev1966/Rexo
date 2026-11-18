@@ -1,4 +1,4 @@
-# Reveal
+# Rexo Reveal
 
 Retouche de photos pour un studio, **100 % locale** : PhotoCraft piloté par Python, avec des
 modèles IA open source qui tournent sur le processeur. Aucune photo ne quitte la machine.
@@ -24,7 +24,7 @@ dans `/Applications`.
 
 ```bash
 shared/python/installer.sh          # Python 3.11.17 autonome (depuis la racine du hub)
-shared/natif/compiler.sh            # reto-segment (Apple Vision)
+shared/natif/compiler.sh            # rexo-segment (Apple Vision)
 cd apps/reveal
 ../../.outils/python/bin/python3 -m venv .venv
 .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
@@ -41,10 +41,10 @@ Licences : GFPGAN, DDColor et la colorisation de Zhang ont un usage commercial *
 shared/lanceur/creer_app.sh reveal --bureau     # depuis la racine du hub
 ```
 
-Crée `~/Applications/Reveal.app` et un raccourci sur le Bureau. Un double-clic démarre le
+Crée `~/Applications/Rexo Reveal.app` et un raccourci sur le Bureau. Un double-clic démarre le
 serveur local et ouvre la page dans le navigateur ; quitter l'application (Cmd+Q) arrête le
 serveur. Le bouton **Quitter** de la page fait de même : il arrête le serveur, et l'application se
-ferme d'elle-même. Un traitement en cours est arrêté (les modèles d'IA quittent la mémoire), PhotoCraft compris. Journal : `~/Library/Logs/RetoHub/reveal.log`. Sans `--bureau`, pas de raccourci.
+ferme d'elle-même. Un traitement en cours est arrêté (les modèles d'IA quittent la mémoire), PhotoCraft compris. Journal : `~/Library/Logs/Rexo/reveal.log`. Sans `--bureau`, pas de raccourci.
 
 ## Utilisation
 
@@ -128,7 +128,7 @@ Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_
 | `reveal/analyse.py` | vision en Python (OpenCV) : peau, maquillage, stries, colorisation de secours |
 | `reveal/ia.py` | modèles ONNX : Real-ESRGAN, GFPGAN, DDColor |
 | `reveal/effacer.py` | effacement : zones (cadres, clics), MobileSAM, MI-GAN (embedkit) |
-| `reveal/vision.py` | Apple Vision et Core Image par `reto-segment` : masque des personnes, studio, amélioration, rendus |
+| `reveal/vision.py` | Apple Vision et Core Image par `rexo-segment` : masque des personnes, studio, amélioration, rendus |
 | `reveal/catalogue.py` | modèles par embedkit, contrôle des licences |
 | `modeles/*.yaml` | manifestes embedkit des modèles propres à Reveal |
 | `reveal/interface.py`, `reveal/web/` | interface web locale (Flask, 127.0.0.1 seulement) |
