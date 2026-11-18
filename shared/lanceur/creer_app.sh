@@ -54,15 +54,21 @@ on reopen
 end reopen
 
 -- Le bouton « Quitter » de la page arrête le serveur : l'application le voit et se ferme.
+-- Trois absences d'affilée (6 s) : un redémarrage depuis la page (1 à 2 s) ne la ferme pas.
 property vu : false
+property absences : 0
 on idle
 	try
 		do shell script "curl -s -o /dev/null --max-time 1 " & adresse
 		set vu to true
+		set absences to 0
 	on error
 		if vu then
-			set pid to ""
-			quit
+			set absences to absences + 1
+			if absences > 2 then
+				set pid to ""
+				quit
+			end if
 		end if
 	end try
 	return 2

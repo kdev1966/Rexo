@@ -22,7 +22,7 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
 from shared.images import ConversionImpossible, convertir
-from shared.serveur import ajouter_quitter, oublier, suivre
+from shared.serveur import ajouter_quitter, ajouter_version, oublier, suivre
 
 from . import config
 from .config import APP, IMAGES, ORIGINAL, RETOUCHE, WEB_NATIF
@@ -47,6 +47,7 @@ _COULEUR = re.compile(r'^\d{1,3},\d{1,3},\d{1,3}$')
 app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 ajouter_quitter(app)        # bouton « Quitter » : arrête les traitements (modèles en mémoire) et le serveur
+ajouter_version(app, 'reveal.interface', Path(__file__).resolve().parent)   # page récente, serveur ancien : redémarrer
 
 _jobs = {}
 _lock = threading.Lock()

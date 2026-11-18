@@ -4,11 +4,21 @@ POST /api/quitter (JSON seulement : un autre site ouvert dans le navigateur ne p
 l'appeler sans une requête préalable CORS, que le serveur refuse) : arrête les traitements
 en cours (processus enfants enregistrés par `suivre`), ce qui libère la mémoire des modèles
 d'IA, puis arrête le serveur. L'application du Dock (shared/lanceur) le voit et se ferme.
+
+GET /api/version et POST /api/redemarrer : le code Python est lu une fois, au démarrage,
+alors que la page est relue sur le disque à chaque ouverture. Après une mise à jour, la
+page récente parlerait à un serveur ancien (routes absentes, 404). /api/version compare
+l'empreinte du code au démarrage et maintenant ; la page propose alors de redémarrer, et
+/api/redemarrer relance le serveur sur place (même processus, os.execv) : l'application
+du Dock ne voit qu'une courte absence.
 """
 
+import hashlib
 import os
+import sys
 import threading
 import time
+from pathlib import Path
 
 from flask import jsonify, request
 
@@ -57,3 +67,54 @@ def ajouter_quitter(app):
 
         threading.Thread(target=sortir, daemon=True).start()
         return jsonify(ok=True, traitements_arretes=arretes)
+
+
+HUB = Path(__file__).resolve().parent.parent
+
+
+def empreinte(dossiers):
+    """Empreinte du code Python (chemins, dates et tailles des .py) des dossiers donnés."""
+    h = hashlib.sha1()
+    for d in dossiers:
+        for f in sorted(Path(d).rglob('*.py')):
+            if '.venv' in f.parts or '__pycache__' in f.parts:
+                continue
+            st = f.stat()
+            h.update(('%s|%d|%d\n' % (f.relative_to(HUB), st.st_mtime_ns, st.st_size)).encode())
+    return h.hexdigest()[:12]
+
+
+def ajouter_version(app, module, dossier_app):
+    """Ajoute GET /api/version et POST /api/redemarrer. `module` : module lancé par
+    « python -m » (ex. identite.interface) ; `dossier_app` : dossier du code de l'application."""
+    dossiers = [Path(dossier_app), HUB / 'shared']
+    au_demarrage = empreinte(dossiers)
+
+    @app.get('/api/version')
+    def api_version():
+        actuel = empreinte(dossiers)
+        return jsonify(demarrage=au_demarrage, actuel=actuel, a_jour=actuel == au_demarrage)
+
+    @app.post('/api/redemarrer')
+    def api_redemarrer():
+        if not request.is_json:
+            return jsonify(error='Requête JSON attendue.'), 415
+        arreter_enfants()
+
+        def relancer():
+            time.sleep(0.3)             # laisse partir la réponse
+            sys.stdout.flush()
+            sys.stderr.flush()
+            # Werkzeug rend son port transmissible à l'exec (pour son propre rechargement) et
+            # note son numéro dans WERKZEUG_SERVER_FD : fermé ici, sinon le nouveau processus
+            # en hérite et ne peut pas rouvrir le port (« Address already in use »).
+            fd = os.environ.pop('WERKZEUG_SERVER_FD', None)
+            if fd and fd.isdigit():
+                try:
+                    os.close(int(fd))
+                except OSError:
+                    pass
+            os.execv(sys.executable, [sys.executable, '-m', module])
+
+        threading.Thread(target=relancer, daemon=True).start()
+        return jsonify(ok=True)

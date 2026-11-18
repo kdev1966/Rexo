@@ -415,7 +415,7 @@ async function chercherClients() {
     const res = await api('/api/clients?q=' + encodeURIComponent($('clientsSearch').value.trim()));
     listeResultats($('clientList'), res, (c) => ouvrirClient(c.id),
       $('clientsSearch').value.trim() ? 'Aucun client trouvé.' : 'Aucun client pour l\'instant.');
-    [...$('clientList').children].forEach((li, i) => li.classList.toggle('is-active', res[i] && res[i].id === vueClients.id));
+    [...$('clientList').children].forEach((li, i) => li.classList.toggle('is-active', !!(res[i] && res[i].id === vueClients.id)));
   } catch (e) { toast(e.message, true); }
 }
 $('clientsSearch').oninput = () => { clearTimeout(clientsT); clientsT = setTimeout(chercherClients, 200); };
@@ -533,4 +533,44 @@ afficherClientChoisi();
     montrerOnglet('clients');
     if (/^\d+$/.test(q.get('client') || '')) ouvrirClient(Number(q.get('client')));
   }
+})();
+
+// ---------- serveur à jour ? (page relue sur le disque, code Python lu au démarrage) ----------
+(function versionServeur() {
+  const nom = document.title;
+  const bandeau = document.createElement('div');
+  bandeau.className = 'update'; bandeau.hidden = true;
+  bandeau.innerHTML = '<span></span><button class="update-btn">Redémarrer</button>';
+  document.body.appendChild(bandeau);
+  const texte = bandeau.querySelector('span'), btn = bandeau.querySelector('button');
+  async function etat() {
+    try {
+      const r = await fetch('/api/version', { cache: 'no-store' });
+      if (r.status === 404) return { a_jour: false, ancien: true };     // serveur d'avant ce contrôle
+      return await r.json();
+    } catch (e) { return null; }
+  }
+  async function verifier() {
+    const r = await etat();
+    if (!r || r.a_jour) { bandeau.hidden = true; return; }
+    texte.textContent = r.ancien
+      ? nom + ' a été mis à jour : cliquez sur Quitter, puis rouvrez ' + nom + ' depuis le Bureau.'
+      : nom + ' a été mis à jour. Redémarrez pour utiliser la nouvelle version.';
+    btn.hidden = !!r.ancien;
+    bandeau.hidden = false;
+  }
+  btn.onclick = async () => {
+    btn.disabled = true; texte.textContent = 'Redémarrage…';
+    try {
+      await fetch('/api/redemarrer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    } catch (e) { /* le serveur s'arrête déjà */ }
+    for (let i = 0; i < 40; i++) {                                    // 20 s au plus
+      await new Promise((ok) => setTimeout(ok, 500));
+      const r = await etat();
+      if (r && r.a_jour) { location.reload(); return; }
+    }
+    btn.disabled = false; texte.textContent = 'Le redémarrage n\'a pas abouti : cliquez sur Quitter, puis rouvrez ' + nom + '.';
+  };
+  verifier();
+  window.addEventListener('focus', verifier);
 })();

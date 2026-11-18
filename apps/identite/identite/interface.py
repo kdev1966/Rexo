@@ -17,7 +17,7 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
 from shared.images import FORMATS, ConversionImpossible, convertir
-from shared.serveur import ajouter_quitter
+from shared.serveur import ajouter_quitter, ajouter_version
 
 from . import archive, couleurs
 from .base import LIENS, BaseError
@@ -35,6 +35,7 @@ FICHIERS = ('identite', 'planche_8', 'planche_4_portrait')
 app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 ajouter_quitter(app)        # bouton « Quitter » : arrête le serveur
+ajouter_version(app, 'identite.interface', Path(__file__).resolve().parent)   # page récente, serveur ancien : redémarrer
 _verrou = threading.Lock()
 
 
