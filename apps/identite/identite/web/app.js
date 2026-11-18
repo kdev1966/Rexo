@@ -40,8 +40,28 @@ async function loadPhotos() {
       b.appendChild(d);
     }
     b.onclick = () => selectPhoto(p.name);
-    box.appendChild(b);
+    // Suppression du portrait (et de ses planches) depuis sa vignette
+    const cadre = document.createElement('div');
+    cadre.className = 'thumb-wrap';
+    const del = document.createElement('button');
+    del.className = 'thumb-del';
+    del.title = 'Supprimer ce portrait, ses planches et son rapport (Corbeille)';
+    del.setAttribute('aria-label', 'Supprimer ' + p.name);
+    del.innerHTML = '<span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';   // texte à gauche : l'icône ne bouge pas au second clic
+    del.onclick = (e) => { e.stopPropagation(); supprimerPortrait(p.name, del); };
+    cadre.append(b, del);
+    box.appendChild(cadre);
   }
+}
+
+async function supprimerPortrait(nom, bouton) {
+  if (state.busy && state.photo === nom) { toast('Fabrication en cours, patientez.', true); return; }
+  if (!confirmer(bouton, 'Supprimer ?')) return;
+  try {
+    await api('/api/photos/' + encodeURIComponent(nom), { method: 'DELETE' });
+    toast(nom + ' et ses planches sont dans la Corbeille.');
+    if (state.photo === nom) await oublierPhoto(); else await loadPhotos();
+  } catch (e) { toast(e.message, true); }
 }
 
 async function selectPhoto(name, garderVue) {
@@ -302,15 +322,7 @@ function confirmer(bouton, question) {
 const jsonPost = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
 
 // ---------- liste de travail : retirer un portrait ----------
-$('removeBtn').onclick = async () => {
-  if (!state.photo || state.busy) return;
-  if (!confirmer($('removeBtn'), 'Mettre à la Corbeille ?')) return;
-  try {
-    await api('/api/photos/' + encodeURIComponent(state.photo), { method: 'DELETE' });
-    toast(state.photo + ' et ses planches sont dans la Corbeille.');
-    oublierPhoto();
-  } catch (e) { toast(e.message, true); }
-};
+$('removeBtn').onclick = () => { if (state.photo) supprimerPortrait(state.photo, $('removeBtn')); };
 async function oublierPhoto() {
   state.photo = null; state.result = null; state.view = 'identite';
   history.replaceState(null, '', location.pathname);

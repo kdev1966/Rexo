@@ -45,7 +45,8 @@ marge de chaque côté pour cette estimation.
 - **Téléphones** au format tunisien : 8 chiffres, enregistrés sous la forme `20 123 456`
   (+216 et 00216 retirés). Un numéro étranger est accepté avec son indicatif (`+33 6…`). Depuis la fiche : réimprimer une planche, ouvrir le
   dossier, modifier le client, supprimer une photo ou le client.
-- **Suppression** : « Retirer de la liste » (Atelier) met à la Corbeille le portrait, ses
+- **Suppression** : le bouton corbeille de chaque vignette (ou « Retirer de la liste » au-dessus
+  du portrait ouvert) met à la Corbeille le portrait, ses
   planches et son rapport ; on peut aussi les retirer automatiquement après l'enregistrement.
   Les suppressions dans l'archive vont aussi à la Corbeille. Rien n'est effacé définitivement,
   et chaque suppression demande un second clic.
