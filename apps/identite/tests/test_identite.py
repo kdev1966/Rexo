@@ -1,4 +1,4 @@
-"""Tests rapides de Rexo ID (sans Apple Vision : géométrie, couleurs, fond, planches).
+"""Tests rapides de Rexo ID (sans modèles d'IA : géométrie, couleurs, fond, planches).
 
 Lancement (depuis apps/identite) : .venv/bin/python -m unittest discover tests
 """
@@ -208,12 +208,30 @@ class Planches(unittest.TestCase):
         np.testing.assert_array_equal(out[y, x], (200, 200, 200))   # la photo recouvre le trait
 
 
+
+class ScriptsDeLaPage(unittest.TestCase):
+    """Une erreur de syntaxe dans un script arrête toute la page (dépôt, onglets, Quitter) :
+    vérifiée par Node, sauté s'il n'est pas installé."""
+
+    def test_syntaxe_des_scripts(self):
+        import shutil
+        import subprocess
+        from pathlib import Path
+        node = shutil.which('node')
+        if not node:
+            self.skipTest('Node absent')
+        hub = Path(__file__).resolve().parents[3]
+        app = Path(__file__).resolve().parents[1]
+        for f in sorted(app.rglob('web/*.js')) + sorted((hub / 'shared' / 'web').glob('*.js')):
+            r = subprocess.run([node, '--check', str(f)], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, '%s : %s' % (f.name, r.stderr[-400:]))
+
 if __name__ == '__main__':
     unittest.main()
 
 
 class Interface(unittest.TestCase):
-    """API de l'interface web, sur un dossier de données temporaire (sans Apple Vision)."""
+    """API de l'interface web, sur un dossier de données temporaire (sans modèles d'IA)."""
 
     @classmethod
     def setUpClass(cls):

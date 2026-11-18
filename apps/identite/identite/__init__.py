@@ -1,5 +1,5 @@
 """Identité : photos d'identité aux normes françaises (35 × 45 mm) et planches 10 × 15 cm,
-avec Apple Vision (visage, détourage) et des réglages de couleur locaux (aucune photo ne sort)."""
+avec des modèles d'IA locaux (visage, détourage : shared.vision) et des réglages de couleur (aucune photo ne sort)."""
 
 import sys
 from pathlib import Path

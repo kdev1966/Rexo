@@ -1,41 +1,64 @@
 # Rexo Reveal
 
-Retouche de photos pour un studio, **100 % locale** : PhotoCraft piloté par Python, avec des
-modèles IA open source qui tournent sur le processeur. Aucune photo ne quitte la machine.
+Retouche de photos pour un studio, **sous macOS et sous Windows**, **100 % locale** : PhotoCraft
+piloté par Python, avec des modèles IA open source qui tournent sur le processeur. Aucune photo
+ne quitte la machine.
 
 | Type de photo | Ce que fait Reveal, sans retouche à la main |
 |---|---|
 | **Portrait** (couleur) | Visages restaurés par IA (GFPGAN), lissage de la peau limité à la peau détectée, maquillage (lèvres, blush, paupières) placé grâce aux repères du visage |
 | **Photo ancienne** (noir et blanc, sépia) | Agrandissement x2 si elle est petite (Real-ESRGAN), recadrage du tirage, gris neutre, stries et rayures atténuées, bruit, voile, contraste, netteté, visages restaurés, puis colorisation (DDColor) |
-| **Studio** | Personnes détourées par Apple Vision : fond flou, fond uni, couleur sur fond noir et blanc, détourage (PNG transparent), recadrage 4:5, 1:1, 9:16, 16:9, 3:4, 2:3 centré sur les personnes |
+| **Studio** | Personnes détourées (MODNet, vérifié par MobileSAM guidé par les visages) : fond flou, fond uni, couleur sur fond noir et blanc, détourage (PNG transparent), recadrage 4:5, 1:1, 9:16, 16:9, 3:4, 2:3 centré sur les personnes |
 | **Effacer** | Objets ou personnes indésirables : on trace un cadre serré autour, ou on clique dessus (Alt-clic exclut une partie) ; plusieurs zones par photo. MobileSAM détoure, MI-GAN reconstitue le décor ; calque « Effacement (IA) » masqué à la seule zone reconstituée |
-| **Améliorer** | Amélioration automatique d'Apple (lumière, couleurs, balance des blancs, relief), puis rendu de couleur au choix : chaud, froid, vintage chaud, noir et blanc, lumineux, contrasté, doux |
+| **Améliorer** | Amélioration automatique (exposition, ombres, vivacité, balance des blancs sur les blancs, relief, réglée sur celle d'Apple), puis rendu de couleur au choix : chaud, froid, vintage chaud, noir et blanc, lumineux, contrasté, doux |
 
-Pour les portraits, le lissage est limité à la peau **des personnes** détectées par Apple Vision :
+Pour les portraits, le lissage est limité à la peau **des personnes** détectées :
 un fond couleur chair n'est plus lissé.
 
 Le type est choisi automatiquement : une photo sans couleur est traitée comme ancienne.
 Chaque résultat est un **PSD à calques** (chaque étape réglable dans PhotoCraft) et un JPEG.
 
-## Installation
+## Installation sur Mac
 
-Prérequis : Mac Intel, macOS 12 ou plus, outils en ligne de commande d'Apple, PhotoCraft ≥ 0.23
-dans `/Applications`.
+Prérequis : Mac Intel, macOS 12 ou plus, PhotoCraft ≥ 0.23 dans `/Applications`.
 
 Toutes les commandes se lancent **depuis la racine du hub** :
 
 ```bash
 shared/python/installer.sh          # Python 3.11.17 autonome
-shared/natif/compiler.sh            # rexo-segment (Apple Vision)
 .outils/python/bin/python3 -m venv apps/reveal/.venv
 apps/reveal/.venv/bin/pip install --require-hashes --only-binary :all: -r apps/reveal/requirements.txt
 
-# Modèles d'IA (environ 1,6 Go), dans le magasin partagé avec Rexo Studio
+# Modèles d'IA (environ 1,6 Go), dans le magasin partagé par les applications Rexo
 export EMBEDKIT_CACHE=~/.local/share/kdev-models/embedkit
 apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path apps/reveal/modeles \
     models pull --allow-noncommercial gfpgan-1.4 ddcolor zhang-colorization real-esrgan-x2 mobilesam migan-512
+apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path shared/vision/modeles \
+    models pull --allow-noncommercial yunet-2023mar modnet
 apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path apps/reveal/modeles models verify
 ```
+
+## Installation sous Windows
+
+Prérequis : Windows 10 ou 11, 64 bits ; PhotoCraft ≥ 0.23 installé par le lanceur ArtCraft
+(`C:\Program Files\ArtCraft\PhotoCraft`, trouvé tout seul ; sinon, indiquer le chemin de
+`photocraft-cli.exe` dans la variable `PHOTOCRAFT_CLI`). Dans PowerShell, depuis la racine du hub :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File shared\python\installer.ps1     # Python 3.11.17 autonome
+.outils\python\python.exe -m venv apps\reveal\.venv
+apps\reveal\.venv\Scripts\pip install --require-hashes --only-binary :all: -r apps\reveal\requirements.txt
+$env:EMBEDKIT_CACHE = "$env:USERPROFILE\.local\share\kdev-models\embedkit"
+apps\reveal\.venv\Scripts\python -m shared.embedkit.cli --models-path apps\reveal\modeles `
+    models pull --allow-noncommercial gfpgan-1.4 ddcolor zhang-colorization real-esrgan-x2 mobilesam migan-512
+apps\reveal\.venv\Scripts\python -m shared.embedkit.cli --models-path shared\vision\modeles `
+    models pull --allow-noncommercial yunet-2023mar modnet
+powershell -ExecutionPolicy Bypass -File shared\lanceur\creer_raccourci.ps1 reveal
+```
+
+La dernière ligne crée le raccourci **Rexo Reveal** sur le Bureau (serveur sans fenêtre noire,
+page dans le navigateur, bouton **Quitter**). Journal : `%LOCALAPPDATA%\Rexo\Journaux\reveal.log`.
+Les formats HEIC et PSD sont convertis par PhotoCraft (`sips` n'existe que sur Mac).
 
 Trois points comptent dans cette commande :
 - **la racine du hub** : c'est là que Python trouve le code partagé (`shared`) ;
@@ -51,7 +74,7 @@ Licences : GFPGAN, DDColor et la colorisation de Zhang ont un usage commercial *
 (`commercial: unknown` dans `modeles/*.yaml`). Reveal les autorise explicitement
 (`reveal/catalogue.py`, `A_VERIFIER`) et affiche un avertissement à chaque chargement.
 
-## Application à ouvrir d'un double-clic
+## Application à ouvrir d'un double-clic (Mac)
 
 ```bash
 shared/lanceur/creer_app.sh reveal --bureau     # depuis la racine du hub
@@ -144,7 +167,7 @@ Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_
 | `reveal/analyse.py` | vision en Python (OpenCV) : peau, maquillage, stries, colorisation de secours |
 | `reveal/ia.py` | modèles ONNX : Real-ESRGAN, GFPGAN, DDColor |
 | `reveal/effacer.py` | effacement : zones (cadres, clics), MobileSAM, MI-GAN (embedkit) |
-| `reveal/vision.py` | Apple Vision et Core Image par `rexo-segment` : masque des personnes, studio, amélioration, rendus |
+| `reveal/vision.py` | masque des personnes, studio, amélioration, rendus : `shared/vision` (MODNet, MobileSAM, effets en numpy), identiques sous macOS et Windows |
 | `reveal/catalogue.py` | modèles par embedkit, contrôle des licences |
 | `modeles/*.yaml` | manifestes embedkit des modèles propres à Reveal |
 | `reveal/interface.py`, `reveal/web/` | interface web locale (Flask, 127.0.0.1 seulement) |

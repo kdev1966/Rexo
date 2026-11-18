@@ -1,21 +1,26 @@
-# Reveal : environnement Python 3.11.17 autonome (shared/python/installer.sh), versions figées.
+# Reveal : environnement Python 3.11.17 autonome (shared/python/installer.sh, installer.ps1 sous Windows), versions figées.
 # Dernières versions publiées en paquets compilés pour Mac Intel sous macOS 12.
-# Installer avec : .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
+# Installer avec : .venv/bin/pip (Windows : .venv\Scripts\pip) install --require-hashes --only-binary :all: -r requirements.txt
 # (--only-binary : pip ne recompile jamais OpenCV depuis les sources ; --require-hashes : empreintes vérifiées.)
 # pillow : lecture de l'AVIF (ni OpenCV, ni PhotoCraft, ni sips ne le lisent sous macOS 12).
 
 flask==3.1.3 \
     --hash=sha256:f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c
 numpy==2.4.6 \
-    --hash=sha256:0280e0356c0829a18d9de1cb7eee50ec22ca639878d7240307ca0943d73cd2c4
+    --hash=sha256:0280e0356c0829a18d9de1cb7eee50ec22ca639878d7240307ca0943d73cd2c4 \
+    --hash=sha256:1e254a00cdf42b1e4d5b3d68d33af63268d41340d8885df2ab6470f2e1500147
 onnxruntime==1.19.2 \
-    --hash=sha256:d863e8acdc7232d705d49e41087e10b274c42f09e259016a46f32c34e06dc4fd
+    --hash=sha256:d863e8acdc7232d705d49e41087e10b274c42f09e259016a46f32c34e06dc4fd \
+    --hash=sha256:1c3e5d415b78337fa0b1b75291e9ea9fb2a4c1f148eb5811e7212fed02cfffa8
 opencv-python-headless==4.10.0.84 \
-    --hash=sha256:5ae454ebac0eb0a0b932e3406370aaf4212e6a3fdb5038cc86c7aea15a6851da
+    --hash=sha256:5ae454ebac0eb0a0b932e3406370aaf4212e6a3fdb5038cc86c7aea15a6851da \
+    --hash=sha256:afcf28bd1209dd58810d33defb622b325d3cbe49dcd7a43a902982c33e5fad05
 pillow==11.3.0 \
-    --hash=sha256:1cd110edf822773368b396281a2293aeb91c90a2db00d78ea43e7e861631b722
+    --hash=sha256:1cd110edf822773368b396281a2293aeb91c90a2db00d78ea43e7e861631b722 \
+    --hash=sha256:1a992e86b0dd7aeb1f053cd506508c0999d710a8f07b4c791c63843fc6a807ac
 pyyaml==6.0.3 \
-    --hash=sha256:44edc647873928551a01e7a563d7452ccdebee747728c1080d881d68af7b997e
+    --hash=sha256:44edc647873928551a01e7a563d7452ccdebee747728c1080d881d68af7b997e \
+    --hash=sha256:9f3bfb4965eb874431221a3ff3fdcddc7e74e3b07799e0e84ca4a0f867d449bf
 # Dépendances
 blinker==1.9.0 \
     --hash=sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc
@@ -32,14 +37,19 @@ itsdangerous==2.2.0 \
 jinja2==3.1.6 \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
 markupsafe==3.0.4 \
-    --hash=sha256:9e25feb9e330b63edb0278a0acdf85e50d0cb0fbf49c3084abbe4e24ae195346
+    --hash=sha256:9e25feb9e330b63edb0278a0acdf85e50d0cb0fbf49c3084abbe4e24ae195346 \
+    --hash=sha256:fdb4ca07ab75ffadab4a8b135ad59cdbb3156b99310f3d565370da74a15d6bd3
 mpmath==1.3.0 \
     --hash=sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c
 packaging==26.3 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
 protobuf==7.36.2 \
-    --hash=sha256:cbc70b17ee27e28894c7fee8bb04be1abead49e936bc70eb60052531eee2079e
+    --hash=sha256:cbc70b17ee27e28894c7fee8bb04be1abead49e936bc70eb60052531eee2079e \
+    --hash=sha256:a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353
 sympy==1.14.0 \
     --hash=sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5
 werkzeug==3.1.9 \
     --hash=sha256:6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab
+# Windows seulement (dépendance de humanfriendly)
+pyreadline3==3.5.6 ; sys_platform == "win32" \
+    --hash=sha256:8449b734232e42a5dcd74048e39b60db2839a4c38cf3ae2bf7707d58b5389c0d

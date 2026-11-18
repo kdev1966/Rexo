@@ -70,7 +70,7 @@ async function supprimerPortrait(nom, bouton) {
 async function selectPhoto(name, garderVue) {
   state.photo = name;
   document.querySelectorAll('.thumb').forEach((t) => t.classList.toggle('is-active', t.title === name));
-  $('viewerTitle').textContent = name;
+  $('viewerTitle').textContent = I18N.iso(name);          // nom de fichier : jamais retourné en arabe
   try {
     state.result = await api('/api/resultat?photo=' + encodeURIComponent(name));
   } catch (e) { state.result = null; toast(e.message, true); }
@@ -192,7 +192,7 @@ function renderReport(r) {
   $('printBtn').onclick = () => imprimer(media('resultats', r.fichiers[aImprimer], r.version));
   $('openBtn').onclick = () => api('/api/ouvrir', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fichier: file }),
-  }).then(() => toast('Ouvert dans Aperçu : imprimer à 100 %.')).catch((e) => toast(e.message, true));
+  }).then(() => toast('Image ouverte : imprimer à 100 %.')).catch((e) => toast(e.message, true));
 }
 
 // ---------- impression ----------
@@ -608,7 +608,7 @@ function modifierClient(c) {
 }
 
 $('archiveChoose').onclick = async () => {
-  toast('Choisissez le dossier dans la fenêtre du Finder.');
+  toast('Choisissez le dossier dans la fenêtre qui vient de s\'ouvrir.');
   try {
     const r = await api('/api/archive/choisir', jsonPost('POST', {}));
     $('archivePath').textContent = r.dossier;

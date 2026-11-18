@@ -4,7 +4,7 @@ Rangement :  <archive>/<NOM Prénom - téléphone>/<AAAA-MM-JJ Prénom Nom>/
                  identite.jpg, planche_8.jpg, planche_4_portrait.jpg, original.<ext>, rapport.json
 Une seule base pour tous les clients : donnees/clients.sqlite (base.py). Le dossier de
 l'archive choisi est retenu dans donnees/reglages.json (par défaut : ~/Pictures/Rexo ID,
-« Images » dans le Finder) ; en changer ne change pas de base.
+« Images » dans le Finder comme dans l'Explorateur de Windows) ; en changer ne change pas de base.
 
 Rien n'est effacé définitivement : les fichiers supprimés vont dans la Corbeille de
 l'utilisateur, d'où on peut les récupérer.
@@ -16,13 +16,15 @@ import shutil
 import time
 from pathlib import Path
 
+from shared import systeme
+
 from .base import Base, BaseError, LIENS
 from .config import DONNEES, ORIGINAL, RESULTATS
 
 REGLAGES = DONNEES / 'reglages.json'
 BASE = DONNEES / 'clients.sqlite'
 ARCHIVE_DEFAUT = Path.home() / 'Pictures' / 'Rexo ID'
-CORBEILLE = Path.home() / '.Trash'
+CORBEILLE = None                 # None : Corbeille du système (les tests la remplacent)
 FICHIERS = ('identite', 'planche_8', 'planche_4_portrait')
 
 
@@ -129,20 +131,9 @@ def fichier_archive(photo_fiche, nature):
 # ---------- suppression (Corbeille) ----------
 
 def corbeille(chemin):
-    """Déplace un fichier ou un dossier dans la Corbeille (nom rendu unique au besoin)."""
-    p = Path(chemin)
-    if not p.exists():
-        return None
-    CORBEILLE.mkdir(exist_ok=True)
-    cible = CORBEILLE / p.name
-    if cible.exists():
-        cible = CORBEILLE / ('%s %s%s' % (p.stem, time.strftime('%H-%M-%S'), p.suffix))
-    n = 2
-    while cible.exists():
-        cible = CORBEILLE / ('%s %d%s' % (p.stem, n, p.suffix))
-        n += 1
-    shutil.move(str(p), str(cible))
-    return cible
+    """Met un fichier ou un dossier dans la Corbeille (macOS ou Windows), d'où on peut le
+    récupérer ; renvoie None s'il n'existe pas."""
+    return systeme.corbeille(chemin, dossier_mac=CORBEILLE)
 
 
 def retirer_du_travail(photo, apercus=None):

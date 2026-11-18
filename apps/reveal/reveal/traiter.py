@@ -170,7 +170,7 @@ def portrait(job):
     pc.cmd('filter.blur.surfaceBlur', radius=max(3, round(d / 10)), threshold=16)
     pc.cmd('filter.noise.addNoise', amount=1.5, distribution='gaussian', monochromatic=True, seed=7)
     skin = analyse.skin_mask(base, faces)
-    # A. La peau seulement sur les personnes (Apple Vision) : le fond couleur chair n'est plus lissé
+    # A. La peau seulement sur les personnes (masque des personnes) : le fond couleur chair n'est plus lissé
     if vision.disponible():
         try:
             people, part = vision.masque_personnes(job.work / 'base_portrait.png', job.work / 'personnes.png')
@@ -178,7 +178,7 @@ def portrait(job):
             people = analyse.cv2.GaussianBlur(analyse.cv2.dilate(people, np.ones((k, k), np.uint8)), (k, k), 0)
             before = analyse.coverage(skin)
             skin = skin * people
-            log('  personnes (Apple Vision) : %.0f %% de l\'image ; peau limitée aux personnes : %.0f %% -> %.0f %%'
+            log('  personnes : %.0f %% de l\'image ; peau limitée aux personnes : %.0f %% -> %.0f %%'
                 % (part * 100, before * 100, analyse.coverage(skin) * 100))
         except vision.VisionError as e:
             log('  masque des personnes indisponible : %s' % str(e)[:120])
@@ -203,7 +203,7 @@ def portrait(job):
 
 
 def ameliorer(job, style=None):
-    """C. Amélioration automatique d'Apple (lumière, couleurs, balance des blancs, relief),
+    """C. Amélioration automatique (lumière, couleurs, balance des blancs, relief),
     puis rendu de couleur facultatif. Chaque étape est un calque du PSD."""
     pc = job.pc
     start = job.work / 'avant.png'
@@ -211,8 +211,8 @@ def ameliorer(job, style=None):
     out = job.work / 'ameliore.png'
     res = vision.ameliorer(start, out)
     pc.call('doc.place', path=str(out))
-    pc.cmd('layer.setProps', name='Amélioration (Apple)')
-    log('  amélioration : %s' % ', '.join(n.replace('CI', '') for n in res.get('enhance', [])))
+    pc.cmd('layer.setProps', name='Amélioration automatique')
+    log('  amélioration : %s' % ', '.join(res.get('enhance', [])))
     if style:
         styled = job.work / 'rendu.png'
         vision.rendu(out, styled, style)
@@ -223,13 +223,13 @@ def ameliorer(job, style=None):
 
 
 def studio(job, effet, couleur='255,255,255', ratio='4:5'):
-    """B. Effets de studio sur les personnes détourées par Apple Vision."""
+    """B. Effets de studio sur les personnes détourées (MODNet, MobileSAM)."""
     pc = job.pc
     avant = export_current(job, 'avant')
     out = job.work / 'studio.png'
     res = vision.effet_studio(effet, job.work / 'avant.png', out, couleur=couleur, ratio=ratio)
-    label = vision.STUDIO[effet][1]
-    log('  personnes (Apple Vision) : %.0f %% de l\'image' % (res.get('coverage', 0) * 100))
+    label = vision.STUDIO[effet]
+    log('  personnes : %.0f %% de l\'image' % (res.get('coverage', 0) * 100))
     if effet == 'recadrage':
         x, y, w, h = res['box']
         pc.cmd('image.crop', x=x, y=y, width=w, height=h)
@@ -463,8 +463,9 @@ def main():
 
 
 def _interrompu(signum, frame):
-    """SIGTERM (bouton « Quitter » de l'interface) : sortie normale, pour que les blocs
-    finally ferment PhotoCraft et effacent le dossier de travail."""
+    """SIGTERM (bouton « Quitter » de l'interface, macOS) : sortie normale, pour que les blocs
+    finally ferment PhotoCraft et effacent le dossier de travail. Sous Windows, le traitement
+    est arrêté de force et le serveur efface le dossier (shared.serveur.a_l_arret)."""
     raise SystemExit(143)
 
 

@@ -136,12 +136,12 @@ def portrait_like():
 
 
 class Vision(unittest.TestCase):
-    """rexo-segment (Apple Vision, Core Image) : sauté s'il n'est pas compilé sur la machine."""
+    """Effets de shared.vision (MODNet, MobileSAM, numpy) : sauté si les modèles ne sont pas installés."""
 
     def setUp(self):
         from reveal import vision
         if not vision.disponible():
-            self.skipTest('rexo-segment non compilé (shared/natif/compiler.sh)')
+            self.skipTest('modèles absents (voir shared/vision/__init__.py)')
         self.vision = vision
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
@@ -153,7 +153,7 @@ class Vision(unittest.TestCase):
 
     def test_enhance_and_styles(self):
         res = self.vision.ameliorer(self.src, self.dir / 'e.png')
-        self.assertTrue(res['ok'])
+        self.assertIn('Relief', res['enhance'])
         warm = self.dir / 'chaud.png'
         cold = self.dir / 'froid.png'
         self.vision.rendu(self.src, warm, 'chaud')
@@ -167,6 +167,27 @@ class Vision(unittest.TestCase):
         x, y, w, h = res['box']
         self.assertEqual(w, h)
         self.assertEqual(cv2.imread(str(self.dir / 'c.png')).shape[:2], (h, w))
+
+    def test_studio_effects(self):
+        img = cv2.imread(str(self.src))
+        for effet in ('fond-flou', 'fond-noir-blanc', 'fond-uni'):
+            out = self.dir / ('%s.jpg' % effet)
+            res = self.vision.effet_studio(effet, self.src, out, couleur='10,200,30')
+            self.assertEqual(cv2.imread(str(out)).shape, img.shape)
+            self.assertIn('coverage', res)
+        detoure = self.dir / 'd.png'
+        self.vision.effet_studio('detourage', self.src, detoure)
+        bgra = cv2.imread(str(detoure), cv2.IMREAD_UNCHANGED)
+        self.assertEqual(bgra.shape[2], 4)                 # transparence = masque des personnes
+
+    def test_uni_and_tone_curve(self):
+        from shared.vision import effets
+        img = np.full((40, 30, 3), 100, np.uint8)
+        m = np.zeros((40, 30), np.float32)                 # aucune personne : tout est fond
+        self.assertEqual(effets.uni(img, m, (10, 200, 30))[0, 0].tolist(), [30, 200, 10])
+        lut = effets.courbe_tons(cv2.imread(str(self.src))).astype(int)
+        self.assertTrue((np.diff(lut) >= 0).all())          # monotone
+        self.assertLessEqual(np.abs(lut - np.arange(256)).max(), effets.TONS_MAX)
 
     def test_unknown_values_are_refused(self):
         with self.assertRaises(self.vision.VisionError):
@@ -342,6 +363,23 @@ class Langues(unittest.TestCase):
         self.assertEqual(r.get_json()['error'], 'Filtre inconnu.')
         self.assertTrue(client.get('/langues/ar.js').get_data(as_text=True).startswith('window.CATALOGUE_AR = {'))
 
+
+
+class ScriptsDeLaPage(unittest.TestCase):
+    """Une erreur de syntaxe dans un script arrête toute la page (dépôt, onglets, Quitter) :
+    vérifiée par Node, sauté s'il n'est pas installé."""
+
+    def test_syntaxe_des_scripts(self):
+        import shutil
+        import subprocess
+        node = shutil.which('node')
+        if not node:
+            self.skipTest('Node absent')
+        hub = Path(__file__).resolve().parents[3]
+        app = Path(__file__).resolve().parents[1]
+        for f in sorted(app.rglob('web/*.js')) + sorted((hub / 'shared' / 'web').glob('*.js')):
+            r = subprocess.run([node, '--check', str(f)], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, '%s : %s' % (f.name, r.stderr[-400:]))
 
 if __name__ == '__main__':
     unittest.main()

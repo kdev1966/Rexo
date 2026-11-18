@@ -11,7 +11,7 @@
   --ok: #7cc49a;
   --err: #e57b7b;
   --radius: 14px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Geeza Pro", Arial, sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Helvetica Neue", "Geeza Pro", Tahoma, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }

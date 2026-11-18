@@ -1,0 +1,22 @@
+id: facemesh-v2
+task: detect
+tier: 0
+runtime: onnx
+source:
+  repo: fernandotonon/QtMeshEditor-facemesh-onnx   # conversion ONNX de MediaPipe Face Mesh V2
+  file: face_landmarks.onnx
+  revision: 32714088ed9830a98df6ee653ad406a3b83ef014
+sha256: d16e5a55e6a480284d468ee32469692464049518c311662ab3956681de31e3e9   # mesurée au téléchargement (non publiée)
+size_mb: 4.9
+license:
+  code: Apache-2.0          # MediaPipe (Google)
+  weights: Apache-2.0
+  commercial: true
+io:
+  input:
+    size: 256
+    layout: nhwc_rgb_float  # 0..1, visage recadré et redressé
+  output:
+    landmarks: [1, 1, 1, 1434]   # 478 points (x, y, z) en pixels du recadrage 256 ; 468-477 : iris
+    presence: [1, 1, 1, 1]       # logit de présence d'un visage
+notes: Repères denses du visage (contour, yeux, iris, lèvres).

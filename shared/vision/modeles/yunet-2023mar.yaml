@@ -1,0 +1,20 @@
+id: yunet-2023mar
+task: detect
+tier: 0
+runtime: opencv_dnn
+source:
+  repo: opencv/face_detection_yunet       # OpenCV Zoo, compte officiel d'OpenCV
+  file: face_detection_yunet_2023mar.onnx
+  revision: b373a5f059a29efc0007211ca22892ce229ec241
+sha256: 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
+size_mb: 0.2
+license:
+  code: MIT                 # opencv_zoo/models/face_detection_yunet/LICENSE (Shiqi Yu)
+  weights: MIT
+  commercial: unknown       # entraîné sur WIDER Face, base réservée à la recherche : à vérifier
+io:
+  input:
+    layout: cv2.FaceDetectorYN   # taille d'entrée libre, BGR 0..255
+  output:
+    faces: [n, 15]               # cadre (4), 5 repères (10 : yeux, nez, coins de la bouche), score
+notes: Détection des visages ; quelques millisecondes sur le processeur.

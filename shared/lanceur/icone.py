@@ -1,6 +1,7 @@
 """Dessine l'icône d'une application du hub (PNG 1024 × 1024), avec Pillow.
 
     python icone.py identite|reveal <sortie.png>
+    python icone.py identite|reveal <sortie.ico>      (Windows : 16 à 256 pixels)
 
 Carré arrondi sombre, pictogramme ambré : une photo d'identité (visage dans un cadre)
 pour Rexo ID, un diaphragme pour Rexo Reveal.
@@ -72,7 +73,11 @@ def main():
     dessins = {'identite': identite, 'reveal': reveal}
     if nom not in dessins:
         sys.exit('application inconnue : %s' % nom)
-    dessins[nom](fond()).save(sortie)
+    img = dessins[nom](fond())
+    if sortie.lower().endswith('.ico'):
+        img.save(sortie, sizes=[(t, t) for t in (16, 24, 32, 48, 64, 128, 256)])
+    else:
+        img.save(sortie)
 
 
 if __name__ == '__main__':

@@ -47,8 +47,8 @@
         <button class="choice" data-mode="fond">
           <strong>Par le fond</strong><small>Fond d'origine pris comme charte de gris, rien d'autre</small>
         </button>
-        <button class="choice" data-mode="apple">
-          <strong>Par la peau</strong><small>Balance d'Apple sur la peau du visage, toujours appliquée (tend à rosir une peau déjà juste)</small>
+        <button class="choice" data-mode="peau">
+          <strong>Par la peau</strong><small>Balance des blancs réglée sur la peau du visage, toujours appliquée</small>
         </button>
         <button class="choice" data-mode="aucune">
           <strong>Sans correction</strong><small>Couleurs et exposition de la photo telles quelles</small>
@@ -110,7 +110,7 @@
       <div class="report-row">
         <label class="toggle" id="guidesToggle"><input type="checkbox" id="guidesBox" checked> Repères de la norme</label>
         <div class="actions">
-          <button class="btn" id="openBtn">Ouvrir dans Aperçu</button>
+          <button class="btn" id="openBtn">Ouvrir l'image</button>
           <a class="btn" id="downloadBtn" href="#">Télécharger</a>
           <button class="btn btn-primary btn-print" id="printBtn">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>
@@ -143,7 +143,7 @@
     <div class="archive-info">
       <span class="muted">Archive :</span> <code id="archivePath"></code>
       <button class="btn btn-small" id="archiveChoose">Changer…</button>
-      <button class="btn btn-small" id="archiveOpen">Ouvrir dans le Finder</button>
+      <button class="btn btn-small" id="archiveOpen">Ouvrir le dossier</button>
     </div>
   </div>
   <div class="clients-layout">

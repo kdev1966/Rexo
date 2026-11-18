@@ -62,7 +62,7 @@ function selectPhoto(name) {
   }
   document.querySelectorAll('.thumb').forEach((t) => t.classList.toggle('is-active', t.title === name));
   $('applyBtn').disabled = !!(state.job && state.job.etat === 'en cours');
-  $('viewerTitle').textContent = name;
+  $('viewerTitle').textContent = I18N.iso(name);          // nom de fichier : jamais retourné en arabe
   const last = state.results.find((r) => r.photo === name.replace(/\.[^.]+$/, ''));
   if (last) showResult({ avant: last.avant, apres: last.jpg, psd: last.psd, jpg: last.jpg, photo: last.photo, base: last.base });
   else showSingle(media('original', name));

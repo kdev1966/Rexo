@@ -1,9 +1,62 @@
-"""Pilote de PhotoCraft en mode « serve » (une requête JSON par ligne), partagé par les applications."""
+"""Pilote de PhotoCraft en mode « serve » (une requête JSON par ligne), partagé par les applications.
+
+L'outil en ligne de commande (photocraft-cli) est cherché, dans l'ordre : la variable
+d'environnement PHOTOCRAFT_CLI, les emplacements d'installation habituels (macOS :
+/Applications/PhotoCraft.app ; Windows : Program Files\\ArtCraft\\PhotoCraft, installé par
+le lanceur ArtCraft, ou AppData\\Local\\Programs), puis le PATH.
+"""
 
 import json
+import os
+import shutil
 import subprocess
+import sys
+from pathlib import Path
 
-CLI = '/Applications/PhotoCraft.app/Contents/MacOS/photocraft-cli'
+
+def _candidats():
+    if os.environ.get('PHOTOCRAFT_CLI'):
+        yield Path(os.environ['PHOTOCRAFT_CLI'])
+    if sys.platform == 'win32':
+        for base in (os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)'),
+                     os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs')):
+            if base:
+                for dossier in (os.path.join('ArtCraft', 'PhotoCraft'), 'PhotoCraft'):
+                    yield Path(base) / dossier / 'photocraft-cli.exe'
+    else:
+        for base in (Path('/Applications'), Path.home() / 'Applications'):
+            yield base / 'PhotoCraft.app' / 'Contents' / 'MacOS' / 'photocraft-cli'
+    trouve = shutil.which('photocraft-cli')
+    if trouve:
+        yield Path(trouve)
+
+
+def trouver_cli():
+    """Chemin de photocraft-cli, ou None si PhotoCraft n'est pas installé."""
+    for p in _candidats():
+        if p.is_file():
+            return p
+    return None
+
+
+def ouvrir(fichier):
+    """Ouvre `fichier` (un PSD) dans PhotoCraft, avec son interface."""
+    fichier = str(fichier)
+    if sys.platform == 'darwin':
+        subprocess.Popen(['open', '-a', 'PhotoCraft', fichier])
+        return
+    cli = trouver_cli()
+    appli = None
+    if cli:
+        for nom in ('PhotoCraft.exe', 'photocraft.exe'):
+            if (cli.parent / nom).is_file():
+                appli = cli.parent / nom
+    if appli:
+        subprocess.Popen([str(appli), fichier])
+    elif sys.platform == 'win32':
+        os.startfile(fichier)                   # noqa: S606 (application associée aux PSD)
+    else:
+        subprocess.Popen(['xdg-open', fichier])
 
 
 class PhotoCraftError(RuntimeError):
@@ -18,12 +71,17 @@ class PhotoCraft:
     """
 
     def __init__(self, read_roots, write_root):
-        args = [CLI, 'serve']
+        cli = trouver_cli()
+        if cli is None:
+            raise PhotoCraftError('PhotoCraft introuvable : installer PhotoCraft, ou indiquer le chemin '
+                                  'de photocraft-cli dans la variable PHOTOCRAFT_CLI')
+        args = [str(cli), 'serve']
         for root in read_roots:
             args += ['--automation-read-root', str(root)]
         args += ['--automation-write-root', str(write_root)]
         self._proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                      stderr=subprocess.DEVNULL, text=True, bufsize=1)
+                                      stderr=subprocess.DEVNULL, text=True, bufsize=1,
+                                      encoding='utf-8')
         self._next_id = 0
 
     def call(self, method, **params):

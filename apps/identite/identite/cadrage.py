@@ -2,7 +2,7 @@
 
 Tout est calculé dans le repère « redressé » : origine au milieu des pupilles, axe x le long
 de la ligne des yeux, y vers le bas. Le menton est le point le plus bas du contour de la
-mâchoire (Apple Vision). Le sommet du crâne (hors chevelure) n'est pas visible : il est
+mâchoire (Face Mesh). Le sommet du crâne (hors chevelure) n'est pas visible : il est
 estimé par les proportions de la tête (yeux à mi-hauteur environ, l'œil -> menton valant
 0,52 de la hauteur menton -> sommet), sans monter plus haut que le haut du masque des
 personnes (crâne rasé, cheveux plaqués). Le haut des cheveux est lu sur le masque.

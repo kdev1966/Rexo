@@ -9,8 +9,8 @@ GET /api/version et POST /api/redemarrer : le code Python est lu une fois, au d�
 alors que la page est relue sur le disque à chaque ouverture. Après une mise à jour, la
 page récente parlerait à un serveur ancien (routes absentes, 404). /api/version compare
 l'empreinte du code au démarrage et maintenant ; la page propose alors de redémarrer, et
-/api/redemarrer relance le serveur sur place (même processus, os.execv) : l'application
-du Dock ne voit qu'une courte absence.
+/api/redemarrer relance le serveur sur place (même processus, os.execv ; sous Windows un
+nouveau processus, voir lancer) : le lanceur ne voit qu'une courte absence.
 """
 
 import hashlib
@@ -38,17 +38,44 @@ def oublier(proc):
         _enfants.discard(proc)
 
 
+_a_l_arret = []
+
+
+def a_l_arret(fn):
+    """Enregistre `fn`, appelée après l'arrêt des traitements (ex. effacer leur dossier de
+    travail, qu'un traitement arrêté de force n'a pas pu effacer)."""
+    _a_l_arret.append(fn)
+    return fn
+
+
 def arreter_enfants(delai=3.0):
+    """Arrête les traitements en cours. macOS : SIGTERM, le traitement ferme PhotoCraft et
+    efface son dossier de travail ; passé `delai`, arrêt forcé. Windows : arrêt forcé du
+    traitement et de ses propres enfants (PhotoCraft) par taskkill /T : Ctrl+Pause, essayé,
+    atteignait aussi le serveur. Puis les fonctions enregistrées par a_l_arret."""
+    import subprocess
     with _verrou:
         enfants = [p for p in _enfants if p.poll() is None]
     for p in enfants:
-        p.terminate()
+        try:
+            if sys.platform == 'win32':
+                subprocess.run(['taskkill', '/T', '/F', '/PID', str(p.pid)], capture_output=True)
+            else:
+                p.terminate()
+        except OSError:
+            pass
     fin = time.time() + delai
     for p in enfants:
         try:
             p.wait(timeout=max(0.1, fin - time.time()))
         except Exception:
             p.kill()
+    if enfants:
+        for fn in _a_l_arret:
+            try:
+                fn()
+            except Exception:
+                pass
     return len(enfants)
 
 
@@ -114,10 +141,35 @@ def ajouter_version(app, module, dossier_app):
                     os.close(int(fd))
                 except OSError:
                     pass
+            if sys.platform == 'win32':
+                # Windows n'a pas de vrai exec : un nouveau processus, qui attend que ce
+                # port se libère (voir lancer), puis celui-ci s'arrête.
+                import subprocess
+                subprocess.Popen([sys.executable, '-m', module], cwd=os.getcwd(),
+                                 env=dict(os.environ, REXO_RELANCE='1'), close_fds=True,
+                                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                os._exit(0)
             os.execv(sys.executable, [sys.executable, '-m', module])
 
         threading.Thread(target=relancer, daemon=True).start()
         return jsonify(ok=True)
+
+
+def lancer(app, host, port):
+    """Démarre le serveur Flask. Après un redémarrage sous Windows (REXO_RELANCE), attend
+    d'abord jusqu'à 15 s que l'ancien processus ait rendu le port."""
+    import socket
+    if os.environ.pop('REXO_RELANCE', None):
+        fin = time.time() + 15
+        while time.time() < fin:
+            with socket.socket() as s:
+                try:
+                    s.bind((host, port))
+                    break
+                except OSError:
+                    time.sleep(0.2)
+    print('Interface : http://%s:%d  (Ctrl+C pour arrêter)' % (host, port), flush=True)
+    app.run(host=host, port=port, debug=False, threaded=True)
 
 
 def ajouter_langues(app, catalogue_ar):

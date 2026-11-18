@@ -1,0 +1,21 @@
+id: modnet
+task: segment
+tier: 1
+runtime: onnx
+source:
+  repo: Xenova/modnet       # export ONNX de MODNet (ZHKKKe/MODNet)
+  file: onnx/model.onnx
+  revision: e231692d2977d62c7be22830f92d9f8a2f0737f7
+sha256: 07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9
+size_mb: 25.9
+license:
+  code: Apache-2.0
+  weights: Apache-2.0       # données d'entraînement non citées par les auteurs
+  commercial: true
+io:
+  input:
+    size: 512               # côté court 512, côtés multiples de 32
+    layout: nchw_rgb_float  # (x / 255 - 0.5) / 0.5
+  output:
+    alpha: [1, 1, h, w]     # 0..1
+notes: Détourage d'un portrait (cheveux compris), pour remplacer le fond.

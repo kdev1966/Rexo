@@ -15,9 +15,9 @@ réussit gagne. Les pixels transparents sont posés sur du blanc. Pour un GIF an
 """
 
 import subprocess
+import sys
 from pathlib import Path
 
-PHOTOCRAFT_CLI = Path('/Applications/PhotoCraft.app/Contents/MacOS/photocraft-cli')
 
 # Formats acceptés par les applications (en plus de ceux qu'OpenCV lit directement)
 FORMATS = {
@@ -55,10 +55,12 @@ def _pillow(src, dst):
 
 
 def _photocraft(src, dst):
-    if not PHOTOCRAFT_CLI.exists():
+    from shared.photocraft import trouver_cli
+    cli = trouver_cli()
+    if cli is None:
         return False
     try:
-        r = subprocess.run([str(PHOTOCRAFT_CLI), 'convert', str(src), str(dst)],
+        r = subprocess.run([str(cli), 'convert', str(src), str(dst)],
                            capture_output=True, timeout=300)
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -66,6 +68,8 @@ def _photocraft(src, dst):
 
 
 def _sips(src, dst):
+    if sys.platform != 'darwin':                 # outil de macOS
+        return False
     fmt = 'jpeg' if dst.suffix.lower() in ('.jpg', '.jpeg') else 'png'
     try:
         r = subprocess.run(['sips', '-s', 'format', fmt, str(src), '--out', str(dst)],

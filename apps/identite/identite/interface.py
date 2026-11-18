@@ -9,15 +9,15 @@ Le serveur n'écoute que sur la machine elle-même (127.0.0.1) : aucune photo ne
 """
 
 import json
-import subprocess
 import threading
 from pathlib import Path
 
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
+from shared import systeme
 from shared.images import FORMATS, ConversionImpossible, convertir
-from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version
+from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, lancer
 
 from . import archive, couleurs
 from .base import LIENS, BaseError, formater_tel
@@ -211,6 +211,7 @@ def api_fabriquer():
     data = request.get_json(silent=True) or {}
     photo, mode = data.get('photo', ''), data.get('couleurs', 'auto')
     fond = data.get('fond', list(FRANCE.fond))
+    mode = couleurs.ALIAS.get(mode, mode)
     if mode not in couleurs.MODES:
         return jsonify(error='Réglage des couleurs inconnu.'), 400
     if (not isinstance(fond, list) or len(fond) != 3
@@ -223,7 +224,7 @@ def api_fabriquer():
         return jsonify(error='Une photo est déjà en cours, patientez.'), 409
     try:
         fabriquer(src, RESULTATS, mode, Norme(fond=tuple(fond)))
-    except (VisageError, ConversionImpossible, couleurs.NatifError) as e:
+    except (VisageError, ConversionImpossible) as e:
         return jsonify(error=str(e)), 422
     finally:
         _verrou.release()
@@ -232,12 +233,12 @@ def api_fabriquer():
 
 @app.post('/api/ouvrir')
 def api_ouvrir():
-    """Ouvre un résultat dans Aperçu (impression à 100 %)."""
+    """Ouvre un résultat dans Aperçu (macOS) ou la visionneuse de Windows."""
     name = (request.get_json(silent=True) or {}).get('fichier', '')
     path = _safe(RESULTATS, name)
     if path.suffix.lower() != '.jpg':
         abort(400)
-    subprocess.Popen(['open', '-a', 'Preview', str(path)])
+    systeme.ouvrir(path, appli='Preview')
     return jsonify(ok=True)
 
 
@@ -289,21 +290,18 @@ def api_archive():
 @app.post('/api/archive/choisir')
 @_erreurs
 def api_archive_choisir():
-    """Sélecteur de dossiers du Mac (osascript), puis retient le dossier choisi."""
+    """Fenêtre de choix d'un dossier du système, puis retient le dossier choisi."""
     depart = archive.dossier_archive()
-    script = ('POSIX path of (choose folder with prompt "Dossier de l\'archive des clients" '
-              'default location (POSIX file "%s"))' % str(depart if depart.exists() else Path.home())
-              .replace('"', ''))
-    r = subprocess.run(['osascript', '-e', script], capture_output=True, text=True, timeout=600)
-    if r.returncode != 0:                       # annulé
+    choisi = systeme.choisir_dossier("Dossier de l'archive des clients", depart)
+    if choisi is None:                          # annulé
         return jsonify(annule=True, dossier=str(depart))
-    return jsonify(dossier=str(archive.choisir_archive(r.stdout.strip())))
+    return jsonify(dossier=str(archive.choisir_archive(choisi)))
 
 
 @app.post('/api/archive/ouvrir')
 @_erreurs
 def api_archive_ouvrir():
-    """Montre dans le Finder le dossier de l'archive, d'un client ou d'une photo."""
+    """Montre dans le Finder ou l'Explorateur le dossier de l'archive, d'un client ou d'une photo."""
     d = _json()
     b = archive.base()
     if d.get('photo_id'):
@@ -314,7 +312,7 @@ def api_archive_ouvrir():
     else:
         cible = archive.dossier_archive()
         cible.mkdir(parents=True, exist_ok=True)
-    subprocess.Popen(['open', str(cible)])
+    systeme.montrer(cible)
     return jsonify(ok=True)
 
 
@@ -408,5 +406,4 @@ def api_archive_photo_supprimer(photo_id):
 if __name__ == '__main__':
     ORIGINAL.mkdir(parents=True, exist_ok=True)
     RESULTATS.mkdir(parents=True, exist_ok=True)
-    print('Interface : http://%s:%d  (Ctrl+C pour arrêter)' % (HOST, PORT), flush=True)
-    app.run(host=HOST, port=PORT, debug=False, threaded=True)
+    lancer(app, HOST, PORT)

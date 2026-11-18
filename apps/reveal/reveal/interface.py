@@ -10,7 +10,9 @@ Le traitement est fait par reveal.traiter (PhotoCraft piloté par Python), lanc�
 """
 
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -22,10 +24,11 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
 from shared.images import ConversionImpossible, convertir
-from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, oublier, suivre
+from shared import photocraft
+from shared.serveur import a_l_arret, ajouter_langues, ajouter_quitter, ajouter_version, lancer, oublier, suivre
 
 from . import config
-from .config import APP, IMAGES, ORIGINAL, RETOUCHE, WEB_NATIF
+from .config import APP, IMAGES, ORIGINAL, RETOUCHE, TRAVAIL, WEB_NATIF
 
 WEB = Path(__file__).resolve().parent / 'web'
 HOST, PORT = '127.0.0.1', 8765
@@ -47,6 +50,8 @@ _COULEUR = re.compile(r'^\d{1,3},\d{1,3},\d{1,3}$')
 app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 ajouter_quitter(app)        # bouton « Quitter » : arrête les traitements (modèles en mémoire) et le serveur
+# un traitement arrêté de force (Windows) n'efface pas son dossier de travail : le serveur s'en charge
+a_l_arret(lambda: shutil.rmtree(TRAVAIL, ignore_errors=True))
 ajouter_version(app, 'reveal.interface', Path(__file__).resolve().parent)   # page récente, serveur ancien : redémarrer
 ajouter_langues(app, WEB / 'ar.json')   # interface en arabe : catalogue de l'application
 
@@ -159,7 +164,7 @@ def api_styles():
 
 @app.get('/api/studio')
 def api_studio():
-    return jsonify({'effets': [{'id': k, 'nom': v[1]} for k, v in STUDIO.items()],
+    return jsonify({'effets': [{'id': k, 'nom': v} for k, v in STUDIO.items()],
                     'formats': list(FORMATS_RECADRAGE)})
 
 
@@ -213,7 +218,7 @@ def api_open():
     path = _safe(RETOUCHE, name)
     if path.suffix.lower() != '.psd':
         abort(400)
-    subprocess.Popen(['open', '-a', 'PhotoCraft', str(path)])
+    photocraft.ouvrir(path)
     return jsonify(ok=True)
 
 
@@ -230,8 +235,10 @@ def _run(job_id, src, filtre, style=None, opts=None):
     if kind == 'effacer':
         cmd += ['--zones', json.dumps(opts['zones'])]
     try:
-        proc = suivre(subprocess.Popen(cmd, cwd=str(APP), stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT, text=True, bufsize=1))
+        # UTF-8 des deux côtés (sous Windows, la console serait en cp1252)
+        proc = suivre(subprocess.Popen(
+            cmd, cwd=str(APP), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+            encoding='utf-8', errors='replace', env=dict(os.environ, PYTHONIOENCODING='utf-8')))
         for raw in proc.stdout:
             line = _ansi.sub('', raw).rstrip()
             if line.startswith('RESULTAT '):
@@ -253,5 +260,4 @@ def _run(job_id, src, filtre, style=None, opts=None):
 if __name__ == '__main__':
     ORIGINAL.mkdir(parents=True, exist_ok=True)
     RETOUCHE.mkdir(parents=True, exist_ok=True)
-    print('Interface : http://%s:%d  (Ctrl+C pour arrêter)' % (HOST, PORT), flush=True)
-    app.run(host=HOST, port=PORT, debug=False, threaded=True)
+    lancer(app, HOST, PORT)

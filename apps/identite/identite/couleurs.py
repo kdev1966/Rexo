@@ -15,20 +15,25 @@ déjà bien réglée, et toute correction devinée l'abîme.
 2. Sinon, la peau. Dans l'espace YIQ, l'axe I suit la teinte de la peau humaine : une peau
    bien rendue a une composante Q (vert - / magenta +) proche de 0, quelle que soit la
    carnation. Mesuré sur des photos justes : Q de +0,01 à +0,04. Si Q est hors de
-   PEAU_Q, la balance d'Apple sur la peau (CIFaceBalance) corrige ; sinon rien. On n'appelle
-   pas CIFaceBalance par défaut : sur des peaux justes, elle ajoute du rose (Q +0,035 à +0,05).
+   PEAU_Q, la balance sur la peau corrige : des gains par canal (lumière linéaire) ramènent
+   Q / Y des joues au bord le plus proche de PEAU_JUSTE, sans toucher à I ni à la luminance
+   (une peau déjà juste n'est pas touchée) ; sinon rien.
+   (Ce calcul remplace CIFaceBalance d'Apple, qui rosissait les peaux justes : Q +0,035 à
+   +0,05, et n'existe pas sous Windows.)
 
-Puis l'exposition automatique d'Apple (courbe de tons, ombres et hautes lumières), sans
-relief ni vivacité.
+Puis une exposition automatique douce (tons() : shared.vision.effets.courbe_tons, commune
+au hub), réglée sur ce que faisaient les réglages automatiques d'Apple (CIToneCurve) sur nos
+portraits : noirs un peu plus profonds, tons moyens éclaircis de quelques niveaux, blancs
+rapprochés du blanc ; jamais plus de 14 niveaux de déplacement. Tout est calculé en numpy : même résultat sous macOS et Windows.
 """
 
 import cv2
 import numpy as np
 
-from shared.natif import NatifError, executer  # noqa: F401
+from shared.vision.effets import courbe_tons
 
-MODES = ('auto', 'fond', 'apple', 'aucune')
-TONS = 'CIToneCurve,CIHighlightShadowAdjust'
+MODES = ('auto', 'fond', 'peau', 'aucune')
+ALIAS = {'apple': 'peau'}     # ancien nom du mode « par la peau »
 
 FOND_PART_MIN = 0.03        # part de l'image occupée par le fond utilisable
 FOND_NEUTRE = 0.10          # écart (linéaire) sous lequel le fond est jugé neutre
@@ -37,6 +42,8 @@ FOND_CHROMA_MAX = 0.30      # au-delà, le fond est coloré, pas une dominante
 FORCE_MIN = 0.5             # correction à FOND_CHROMA_MAX
 GAIN_MIN, GAIN_MAX = 0.75, 1.33
 PEAU_Q = (-0.005, 0.06)     # teinte de peau plausible (Q / Y), hors de quoi on corrige
+PEAU_JUSTE = (0.01, 0.04)   # Q / Y des peaux justes mesurées : la balance ramène jusqu'au bord
+GAIN_PEAU = (0.85, 1.18)    # bornes des gains de la balance sur la peau
 
 
 def lineaire(img8):
@@ -64,7 +71,7 @@ def gains_fond(img_bgr, masque):
 
     Renvoie (gains ou None, raison, état) ; état : 'dominante' (gains à appliquer),
     'neutre' (rien à corriger), 'colore' ou 'petit' (le fond ne sert pas de référence).
-    masque : personnes de 0 à 1 (Apple Vision). Le fond retenu est loin des personnes et ni
+    masque : personnes de 0 à 1 (shared.vision). Le fond retenu est loin des personnes et ni
     bouché ni brûlé.
     """
     h, w = masque.shape
@@ -109,19 +116,53 @@ def teinte_peau(img_bgr, pupilles):
     return (0.596 * r - 0.274 * v - 0.322 * b) / y, (0.211 * r - 0.523 * v + 0.312 * b) / y
 
 
+def _yiq_vers_rvb(y, i, q):
+    return np.linalg.solve(np.array([[0.299, 0.587, 0.114], [0.596, -0.274, -0.322],
+                                     [0.211, -0.523, 0.312]]), np.array([y, i, q]))
+
+
+def gains_peau(img_bgr, pupilles):
+    """Gains (B, V, R) qui ramènent Q / Y des joues dans PEAU_JUSTE (au bord le plus proche) ;
+    None sans peau mesurable."""
+    (xl, yl), (xr, yr) = pupilles
+    d = xr - xl
+    y0, y1 = int(max(yl, yr) + 0.25 * d), int(max(yl, yr) + 0.75 * d)
+    x0, x1 = int(xl - 0.25 * d), int(xr + 0.25 * d)
+    h, w = img_bgr.shape[:2]
+    z = img_bgr[max(0, y0):min(h, y1), max(0, x0):min(w, x1)].reshape(-1, 3).astype(np.float64)[:, ::-1] / 255
+    if len(z) < 50:
+        return None
+    lum = z @ np.array([0.299, 0.587, 0.114])
+    z = z[(lum >= np.percentile(lum, 20)) & (lum <= np.percentile(lum, 95))]
+    if len(z) == 0:
+        return None
+    rvb = z.mean(axis=0)
+    y = float(rvb @ np.array([0.299, 0.587, 0.114]))
+    i = float(rvb @ np.array([0.596, -0.274, -0.322]))
+    q = float(rvb @ np.array([0.211, -0.523, 0.312]))
+    cible = np.clip(_yiq_vers_rvb(y, i, float(np.clip(q / y, *PEAU_JUSTE)) * y), 1e-4, 1)
+    lin = lambda c: np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    g = lin(cible) / np.maximum(lin(rvb), 1e-6)
+    g = g / (g @ np.array([0.2126, 0.7152, 0.0722]))           # luminance inchangée
+    return np.clip(g[::-1], *GAIN_PEAU).astype(np.float32)
+
+
+def tons(img_bgr):
+    return cv2.LUT(img_bgr, courbe_tons(img_bgr))
+
+
 def appliquer_gains(img_bgr, gains):
     return srgb8(lineaire(img_bgr) * gains.reshape(1, 1, 3))
 
 
-def corriger(src_png, masque, travail, mode='auto', pupilles=None):
-    """Corrige les couleurs de `src_png` ; renvoie (image BGR, rapport).
+def corriger(img, masque, mode='auto', pupilles=None):
+    """Corrige les couleurs de l'image BGR `img` ; renvoie (image BGR, rapport).
 
     Modes : auto (fond, sinon peau si elle est hors teinte, sinon rien), fond (fond
-    seulement), apple (balance d'Apple sur la peau, toujours), aucune (ni balance ni
-    exposition)."""
+    seulement), peau (balance sur la peau, toujours), aucune (ni balance ni exposition)."""
+    mode = ALIAS.get(mode, mode)
     if mode not in MODES:
         raise ValueError('mode de couleurs inconnu : %s' % mode)
-    img = cv2.imread(str(src_png), cv2.IMREAD_COLOR)
     rapport = {'mode': mode}
     peau = teinte_peau(img, pupilles) if pupilles is not None else None
     if peau:
@@ -129,10 +170,10 @@ def corriger(src_png, masque, travail, mode='auto', pupilles=None):
     if mode == 'aucune':
         rapport['methode'] = 'aucune'
         return img, rapport
-    garder = TONS
-    if mode == 'apple':
-        rapport['methode'] = 'balance d\'Apple sur la peau'
-        garder = 'CIFaceBalance,' + TONS
+    sur_la_peau = False
+    if mode == 'peau':
+        rapport['methode'] = 'balance sur la peau'
+        sur_la_peau = True
     else:
         gains, raison, etat = gains_fond(img, masque)
         rapport['fond'] = raison
@@ -145,16 +186,16 @@ def corriger(src_png, masque, travail, mode='auto', pupilles=None):
         elif peau is not None and PEAU_Q[0] <= peau[1] <= PEAU_Q[1]:
             rapport['methode'] = 'aucune balance (peau de teinte naturelle)'
         else:
-            rapport['methode'] = 'balance d\'Apple sur la peau (peau hors teinte)'
-            garder = 'CIFaceBalance,' + TONS
-    entree, sortie = travail / 'couleurs_entree.png', travail / 'couleurs.png'
-    cv2.imwrite(str(entree), img)
-    res = executer('balance', entree, sortie, '--keep', garder)
-    rapport['apple'] = res.get('applied', [])
-    if 'face_balance' in res:
-        rapport['balance_peau'] = res['face_balance']
-    out = cv2.imread(str(sortie), cv2.IMREAD_COLOR)
-    apres = teinte_peau(out, pupilles) if pupilles is not None else None
+            rapport['methode'] = 'balance sur la peau (peau hors teinte)'
+            sur_la_peau = True
+    if sur_la_peau and pupilles is not None:
+        g = gains_peau(img, pupilles)
+        if g is not None:
+            img = appliquer_gains(img, g)
+            rapport['gains_peau_rvb'] = [round(float(x), 3) for x in g[::-1]]
+    img = tons(img)
+    rapport['exposition'] = 'courbe de tons automatique'
+    apres = teinte_peau(img, pupilles) if pupilles is not None else None
     if apres:
         rapport['peau_apres'] = {'I': round(apres[0], 3), 'Q': round(apres[1], 4)}
-    return out, rapport
+    return img, rapport
