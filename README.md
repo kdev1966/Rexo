@@ -18,21 +18,23 @@ applications (pilote PhotoCraft, catalogue des modèles IA) est dans `shared/`.
 ```
 apps/<application>/   une application : son code, ses tests, son interface
 shared/photocraft/    pilote de PhotoCraft (photocraft-cli serve)
-shared/modeles/       catalogue des modèles IA : adresse, empreinte SHA-256, installation vérifiée
+shared/embedkit/      couche d'IA locale (repris de Rexo Studio) : registre de modèles, téléchargement
+                      épinglé et vérifié (SHA-256), audit des licences, ONNX, détourage, effacement, profondeur
+shared/natif/         reto-segment (Swift, Apple Vision et Core Image) : détourage des personnes, fonds,
+                      recadrage, amélioration, rendus de couleur ; compiler.sh le compile sur la machine
+shared/python/        installer.sh : Python 3.11 autonome partagé (python-build-standalone, SHA-256 épinglé)
+shared/images/        conversion de tous les formats d'image en PNG ou JPEG (Pillow, PhotoCraft, sips)
 docs/adr/             décisions d'architecture
 ```
 
 ## Modèles IA
 
-Les modèles ne sont **pas** dans le dépôt. Ils sont rangés une seule fois par machine dans
-`~/.local/share/kdev-models` (ou le dossier donné par `KDEV_MODELS_DIR`) et partagés par toutes
-les applications. Le catalogue `shared/modeles/catalogue.json` donne pour chacun son adresse
-de téléchargement et son empreinte SHA-256.
-
-```bash
-python3 -m shared.modeles liste              # état des modèles sur cette machine
-python3 -m shared.modeles installer reveal   # télécharge et vérifie les modèles de Reveal
-```
+Les modèles ne sont **pas** dans le dépôt. embedkit les range une seule fois par machine dans
+`~/.local/share/kdev-models/embedkit` (`KDEV_MODELS_DIR` pour un autre dossier), partagé avec
+Rexo Studio. Chaque modèle a un manifeste YAML (adresse, empreinte SHA-256, licence) : ceux
+d'embedkit dans `shared/embedkit/models/`, ceux d'une application dans `apps/<app>/modeles/`.
+Un modèle dont l'usage commercial n'est pas établi est refusé par défaut, sauf autorisation
+explicite de l'application.
 
 ## Déploiement
 
@@ -42,5 +44,6 @@ suivie de l'installation propre à chaque application (voir le README de l'appli
 
 ## Prérequis
 
-- Mac Intel (x86_64), macOS 12 ou plus, Python 3.9 du système
+- Mac Intel (x86_64), macOS 12 ou plus ; Python 3.11 autonome installé par `shared/python/installer.sh`
+- Outils en ligne de commande d'Apple (`xcode-select --install`) pour compiler `reto-segment`
 - PhotoCraft ≥ 0.23 dans `/Applications` pour les applications qui le pilotent

@@ -1,0 +1,15 @@
+id: gfpgan-1.4
+task: restore
+tier: 1
+runtime: onnx
+source:
+  url: https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/gfpgan_1.4.onnx
+  file: gfpgan_1.4.onnx
+  revision: models-3.0.0
+sha256: accc4757b26bdb89b32b4d3500d4f79c9dff97c1dd7c7104bf9dcb95e3311385
+size_mb: 340.3
+license:
+  code: Apache-2.0               # TencentARC/GFPGAN
+  weights: à vérifier (entraîné sur le jeu de visages FFHQ, publié pour un usage non commercial)
+  commercial: unknown
+notes: Visage aligné sur le gabarit FFHQ 512 à partir des 5 repères, puis recollé avec un masque doux.

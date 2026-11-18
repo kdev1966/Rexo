@@ -1,0 +1,24 @@
+id: zhang-colorization
+task: colorize
+tier: 0
+runtime: opencv_dnn
+source:
+  url: https://www.dropbox.com/s/dx0qvhhp5hbcx7z/colorization_release_v2.caffemodel?dl=1
+  file: colorization_release_v2.caffemodel
+  revision: caffe-v2             # Zhang, Isola, Efros 2016, poids publiés par les auteurs
+sha256: f5af1e602646328c792e1094f9876fe9cd4c09ac46fa886e5708a1abc89137b1
+size_mb: 128.9
+extras:
+  - name: prototxt
+    url: https://raw.githubusercontent.com/richzhang/colorization/caffe/colorization/models/colorization_deploy_v2.prototxt
+    file: colorization_deploy_v2.prototxt
+    sha256: d16418cef8df4ccd703a55ae0ef3960861d5010418f77c90d0a47689998a7169
+  - name: points
+    url: https://raw.githubusercontent.com/richzhang/colorization/caffe/colorization/resources/pts_in_hull.npy
+    file: pts_in_hull.npy
+    sha256: b5dec01315c34f43f1c8c089e84c45ae35d1838d8e77ed0e7ca930f79ffa450e
+license:
+  code: BSD-2-Clause             # richzhang/colorization
+  weights: à vérifier (entraîné sur ImageNet)
+  commercial: unknown
+notes: Colorisation de secours, utilisée seulement si DDColor manque ou échoue.

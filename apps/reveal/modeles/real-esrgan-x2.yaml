@@ -1,0 +1,15 @@
+id: real-esrgan-x2
+task: upscale
+tier: 1
+runtime: onnx
+source:
+  url: https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/real_esrgan_x2.onnx
+  file: real_esrgan_x2.onnx
+  revision: models-3.0.0          # version des modèles convertis en ONNX par FaceFusion
+sha256: 5be2d62ab3b0357986efb20a19638334c0e7a2a055ccbc52c77063da0482b3bb
+size_mb: 69.6
+license:
+  code: BSD-3-Clause             # Real-ESRGAN (xinntao/Real-ESRGAN)
+  weights: BSD-3-Clause
+  commercial: true
+notes: Agrandissement x2 par tuiles de dimensions paires (le modèle replie l'image par blocs 2x2).

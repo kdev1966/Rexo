@@ -1,9 +1,9 @@
 """Modèles d'image IA locaux (ONNX, processeur seul) : agrandissement, visages, colorisation.
 
 Modèles du projet libre FaceFusion (github.com/facefusion/facefusion-assets, models-3.0.0),
-déclarés dans le catalogue partagé (shared/modeles/catalogue.json) :
-    real_esrgan_x2  agrandissement x2 (Real-ESRGAN)
-    gfpgan_1.4      restauration des visages (GFPGAN 1.4)
+déclarés pour embedkit dans apps/reveal/modeles/ (voir reveal/catalogue.py) :
+    real-esrgan-x2  agrandissement x2 (Real-ESRGAN)
+    gfpgan-1.4      restauration des visages (GFPGAN 1.4)
     ddcolor         colorisation (DDColor)
 Les pré/post-traitements reprennent ceux de FaceFusion.
 """
@@ -11,7 +11,7 @@ Les pré/post-traitements reprennent ceux de FaceFusion.
 import cv2
 import numpy as np
 
-from shared import modeles as catalogue
+from . import catalogue
 
 _sessions = {}
 
@@ -52,7 +52,7 @@ def upscale_x2(img, tile=192, overlap=16):
             ph, pw = patch.shape[:2]
             # le modèle replie l'image par blocs 2x2 : dimensions paires obligatoires
             patch = np.pad(patch, ((0, ph % 2), (0, pw % 2), (0, 0)), mode='reflect')
-            res = _run('real_esrgan_x2', np.ascontiguousarray(patch.transpose(2, 0, 1)[None]))[0]
+            res = _run('real-esrgan-x2', np.ascontiguousarray(patch.transpose(2, 0, 1)[None]))[0]
             res = res.transpose(1, 2, 0)[:ph * 2, :pw * 2]
             # on ne garde que le centre de la tuile, avec un fondu sur la marge
             wy = np.ones((res.shape[0], 1), np.float32)
@@ -106,7 +106,7 @@ def restore_faces(img, faces, blend=0.8):
             continue
         crop = cv2.warpAffine(img, M, (512, 512), borderMode=cv2.BORDER_REPLICATE, flags=cv2.INTER_AREA)
         x = (crop[:, :, ::-1].astype(np.float32) / 255.0 - 0.5) / 0.5
-        y = _run('gfpgan_1.4', np.ascontiguousarray(x.transpose(2, 0, 1)[None]))[0]
+        y = _run('gfpgan-1.4', np.ascontiguousarray(x.transpose(2, 0, 1)[None]))[0]
         y = ((np.clip(y, -1, 1) + 1) / 2).transpose(1, 2, 0)[:, :, ::-1] * 255.0
         inv = cv2.invertAffineTransform(M)
         h, w = img.shape[:2]

@@ -21,3 +21,7 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Outils compilés et Python autonome (installés par les scripts de shared/)
+.outils/
+shared/natif/bin/

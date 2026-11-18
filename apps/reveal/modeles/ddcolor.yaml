@@ -1,0 +1,15 @@
+id: ddcolor
+task: colorize
+tier: 1
+runtime: onnx
+source:
+  url: https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/ddcolor.onnx
+  file: ddcolor.onnx
+  revision: models-3.0.0
+sha256: dd6156f056d0690891ef35f9ee87176d4d976ab19bbd36e57d18e841e064d797
+size_mb: 980.1
+license:
+  code: Apache-2.0               # piddnad/DDColor
+  weights: à vérifier
+  commercial: unknown
+notes: Prédit les canaux a/b à 512 px ; recombinés avec la luminance d'origine.
