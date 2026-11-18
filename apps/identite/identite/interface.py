@@ -20,7 +20,7 @@ from shared.images import FORMATS, ConversionImpossible, convertir
 from shared.serveur import ajouter_quitter, ajouter_version
 
 from . import archive, couleurs
-from .base import LIENS, BaseError
+from .base import LIENS, BaseError, formater_tel
 from .config import DONNEES, ORIGINAL, RESULTATS
 from .fabriquer import fabriquer
 from .normes import FRANCE, Norme
@@ -108,7 +108,53 @@ def media(zone, name):
 
 @app.get('/api/photos')
 def api_photos():
-    return jsonify([{'name': p.name, 'fait': _resultat(p.name) is not None} for p in _photos()])
+    fiches = archive.base().travaux()
+    return jsonify([{'name': p.name, 'fait': _resultat(p.name) is not None, 'fiche': fiches.get(p.name)}
+                    for p in _photos()])
+
+
+def _lire_fiche(d):
+    """Vérifie les données client d'un portrait, sans rien créer : renvoie un plan
+    (client_id ou nouveau client, personne photographiée). Lève BaseError."""
+    if not isinstance(d, dict):
+        raise BaseError('données du client manquantes')
+    b = archive.base()
+    lien = str(d.get('lien', 'lui-même'))
+    if lien not in LIENS:
+        raise BaseError('personne photographiée : lien inconnu')
+    if d.get('client_id'):
+        client = b.client(int(d['client_id']))
+        if client is None:
+            raise BaseError('client inconnu')
+        nouveau = None
+    else:
+        c = d.get('client') if isinstance(d.get('client'), dict) else {}
+        nouveau = {k: ' '.join(str(c.get(k, '')).split()) for k in ('nom', 'prenom', 'telephone')}
+        manque = [lib for k, lib in (('nom', 'le nom'), ('prenom', 'le prénom'), ('telephone', 'le téléphone'))
+                  if not nouveau[k]]
+        if manque:
+            raise BaseError('nouveau client : saisir %s' % ', '.join(manque))
+        nouveau['telephone'] = formater_tel(nouveau['telephone'])     # refusé ici s'il est invalide
+        client = nouveau
+    if lien == 'lui-même':
+        nom, prenom = client['nom'], client['prenom']
+    else:
+        prenom = ' '.join(str(d.get('prenom', '')).split())
+        nom = ' '.join(str(d.get('nom', '')).split()) or client['nom']   # un enfant porte souvent ce nom
+        if not prenom:
+            raise BaseError('prénom de la personne photographiée obligatoire')
+    return {'client_id': None if nouveau else client['id'], 'nouveau': nouveau,
+            'nom': nom, 'prenom': prenom, 'lien': lien}
+
+
+def _appliquer_fiche(plan, fichier):
+    b = archive.base()
+    client_id = plan['client_id']
+    if plan['nouveau']:
+        n = plan['nouveau']
+        client_id = b.creer_client(n['nom'], n['prenom'], n['telephone'])
+    b.lier_travail(fichier, client_id, plan['nom'], plan['prenom'], plan['lien'])
+    return b.travail(fichier)
 
 
 @app.post('/api/photos')
@@ -121,13 +167,35 @@ def api_upload():
     if ext not in FORMATS:
         return jsonify(error='Format non pris en charge. Formats acceptés : %s.'
                        % ', '.join(sorted(e.lstrip('.') for e in FORMATS))), 400
+    try:                                        # client obligatoire, vérifié avant tout enregistrement
+        plan = _lire_fiche(json.loads(request.form.get('fiche') or 'null'))
+    except ValueError as e:                     # BaseError en est une
+        return jsonify(error=str(e) if isinstance(e, BaseError) else 'données du client illisibles'), 400
     existants = {p.stem for p in ORIGINAL.iterdir()}
     target, n = ORIGINAL / (stem + ext), 1
     while target.stem in existants:             # jamais deux originaux au même nom (résultats distincts)
         n += 1
         target = ORIGINAL / ('%s_%d%s' % (stem, n, ext))
     f.save(str(target))
-    return jsonify(name=target.name)
+    try:
+        fiche = _appliquer_fiche(plan, target.name)
+    except Exception as e:
+        target.unlink()                         # pas de portrait sans client
+        if isinstance(e, BaseError):
+            return jsonify(error=str(e)), 400
+        raise
+    return jsonify(name=target.name, fiche=fiche)
+
+
+@app.put('/api/travail/<path:name>')
+def api_travail(name):
+    """Renseigne ou modifie le client d'un portrait de la liste de travail."""
+    _safe(ORIGINAL, name)
+    try:
+        plan = _lire_fiche(request.get_json(silent=True))
+        return jsonify(fiche=_appliquer_fiche(plan, name))
+    except ValueError as e:                     # BaseError en est une
+        return jsonify(error=str(e) if isinstance(e, BaseError) else 'données du client illisibles'), 400
 
 
 @app.get('/api/resultat')
@@ -148,6 +216,8 @@ def api_fabriquer():
             or not all(isinstance(c, int) and 0 <= c <= 255 for c in fond)):
         return jsonify(error='Couleur de fond invalide.'), 400
     src = _safe(ORIGINAL, photo)
+    if archive.base().travail(photo) is None:
+        return jsonify(error='Renseigner d\'abord le client de ce portrait.'), 409
     if not _verrou.acquire(blocking=False):
         return jsonify(error='Une photo est déjà en cours, patientez.'), 409
     try:
@@ -180,6 +250,7 @@ def api_retirer(name):
         return jsonify(error='Une photo est en cours de fabrication, patientez.'), 409
     try:
         retires = archive.retirer_du_travail(name, APERCUS)
+        archive.base().delier_travail(name)
     except archive.ArchiveError as e:
         return jsonify(error=str(e)), 404
     finally:
@@ -290,35 +361,25 @@ def api_client_supprimer(client_id):
 @app.post('/api/enregistrer')
 @_erreurs
 def api_enregistrer():
-    """Archive la photo d'identité d'un portrait pour un client (existant ou nouveau)."""
+    """Archive la photo d'identité d'un portrait pour le client saisi au dépôt."""
     d = _json()
     photo = str(d.get('photo', ''))
     _safe(ORIGINAL, photo)
-    if _resultat(photo) is None:                # avant de créer une fiche qui resterait vide
-        raise archive.ArchiveError('fabriquer d\'abord les photos de ce portrait')
-    b = archive.base()
-    if d.get('client_id'):
-        client_id = int(d['client_id'])
-    else:
-        c = d.get('client') or {}
-        client_id = b.creer_client(str(c.get('nom', '')), str(c.get('prenom', '')), str(c.get('telephone', '')))
-    fiche = b.client(client_id)
+    fiche = archive.base().travail(photo)
     if fiche is None:
-        raise BaseError('client inconnu')
-    lien = str(d.get('lien', 'lui-même'))
-    if lien == 'lui-même':
-        nom, prenom = fiche['nom'], fiche['prenom']
-    else:
-        nom, prenom = str(d.get('nom', '')).strip(), str(d.get('prenom', '')).strip()
-        nom = nom or fiche['nom']               # un enfant porte souvent le nom du client
+        raise BaseError('renseigner d\'abord le client de ce portrait')
+    if _resultat(photo) is None:
+        raise archive.ArchiveError('fabriquer d\'abord les photos de ce portrait')
     if not _verrou.acquire(blocking=False):
         return jsonify(error='Une photo est en cours de fabrication, patientez.'), 409
     try:
-        photo_id = archive.enregistrer(photo, client_id, nom, prenom, lien)
+        photo_id = archive.enregistrer(photo, fiche['client_id'], fiche['nom'], fiche['prenom'], fiche['lien'])
         retire = bool(d.get('retirer')) and bool(archive.retirer_du_travail(photo, APERCUS))
+        if retire:
+            archive.base().delier_travail(photo)
     finally:
         _verrou.release()
-    return jsonify(ok=True, client_id=client_id, photo_id=photo_id, retire=retire)
+    return jsonify(ok=True, client_id=fiche['client_id'], photo_id=photo_id, retire=retire)
 
 
 @app.get('/archive/<int:photo_id>/<nature>')

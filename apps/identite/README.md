@@ -22,11 +22,16 @@ marge de chaque côté pour cette estimation.
 
 ## Clients et archive
 
-- **Enregistrer** : sous les résultats, la carte « Enregistrer pour un client » associe la
-  photo à un client existant (recherche par nom, prénom ou téléphone) ou à un nouveau client.
-  La personne photographiée peut être le client lui-même, ou un enfant, un conjoint, un
-  parent… Une mère qui fait faire les photos de ses enfants a ainsi une seule fiche, avec
-  toutes leurs photos.
+- **Client obligatoire au dépôt** : déposer un portrait ouvre d'abord la fenêtre du client.
+  On choisit un client existant (recherche par nom, prénom ou téléphone) ou on en crée un
+  (nom, prénom et téléphone obligatoires), et la personne photographiée : le client lui-même,
+  ou un enfant, un conjoint, un parent… Sans ces données, le portrait n'est pas déposé. Un
+  portrait déposé sans client (avant cette règle) ne peut pas être fabriqué tant que son
+  client n'est pas renseigné (« Renseigner le client »).
+- **Un client, plusieurs photos** : chaque photo d'identité appartient à un seul client ; un
+  client en a autant que nécessaire (une mère et ses enfants : une fiche, toutes leurs photos).
+- **Enregistrer** : sous les résultats, la carte « Archive du client » reprend le client
+  saisi au dépôt (modifiable) et archive la photo d'un clic.
 - **Archive** : les fichiers sont copiés dans
   `<archive>/NOM Prénom - téléphone/AAAA-MM-JJ Prénom Nom/` (photo, deux planches, original,
   rapport). Le dossier de l'archive est `~/Pictures/Identité` par défaut (« Images » dans le

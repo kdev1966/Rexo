@@ -229,8 +229,17 @@ class Interface(unittest.TestCase):
         cls.original, cls.resultats = base / 'original', base / 'resultats'
         cls.original.mkdir()
         cls.resultats.mkdir()
+        from identite import archive
+        # jamais la vraie base, la vraie archive ni la vraie Corbeille
         cls.patches = [mock.patch.object(interface, 'ORIGINAL', cls.original),
-                       mock.patch.object(interface, 'RESULTATS', cls.resultats)]
+                       mock.patch.object(interface, 'RESULTATS', cls.resultats),
+                       mock.patch.object(archive, 'ORIGINAL', cls.original),
+                       mock.patch.object(archive, 'RESULTATS', cls.resultats),
+                       mock.patch.object(archive, 'DONNEES', base / 'donnees'),
+                       mock.patch.object(archive, 'REGLAGES', base / 'donnees' / 'reglages.json'),
+                       mock.patch.object(archive, 'BASE', base / 'donnees' / 'clients.sqlite'),
+                       mock.patch.object(archive, 'ARCHIVE_DEFAUT', base / 'Archive'),
+                       mock.patch.object(archive, 'CORBEILLE', base / 'Corbeille')]
         for p in cls.patches:
             p.start()
         cls.client = interface.app.test_client()
@@ -241,9 +250,45 @@ class Interface(unittest.TestCase):
             p.stop()
         cls.tmp.cleanup()
 
-    def envoyer(self, nom):
+    FICHE = {'client': {'nom': 'Ben Salah', 'prenom': 'Amel', 'telephone': '98 765 432'}, 'lien': 'lui-même'}
+
+    def envoyer(self, nom, fiche=FICHE):
+        import json
         data = {'photo': (self.io.BytesIO(b'\xff\xd8\xff'), nom)}
+        if fiche is not None:
+            data['fiche'] = json.dumps(fiche)
         return self.client.post('/api/photos', data=data, content_type='multipart/form-data')
+
+    def test_pas_de_portrait_sans_client(self):
+        avant = set(self.original.iterdir())
+        for fiche in (None, {'lien': 'lui-même'},
+                      {'client': {'nom': 'Ben Salah', 'prenom': 'Amel', 'telephone': ''}},
+                      {'client': {'nom': 'Ben Salah', 'prenom': '', 'telephone': '98765432'}},
+                      {'client': {'nom': 'Ben Salah', 'prenom': 'Amel', 'telephone': '12'}},
+                      {'client_id': 9999},
+                      {'client': {'nom': 'Ben Salah', 'prenom': 'Amel', 'telephone': '98765432'}, 'lien': 'enfant'}):
+            r = self.envoyer('sansclient.jpg', fiche)
+            self.assertEqual(r.status_code, 400, fiche)
+        self.assertEqual(set(self.original.iterdir()), avant)        # rien n'a été déposé
+
+    def test_depot_relie_au_client_et_enfant(self):
+        r = self.envoyer('mere.jpg').get_json()
+        self.assertEqual(r['fiche']['client']['telephone'], '98 765 432')
+        cid = r['fiche']['client_id']
+        r2 = self.envoyer('fils.jpg', {'client_id': cid, 'lien': 'enfant', 'prenom': 'Youssef', 'nom': ''}).get_json()
+        self.assertEqual((r2['fiche']['prenom'], r2['fiche']['nom'], r2['fiche']['client_id']),
+                         ('Youssef', 'Ben Salah', cid))
+        liste = {p['name']: p['fiche'] for p in self.client.get('/api/photos').get_json()}
+        self.assertEqual(liste['fils.jpg']['client']['prenom'], 'Amel')
+        # un portrait sans client (déposé avant la règle) : fabrication refusée, puis renseigné
+        (self.original / 'ancien.jpg').write_bytes(b'\xff\xd8\xff')
+        r3 = self.client.post('/api/fabriquer', json={'photo': 'ancien.jpg'})
+        self.assertEqual(r3.status_code, 409)
+        r4 = self.client.put('/api/travail/ancien.jpg', json={'client_id': cid, 'lien': 'lui-même'})
+        self.assertEqual(r4.status_code, 200)
+        self.assertEqual(r4.get_json()['fiche']['nom'], 'Ben Salah')
+        # un client, plusieurs photos : enregistrement refusé tant que rien n'est fabriqué
+        self.assertEqual(self.client.post('/api/enregistrer', json={'photo': 'fils.jpg'}).status_code, 400)
 
     def test_envoi_sans_ecraser(self):
         self.assertEqual(self.envoyer('portrait.jpg').get_json()['name'], 'portrait.jpg')

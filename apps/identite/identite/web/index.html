@@ -66,6 +66,8 @@
       <p class="hint" id="fondHint">Fond uni et clair ; le blanc est refusé par la norme.</p>
     </section>
 
+    <p class="hint is-warn" id="ficheManque" hidden>Client non renseigné : impossible de fabriquer les photos.
+      <button class="link" id="ficheRenseigner">Renseigner le client</button></p>
     <button class="apply" id="applyBtn" disabled>Fabriquer les photos</button>
     <div class="progress" id="progress" hidden>
       <div class="progress-head"><span class="spinner" id="spinner"></span><span id="progressText">Fabrication…</span><span class="elapsed" id="elapsed"></span></div>
@@ -75,7 +77,10 @@
   <section class="viewer">
     <div class="viewer-bar">
       <div class="viewer-head">
-        <div class="viewer-title" id="viewerTitle">Choisissez un portrait</div>
+        <div>
+          <div class="viewer-title" id="viewerTitle">Choisissez un portrait</div>
+          <div class="viewer-client" id="viewerClient"></div>
+        </div>
         <button class="btn-danger" id="removeBtn" hidden title="Mettre ce portrait, ses planches et son rapport à la Corbeille">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
           <span>Retirer de la liste</span>
@@ -118,42 +123,15 @@
     </div>
 
     <div class="report save" id="saveCard" hidden>
-      <h3>Enregistrer pour un client</h3>
-      <div class="save-grid">
-        <div class="field-group">
-          <label class="field-label">Client</label>
-          <div id="clientPicker">
-            <div class="search-wrap">
-              <input class="input" id="clientSearch" placeholder="Rechercher : nom, prénom ou téléphone" autocomplete="off">
-              <ul class="hits" id="clientHits" hidden></ul>
-            </div>
-            <button class="btn btn-small" id="newClientBtn">+ Nouveau client</button>
-          </div>
-          <div class="chosen" id="clientChosen" hidden>
-            <span id="clientChosenText"></span>
-            <button class="link" id="clientChange">changer</button>
-          </div>
-          <div class="new-client" id="newClientForm" hidden>
-            <input class="input" id="ncNom" placeholder="Nom" autocomplete="off">
-            <input class="input" id="ncPrenom" placeholder="Prénom" autocomplete="off">
-            <input class="input" id="ncTel" placeholder="Téléphone : 20 123 456" inputmode="tel" autocomplete="off">
-            <button class="link" id="newClientCancel">annuler</button>
-          </div>
-        </div>
-        <div class="field-group">
-          <label class="field-label" for="lien">Personne photographiée</label>
-          <select class="input" id="lien"></select>
-          <div class="person" id="personFields" hidden>
-            <input class="input" id="pPrenom" placeholder="Prénom" autocomplete="off">
-            <input class="input" id="pNom" placeholder="Nom (celui du client si vide)" autocomplete="off">
-          </div>
-        </div>
+      <h3>Archive du client</h3>
+      <div class="save-summary">
+        <span id="saveSummary"></span>
+        <button class="link" id="saveEdit">modifier</button>
       </div>
       <div class="report-row">
         <label class="toggle"><input type="checkbox" id="retirerApres" checked> Retirer de la liste de travail après l'enregistrement</label>
         <button class="btn btn-primary" id="saveBtn">Enregistrer dans l'archive</button>
       </div>
-
     </div>
   </section>
 </main>
@@ -174,6 +152,46 @@
     </section>
   </div>
 </main>
+
+<div class="modal" id="ficheModal" hidden>
+  <form class="modal-box" id="ficheForm" novalidate>
+    <h2 id="ficheTitre">Client de ce portrait</h2>
+    <p class="hint" id="ficheFichier"></p>
+    <div class="field-group">
+      <label class="field-label">Client</label>
+      <div id="clientPicker">
+        <div class="search-wrap">
+          <input class="input" id="clientSearch" placeholder="Rechercher : nom, prénom ou téléphone" autocomplete="off">
+          <ul class="hits" id="clientHits" hidden></ul>
+        </div>
+        <button type="button" class="btn btn-small" id="newClientBtn">+ Nouveau client</button>
+      </div>
+      <div class="chosen" id="clientChosen" hidden>
+        <span id="clientChosenText"></span>
+        <button type="button" class="link" id="clientChange">changer</button>
+      </div>
+      <div class="new-client" id="newClientForm" hidden>
+        <input class="input" id="ncNom" placeholder="Nom *" autocomplete="off">
+        <input class="input" id="ncPrenom" placeholder="Prénom *" autocomplete="off">
+        <input class="input" id="ncTel" placeholder="Téléphone * : 20 123 456" inputmode="tel" autocomplete="off">
+        <button type="button" class="link" id="newClientCancel">chercher un client existant</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="lien">Personne photographiée</label>
+      <select class="input" id="lien"></select>
+      <div class="person" id="personFields" hidden>
+        <input class="input" id="pPrenom" placeholder="Prénom *" autocomplete="off">
+        <input class="input" id="pNom" placeholder="Nom (celui du client si vide)" autocomplete="off">
+      </div>
+    </div>
+    <p class="form-error" id="ficheErreur" hidden></p>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="ficheAnnuler">Annuler</button>
+      <button type="submit" class="btn btn-primary" id="ficheOk">Déposer le portrait</button>
+    </div>
+  </form>
+</div>
 
 <div class="stopped" id="stopped" hidden>
   <div>

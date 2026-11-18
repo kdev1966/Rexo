@@ -43,6 +43,15 @@ CREATE TABLE IF NOT EXISTS photos (
     cree_le     REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS photos_client ON photos(client_id);
+-- Portraits de la liste de travail, reliés à leur client dès le dépôt
+CREATE TABLE IF NOT EXISTS travail (
+    fichier     TEXT PRIMARY KEY,
+    client_id   INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    nom         TEXT NOT NULL,
+    prenom      TEXT NOT NULL DEFAULT '',
+    lien        TEXT NOT NULL DEFAULT 'lui-même',
+    cree_le     REAL NOT NULL
+);
 '''
 
 
@@ -215,6 +224,40 @@ class Base:
                 raise BaseError('client inconnu')
         return dossiers
 
+    # ---------- portraits de la liste de travail ----------
+
+    def lier_travail(self, fichier, client_id, nom, prenom, lien):
+        """Relie un portrait déposé (nom de fichier) à son client et à la personne photographiée."""
+        nom, prenom = _propre(nom), _propre(prenom)
+        if lien not in LIENS:
+            raise BaseError('lien inconnu : %s' % lien)
+        if not nom and not prenom:
+            raise BaseError('nom ou prénom de la personne photographiée obligatoire')
+        with closing(self._connexion()) as c, c:
+            if c.execute('SELECT 1 FROM clients WHERE id=?', (client_id,)).fetchone() is None:
+                raise BaseError('client inconnu')
+            c.execute('INSERT OR REPLACE INTO travail (fichier, client_id, nom, prenom, lien, cree_le) '
+                      'VALUES (?, ?, ?, ?, ?, ?)', (fichier, client_id, nom, prenom, lien, time.time()))
+
+    def travail(self, fichier):
+        """Client et personne photographiée d'un portrait de la liste de travail, ou None."""
+        with closing(self._connexion()) as c:
+            r = c.execute('SELECT t.*, c.nom AS c_nom, c.prenom AS c_prenom, c.telephone AS c_tel '
+                          'FROM travail t JOIN clients c ON c.id = t.client_id WHERE t.fichier=?',
+                          (fichier,)).fetchone()
+        return _travail(r) if r else None
+
+    def travaux(self):
+        """Tous les portraits reliés, par nom de fichier."""
+        with closing(self._connexion()) as c:
+            rows = c.execute('SELECT t.*, c.nom AS c_nom, c.prenom AS c_prenom, c.telephone AS c_tel '
+                             'FROM travail t JOIN clients c ON c.id = t.client_id').fetchall()
+        return {r['fichier']: _travail(r) for r in rows}
+
+    def delier_travail(self, fichier):
+        with closing(self._connexion()) as c, c:
+            c.execute('DELETE FROM travail WHERE fichier=?', (fichier,))
+
     # ---------- photos ----------
 
     def ajouter_photo(self, client_id, nom, prenom, lien, dossier):
@@ -254,3 +297,9 @@ def _client(r):
 def _photo(r):
     return {'id': r['id'], 'client_id': r['client_id'], 'nom': r['nom'], 'prenom': r['prenom'],
             'lien': r['lien'], 'dossier': r['dossier'], 'cree_le': r['cree_le']}
+
+
+def _travail(r):
+    return {'fichier': r['fichier'], 'client_id': r['client_id'], 'nom': r['nom'], 'prenom': r['prenom'],
+            'lien': r['lien'], 'client': {'id': r['client_id'], 'nom': r['c_nom'], 'prenom': r['c_prenom'],
+                                          'telephone': r['c_tel']}}

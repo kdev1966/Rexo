@@ -31,6 +31,10 @@ async function loadPhotos() {
     b.innerHTML = '<img loading="lazy" alt=""><span></span>';
     b.querySelector('img').src = media('original', p.name, 1);
     b.querySelector('span').textContent = p.name;
+    const who = document.createElement('em');
+    who.className = 'who' + (p.fiche ? '' : ' manque');
+    who.textContent = p.fiche ? personne(p.fiche) : 'client à renseigner';
+    b.appendChild(who);
     if (p.fait) {
       const d = document.createElement('b'); d.className = 'done'; d.textContent = '✓'; d.title = 'Photos déjà fabriquées';
       b.appendChild(d);
@@ -44,7 +48,6 @@ async function selectPhoto(name, garderVue) {
   state.photo = name;
   document.querySelectorAll('.thumb').forEach((t) => t.classList.toggle('is-active', t.title === name));
   $('viewerTitle').textContent = name;
-  $('applyBtn').disabled = state.busy;
   try {
     state.result = await api('/api/resultat?photo=' + encodeURIComponent(name));
   } catch (e) { state.result = null; toast(e.message, true); }
@@ -53,14 +56,17 @@ async function selectPhoto(name, garderVue) {
   render();
 }
 
-async function upload(file) {
-  const fd = new FormData(); fd.append('photo', file);
-  try {
-    const r = await api('/api/photos', { method: 'POST', body: fd });
-    await loadPhotos();
-    await selectPhoto(r.name);
-    toast('Portrait ajouté : ' + r.name);
-  } catch (e) { toast(e.message, true); }
+function upload(file) {
+  ouvrirFiche({ fichier: file });          // le client d'abord : pas de portrait sans client
+}
+const ficheCourante = () => (state.photos.find((p) => p.name === state.photo) || {}).fiche || null;
+function personne(f) {
+  return [f.prenom, f.nom].filter(Boolean).join(' ');
+}
+function resumeFiche(f) {
+  const c = f.client;
+  const client = [c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ') + (c.telephone ? ' · ' + c.telephone : '');
+  return f.lien === 'lui-même' ? client : personne(f) + ' (' + f.lien + ') · client : ' + client;
 }
 
 // ---------- affichage ----------
@@ -86,6 +92,12 @@ function render() {
   $('report').hidden = !r;
   $('saveCard').hidden = !r;
   $('removeBtn').hidden = !state.photo;
+  const fiche = ficheCourante();
+  $('ficheManque').hidden = !state.photo || !!fiche;
+  $('applyBtn').disabled = !state.photo || !fiche || state.busy;
+  $('viewerClient').textContent = !state.photo ? '' : fiche ? resumeFiche(fiche) : 'Client non renseigné';
+  $('viewerClient').classList.toggle('manque', !!state.photo && !fiche);
+  if (fiche) $('saveSummary').textContent = resumeFiche(fiche);
   if (!state.photo) { $('viewerTitle').textContent = 'Choisissez un portrait'; return; }
 
   const img = $('shotImg');
@@ -209,7 +221,7 @@ async function fabriquer() {
     toast(e.message, true);
   } finally {
     clearInterval(tick);
-    state.busy = false; $('applyBtn').disabled = !state.photo;
+    state.busy = false; $('applyBtn').disabled = !state.photo || !ficheCourante();
   }
 }
 
@@ -307,8 +319,8 @@ async function oublierPhoto() {
   render();
 }
 
-// ---------- enregistrement pour un client ----------
-const save = { client: null, nouveau: false, liens: [] };
+// ---------- fenêtre du client (au dépôt, ou pour renseigner / modifier) ----------
+const save = { client: null, nouveau: false, liens: [], cible: null };
 
 function afficherClientChoisi() {
   const c = save.client;
@@ -337,6 +349,30 @@ function listeResultats(ul, clients, onPick, vide) {
     ul.appendChild(li);
   }
 }
+
+function erreurFiche(msg) {
+  $('ficheErreur').textContent = msg || ''; $('ficheErreur').hidden = !msg;
+}
+// cible : { fichier: File } au dépôt, ou { nom: 'portrait.jpg', fiche } pour un portrait déjà déposé
+function ouvrirFiche(cible) {
+  save.cible = cible;
+  const f = cible.fiche || null;
+  save.client = f ? f.client : null; save.nouveau = false;
+  ['clientSearch', 'ncNom', 'ncPrenom', 'ncTel', 'pPrenom', 'pNom'].forEach((id) => { $(id).value = ''; });
+  $('clientHits').hidden = true;
+  $('lien').value = f ? f.lien : 'lui-même';
+  if (f && f.lien !== 'lui-même') { $('pPrenom').value = f.prenom; $('pNom').value = f.nom === f.client.nom ? '' : f.nom; }
+  $('personFields').hidden = $('lien').value === 'lui-même';
+  $('ficheTitre').textContent = cible.fichier ? 'Client de ce portrait' : (f ? 'Modifier le client du portrait' : 'Renseigner le client du portrait');
+  $('ficheFichier').textContent = cible.fichier ? cible.fichier.name : cible.nom;
+  $('ficheOk').textContent = cible.fichier ? 'Déposer le portrait' : 'Enregistrer';
+  erreurFiche('');
+  afficherClientChoisi();
+  $('ficheModal').hidden = false;
+  (save.client ? $('lien') : $('clientSearch')).focus();
+}
+function fermerFiche() { $('ficheModal').hidden = true; save.cible = null; }
+
 let chercheT = null;
 $('clientSearch').oninput = () => {
   clearTimeout(chercheT);
@@ -346,22 +382,70 @@ $('clientSearch').oninput = () => {
     try {
       const res = await api('/api/clients?q=' + encodeURIComponent(q));
       listeResultats($('clientHits'), res, (c) => {
-        save.client = c; $('clientHits').hidden = true; $('clientSearch').value = ''; afficherClientChoisi();
+        save.client = c; $('clientHits').hidden = true; $('clientSearch').value = ''; afficherClientChoisi(); erreurFiche('');
       }, 'Aucun client : « + Nouveau client »');
       $('clientHits').hidden = false;
-    } catch (e) { toast(e.message, true); }
+    } catch (e) { erreurFiche(e.message); }
   }, 200);
 };
 $('clientSearch').onblur = () => setTimeout(() => { $('clientHits').hidden = true; }, 200);
-$('clientChange').onclick = () => { save.client = null; afficherClientChoisi(); $('clientSearch').focus(); };
+$('clientSearch').onkeydown = (e) => { if (e.key === 'Enter') e.preventDefault(); };
+$('clientChange').onclick = () => { save.client = null; erreurFiche(''); afficherClientChoisi(); $('clientSearch').focus(); };
 $('newClientBtn').onclick = () => {
-  save.nouveau = true; save.client = null;
+  save.nouveau = true; save.client = null; erreurFiche('');
   const q = $('clientSearch').value.trim();          // ce qui était cherché pré-remplit le nom ou le téléphone
   if (q && /\d/.test(q)) $('ncTel').value = q; else if (q) $('ncNom').value = q;
   afficherClientChoisi(); $('ncNom').focus();
 };
-$('newClientCancel').onclick = () => { save.nouveau = false; afficherClientChoisi(); };
-$('lien').onchange = () => { $('personFields').hidden = $('lien').value === 'lui-même'; };
+$('newClientCancel').onclick = () => { save.nouveau = false; erreurFiche(''); afficherClientChoisi(); $('clientSearch').focus(); };
+$('lien').onchange = () => { $('personFields').hidden = $('lien').value === 'lui-même'; if (!$('personFields').hidden) $('pPrenom').focus(); };
+$('ficheAnnuler').onclick = fermerFiche;
+$('ficheModal').addEventListener('keydown', (e) => { if (e.key === 'Escape') fermerFiche(); });
+
+function lireFiche() {
+  const f = { lien: $('lien').value };
+  if (save.client) f.client_id = save.client.id;
+  else if (save.nouveau) {
+    f.client = { nom: $('ncNom').value.trim(), prenom: $('ncPrenom').value.trim(), telephone: $('ncTel').value.trim() };
+    const manque = [['nom', 'le nom', 'ncNom'], ['prenom', 'le prénom', 'ncPrenom'], ['telephone', 'le téléphone', 'ncTel']]
+      .filter(([k]) => !f.client[k]);
+    if (manque.length) { $(manque[0][2]).focus(); throw new Error('Nouveau client : saisir ' + manque.map((m) => m[1]).join(', ') + '.'); }
+  } else { $('clientSearch').focus(); throw new Error('Choisir un client existant ou créer un nouveau client.'); }
+  if (f.lien !== 'lui-même') {
+    f.prenom = $('pPrenom').value.trim(); f.nom = $('pNom').value.trim();
+    if (!f.prenom) { $('pPrenom').focus(); throw new Error('Prénom de la personne photographiée ?'); }
+  }
+  return f;
+}
+
+$('ficheForm').onsubmit = async (e) => {
+  e.preventDefault();
+  let fiche;
+  try { fiche = lireFiche(); } catch (err) { erreurFiche(err.message); return; }
+  const cible = save.cible;
+  $('ficheOk').disabled = true;
+  try {
+    let nom;
+    if (cible.fichier) {
+      const fd = new FormData();
+      fd.append('photo', cible.fichier);
+      fd.append('fiche', JSON.stringify(fiche));
+      nom = (await api('/api/photos', { method: 'POST', body: fd })).name;
+      toast('Portrait ajouté : ' + nom);
+    } else {
+      nom = cible.nom;
+      await api('/api/travail/' + encodeURIComponent(nom), jsonPost('PUT', fiche));
+      toast('Client enregistré pour ' + nom);
+    }
+    fermerFiche();
+    await loadPhotos();
+    await selectPhoto(nom, true);
+  } catch (err) { erreurFiche(err.message); }
+  finally { $('ficheOk').disabled = false; }
+};
+
+$('ficheRenseigner').onclick = () => { if (state.photo) ouvrirFiche({ nom: state.photo, fiche: ficheCourante() }); };
+$('saveEdit').onclick = () => { if (state.photo) ouvrirFiche({ nom: state.photo, fiche: ficheCourante() }); };
 
 async function chargerLiens() {
   const a = await api('/api/archive');
@@ -375,25 +459,14 @@ async function chargerLiens() {
   $('archivePath').textContent = a.dossier;
 }
 
+// ---------- enregistrement dans l'archive (client saisi au dépôt) ----------
 $('saveBtn').onclick = async () => {
   if (!state.photo || !state.result) return;
-  const corps = { photo: state.photo, lien: $('lien').value, retirer: $('retirerApres').checked };
-  if (save.client) corps.client_id = save.client.id;
-  else if (save.nouveau) corps.client = { nom: $('ncNom').value, prenom: $('ncPrenom').value, telephone: $('ncTel').value };
-  else { toast('Choisir un client ou en créer un.', true); $('clientSearch').focus(); return; }
-  if (corps.lien !== 'lui-même') {
-    corps.prenom = $('pPrenom').value; corps.nom = $('pNom').value;
-    if (!corps.prenom.trim()) { toast('Prénom de la personne photographiée ?', true); $('pPrenom').focus(); return; }
-  }
   $('saveBtn').disabled = true;
   try {
-    const r = await api('/api/enregistrer', jsonPost('POST', corps));
+    const r = await api('/api/enregistrer', jsonPost('POST', { photo: state.photo, retirer: $('retirerApres').checked }));
     toast('Enregistrée dans l\'archive du client.');
-    save.client = null; save.nouveau = false;
-    ['ncNom', 'ncPrenom', 'ncTel', 'pPrenom', 'pNom'].forEach((id) => { $(id).value = ''; });
-    $('lien').value = 'lui-même'; $('personFields').hidden = true;
-    afficherClientChoisi();
-    if (r.retire) await oublierPhoto();
+    if (r.retire) await oublierPhoto(); else await loadPhotos();
   } catch (e) { toast(e.message, true); }
   finally { $('saveBtn').disabled = false; }
 };
@@ -526,14 +599,15 @@ $('archiveChoose').onclick = async () => {
 $('archiveOpen').onclick = () => api('/api/archive/ouvrir', jsonPost('POST', {})).catch((e) => toast(e.message, true));
 
 chargerLiens().catch((e) => toast(e.message, true));
-afficherClientChoisi();
-(function ongletDepuisAdresse() {                // #onglet=clients[&client=12] : ouvre la vue Clients
+function ongletDepuisAdresse() {                 // #onglet=clients[&client=12] : ouvre la vue Clients
   const q = new URLSearchParams(location.hash.slice(1));
   if (q.get('onglet') === 'clients') {
     montrerOnglet('clients');
     if (/^\d+$/.test(q.get('client') || '')) ouvrirClient(Number(q.get('client')));
   }
-})();
+}
+ongletDepuisAdresse();
+window.addEventListener('hashchange', ongletDepuisAdresse);
 
 // ---------- serveur à jour ? (page relue sur le disque, code Python lu au démarrage) ----------
 (function versionServeur() {
