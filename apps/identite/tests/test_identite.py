@@ -175,3 +175,60 @@ class Planches(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class Interface(unittest.TestCase):
+    """API de l'interface web, sur un dossier de données temporaire (sans Apple Vision)."""
+
+    @classmethod
+    def setUpClass(cls):
+        import io
+        import tempfile
+        from unittest import mock
+
+        from identite import interface
+        cls.io = io
+        cls.tmp = tempfile.TemporaryDirectory()
+        from pathlib import Path
+        base = Path(cls.tmp.name)
+        cls.original, cls.resultats = base / 'original', base / 'resultats'
+        cls.original.mkdir()
+        cls.resultats.mkdir()
+        cls.patches = [mock.patch.object(interface, 'ORIGINAL', cls.original),
+                       mock.patch.object(interface, 'RESULTATS', cls.resultats)]
+        for p in cls.patches:
+            p.start()
+        cls.client = interface.app.test_client()
+
+    @classmethod
+    def tearDownClass(cls):
+        for p in cls.patches:
+            p.stop()
+        cls.tmp.cleanup()
+
+    def envoyer(self, nom):
+        data = {'photo': (self.io.BytesIO(b'\xff\xd8\xff'), nom)}
+        return self.client.post('/api/photos', data=data, content_type='multipart/form-data')
+
+    def test_envoi_sans_ecraser(self):
+        self.assertEqual(self.envoyer('portrait.jpg').get_json()['name'], 'portrait.jpg')
+        # même nom de base, autre extension : renommé, pour que les résultats ne se mélangent pas
+        self.assertEqual(self.envoyer('portrait.png').get_json()['name'], 'portrait_2.png')
+        self.assertEqual(self.envoyer('virus.exe').status_code, 400)
+
+    def test_chemins_hors_du_dossier(self):
+        self.assertEqual(self.client.get('/media/original/..%2F..%2Fsecret.txt').status_code, 404)
+        self.assertEqual(self.client.get('/media/autre/x.jpg').status_code, 404)
+        self.assertEqual(self.client.get('/api/resultat?photo=../x.jpg').status_code, 404)
+
+    def test_reglages_invalides(self):
+        self.envoyer('reglages.jpg')
+        for corps in ({'photo': 'reglages.jpg', 'couleurs': 'magie'},
+                      {'photo': 'reglages.jpg', 'fond': [300, 0, 0]},
+                      {'photo': 'reglages.jpg', 'fond': '214,214,214'}):
+            self.assertEqual(self.client.post('/api/fabriquer', json=corps).status_code, 400, corps)
+        self.assertEqual(self.client.post('/api/fabriquer', json={'photo': 'absente.jpg'}).status_code, 404)
+
+    def test_pas_de_resultat(self):
+        self.envoyer('neuf.jpg')
+        self.assertIsNone(self.client.get('/api/resultat?photo=neuf.jpg').get_json())

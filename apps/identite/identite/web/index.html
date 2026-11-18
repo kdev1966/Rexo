@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identité</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18c.8-2.3 2.5-3.5 4.5-3.5s3.7 1.2 4.5 3.5"/></svg>
+    <span>Identité</span>
+  </div>
+  <div class="topbar-note">Normes françaises · 35 × 45 mm · rien ne quitte cet ordinateur</div>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <section>
+      <h2><span class="step">1</span> Portrait</h2>
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".jpg,.jpeg,.jpe,.png,.tif,.tiff,.webp,.bmp,.gif,.tga,.avif,.heic,.heif,.jp2,.psd,.exr,.hdr,.qoi,.ico" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <span><strong>Déposer un portrait</strong> ou cliquer pour choisir</span>
+      </label>
+      <div class="thumbs" id="thumbs"></div>
+    </section>
+
+    <section>
+      <h2><span class="step">2</span> Couleurs</h2>
+      <div class="choices" id="modes">
+        <button class="choice is-active" data-mode="auto">
+          <strong>Automatique</strong><small>Balance des blancs par le fond d'origine s'il est neutre, sinon par la peau</small>
+        </button>
+        <button class="choice" data-mode="fond">
+          <strong>Par le fond</strong><small>Fond d'origine pris comme charte de gris, rien d'autre</small>
+        </button>
+        <button class="choice" data-mode="apple">
+          <strong>Par la peau</strong><small>Balance d'Apple sur la peau du visage (fond coloré)</small>
+        </button>
+        <button class="choice" data-mode="aucune">
+          <strong>Sans correction</strong><small>Couleurs de la photo telles quelles</small>
+        </button>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="step">3</span> Fond</h2>
+      <div class="swatches" id="swatches">
+        <button class="swatch is-active" data-rgb="214,214,214" title="Gris clair"><i style="background:rgb(214,214,214)"></i>Gris clair</button>
+        <button class="swatch" data-rgb="226,226,226" title="Gris perle"><i style="background:rgb(226,226,226)"></i>Perle</button>
+        <button class="swatch" data-rgb="200,200,200" title="Gris moyen"><i style="background:rgb(200,200,200)"></i>Moyen</button>
+        <label class="swatch" title="Autre couleur"><input type="color" id="customColor" value="#d6d6d6">Autre</label>
+      </div>
+      <p class="hint" id="fondHint">Fond uni et clair ; le blanc est refusé par la norme.</p>
+    </section>
+
+    <button class="apply" id="applyBtn" disabled>Fabriquer les photos</button>
+    <div class="progress" id="progress" hidden>
+      <div class="progress-head"><span class="spinner" id="spinner"></span><span id="progressText">Fabrication…</span><span class="elapsed" id="elapsed"></span></div>
+    </div>
+  </aside>
+
+  <section class="viewer">
+    <div class="viewer-bar">
+      <div class="viewer-title" id="viewerTitle">Choisissez un portrait</div>
+      <div class="segmented" id="views">
+        <button data-view="identite" class="is-active">Photo d'identité</button>
+        <button data-view="planche_8">8 photos</button>
+        <button data-view="planche_4_portrait">4 + portrait</button>
+        <button data-view="original">Original</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18c.8-2.3 2.5-3.5 4.5-3.5s3.7 1.2 4.5 3.5"/></svg>
+        <p>Choisissez ou déposez un portrait de face, puis « Fabriquer les photos ».</p>
+      </div>
+      <figure class="shot" id="shot" hidden>
+        <img id="shotImg" alt="">
+        <svg class="guides" id="guides" viewBox="0 0 35 45" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
+      </figure>
+    </div>
+
+    <div class="report" id="report" hidden>
+      <div class="report-row">
+        <label class="toggle" id="guidesToggle"><input type="checkbox" id="guidesBox" checked> Repères de la norme</label>
+        <div class="actions">
+          <button class="btn" id="openBtn">Ouvrir dans Aperçu</button>
+          <a class="btn btn-primary" id="downloadBtn" href="#">Télécharger</a>
+        </div>
+      </div>
+      <ul class="warnings" id="warnings"></ul>
+      <dl class="facts" id="facts"></dl>
+      <p class="hint print-hint">Imprimer les planches à <strong>100 %</strong> (sans « ajuster à la page ») sur du papier 10 × 15 cm, à l'italienne.</p>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -34,6 +34,22 @@ cd apps/identite
 
 ## Utilisation
 
+### Interface web
+
+```bash
+cd apps/identite
+.venv/bin/python -m identite.interface        # puis ouvrir http://127.0.0.1:8766
+```
+
+Choisir ou déposer un portrait, choisir le réglage des couleurs et le gris du fond, puis
+« Fabriquer les photos ». La photo d'identité s'affiche avec les repères de la norme (sommet
+du crâne, zone de 32 à 36 mm où doit tomber le menton, axe du visage). On passe ensuite aux
+deux planches et à l'original, avec les avertissements et les mesures. « Ouvrir dans Aperçu »
+sert à imprimer. Le serveur n'écoute que sur la machine (127.0.0.1). L'adresse garde la photo
+et la vue affichées (`#photo=…&vue=…`).
+
+### Ligne de commande
+
 ```bash
 cd apps/identite
 .venv/bin/python -m identite.fabriquer                              # toutes les photos de donnees/original/
