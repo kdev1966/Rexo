@@ -13,6 +13,11 @@
   const CLE = 'retohub.langue';
   let langue = 'fr';
   try { langue = localStorage.getItem(CLE) === 'ar' ? 'ar' : 'fr'; } catch (e) { /* stockage indisponible */ }
+  const demandee = new URLSearchParams(location.search).get('langue');     // ?langue=ar : marque-page
+  if (demandee === 'ar' || demandee === 'fr') {
+    langue = demandee;
+    try { localStorage.setItem(CLE, langue); } catch (e) { /* stockage indisponible */ }
+  }
 
   const cat = window.CATALOGUE_AR || {};
   const exact = new Map();

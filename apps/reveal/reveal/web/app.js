@@ -4,7 +4,10 @@ const $ = (id) => document.getElementById(id);
 const state = { photos: [], results: [], photo: null, filtre: 'auto', mode: 'slider', shown: null, job: null, zones: [] };
 
 // ---------- utilitaires ----------
+const tr = (t) => I18N.tr(t);
 async function api(url, opts) {
+  opts = Object.assign({}, opts);
+  opts.headers = I18N.entetes(opts.headers);     // le serveur traduit ses messages
   const r = await fetch(url, opts);
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || ('Erreur ' + r.status));
@@ -53,7 +56,7 @@ function selectPhoto(name) {
   if (state.filtre === 'effacer') {
     document.querySelectorAll('.thumb').forEach((t) => t.classList.toggle('is-active', t.title === name));
     $('applyBtn').disabled = !!(state.job && state.job.etat === 'en cours');
-    $('viewerTitle').textContent = name + ' — zones à effacer';
+    $('viewerTitle').textContent = I18N.iso(name) + ' — zones à effacer';
     showSingle(media('original', name));
     return;
   }
@@ -70,7 +73,7 @@ async function upload(file) {
   const fd = new FormData(); fd.append('photo', file);
   try {
     const r = await api('/api/photos', { method: 'POST', body: fd });
-    await loadPhotos(); selectPhoto(r.name); toast('Photo ajoutée : ' + r.name);
+    await loadPhotos(); selectPhoto(r.name); toast('Photo ajoutée : ' + I18N.iso(r.name));
   } catch (e) { toast(e.message, true); }
 }
 const dz = $('dropzone');
@@ -171,7 +174,7 @@ function showResult(r) {
   state.shown = r;
   eraseVisibility(false);
   $('empty').hidden = true;
-  $('viewerTitle').textContent = (r.photo || '') + ' — retouche';
+  $('viewerTitle').textContent = I18N.iso(r.photo || '') + ' — retouche';
   const before = r.avant ? media('retouche', r.avant) : null;
   const after = media('retouche', r.apres);
   $('imgAfter').src = after; $('sideAfter').src = after;
@@ -182,7 +185,7 @@ function showResult(r) {
   const bits = [];
   if (r.type) bits.push('Type : ' + r.type);
   if (r.duree) bits.push(r.duree + ' s');
-  bits.push(r.jpg);
+  bits.push(I18N.iso(r.jpg));
   $('meta').textContent = bits.join(' · ');
   $('actions').hidden = false;
   setMode(before ? state.mode : 'after');
@@ -249,7 +252,7 @@ function renderZones() {
     layer.appendChild(n);
   });
   const c = state.zones.length;
-  $('zoneCount').textContent = c ? c + (c > 1 ? ' zones' : ' zone') : 'Aucune zone';
+  $('zoneCount').textContent = c ? (c === 1 ? '1 zone' : c + ' zones') : 'Aucune zone';
 }
 (function eraseTool() {
   const layer = $('zonesLayer');
@@ -365,3 +368,5 @@ $('openPsd').onclick = async () => {
   verifier();
   window.addEventListener('focus', verifier);
 })();
+
+I18N.bouton($('langBtn'));                       // العربية / Français

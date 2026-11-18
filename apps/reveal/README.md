@@ -67,6 +67,14 @@ l'une des deux vues seule. Le PSD s'ouvre dans PhotoCraft d'un clic.
 .venv/bin/python -m reveal.traiter --type ancienne donnees/original/x.jpg
 ```
 
+## Langue arabe
+
+Le bouton **العربية** de la barre du haut passe l'interface en arabe, de droite à gauche
+(**Français** la ramène ; `?langue=ar` dans l'adresse aussi). Le journal de traitement et les
+messages du serveur sont traduits ; la zone d'image (curseur avant / après, zones à effacer)
+reste de gauche à droite. Textes dans `reveal/web/ar.json` (clé = texte français, `{}` pour
+une partie variable), moteur commun au hub : `shared/langues.py`, `shared/web/langues.js`.
+
 ## Formats acceptés
 
 JPEG, PNG, TIFF, WebP, BMP, GIF, TGA, **AVIF**, **HEIC / HEIF** (iPhone), JPEG 2000, PSD, EXR, HDR,

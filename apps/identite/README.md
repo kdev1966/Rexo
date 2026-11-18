@@ -55,7 +55,7 @@ marge de chaque côté pour cette estimation.
 ## Langue arabe
 
 Le bouton **العربية** de la barre du haut passe toute l'interface en arabe, de droite à
-gauche ; **Français** la ramène. Le choix est retenu par le navigateur. Vocabulaire tunisien :
+gauche ; **Français** la ramène (`?langue=ar` dans l'adresse aussi). Le choix est retenu par le navigateur. Vocabulaire tunisien :
 « حريف / حرفاء » (client), « الاسم » (prénom), « اللقب » (nom). Les chiffres restent
 occidentaux ; numéros de téléphone, chemins et noms de fichiers restent de gauche à droite.
 

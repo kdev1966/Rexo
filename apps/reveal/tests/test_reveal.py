@@ -312,5 +312,36 @@ class Interface(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
 
 
+
+class Langues(unittest.TestCase):
+    """Interface en arabe : catalogue de Reveal et messages du serveur."""
+
+    def test_catalogue(self):
+        """Chaque traduction reprend les parties variables du texte français, en arabe."""
+        import json
+        import re
+
+        import reveal
+        cat = json.loads((Path(reveal.__file__).parent / 'web' / 'ar.json').read_text(encoding='utf-8'))
+        self.assertGreater(len(cat), 100)
+        for fr, ar in cat.items():
+            n = fr.count('{}')
+            nums = [int(x) for x in re.findall(r'\{(\d+)\}', ar)]
+            if nums:
+                self.assertTrue(set(nums) <= set(range(1, n + 1)) and 1 in nums, fr)
+            else:
+                self.assertEqual(ar.count('{}'), n, fr)
+            self.assertTrue(re.search('[؀-ۿ]', ar), fr)
+
+    def test_serveur_traduit_ses_messages(self):
+        from reveal import interface
+        client = interface.app.test_client()
+        r = client.post('/api/traiter', json={'photo': 'x.jpg', 'filtre': 'magie'}, headers={'X-Langue': 'ar'})
+        self.assertEqual(r.get_json()['error'], 'مرشّح غير معروف.')
+        r = client.post('/api/traiter', json={'photo': 'x.jpg', 'filtre': 'magie'})
+        self.assertEqual(r.get_json()['error'], 'Filtre inconnu.')
+        self.assertTrue(client.get('/langues/ar.js').get_data(as_text=True).startswith('window.CATALOGUE_AR = {'))
+
+
 if __name__ == '__main__':
     unittest.main()

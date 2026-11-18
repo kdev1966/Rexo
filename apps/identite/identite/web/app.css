@@ -322,3 +322,5 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 [dir="rtl"] input[inputmode="tel"] { text-align: right; }
 [dir="rtl"] #ficheFichier { text-align: right; }
 [dir="rtl"] h2, [dir="rtl"] .field-label, [dir="rtl"] .save h3, [dir="rtl"] .facts dt { letter-spacing: 0; text-transform: none; }
+/* noms de fichiers sous les vignettes : toujours de gauche à droite (« 2.jpg », pas « jpg.2 ») */
+[dir="rtl"] .thumb > span { direction: ltr; text-align: right; }

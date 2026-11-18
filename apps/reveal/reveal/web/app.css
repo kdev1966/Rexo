@@ -11,7 +11,7 @@
   --ok: #7cc49a;
   --err: #e57b7b;
   --radius: 14px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Geeza Pro", Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -65,12 +65,12 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s; }
 .thumb:hover img { transform: scale(1.05); }
 .thumb.is-active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232, 180, 106, .18); }
-.thumb span { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 6px; font-size: 10.5px; background: linear-gradient(transparent, rgba(0,0,0,.75)); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thumb span { position: absolute; inset-inline: 0; bottom: 0; padding: 3px 6px; font-size: 10.5px; background: linear-gradient(transparent, rgba(0,0,0,.75)); text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- filtres ---------- */
 .filters { display: flex; flex-direction: column; gap: 8px; }
 .filter {
-  display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 12px; border-radius: 12px;
+  display: flex; gap: 12px; align-items: flex-start; text-align: start; padding: 12px; border-radius: 12px;
   background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; transition: .15s;
 }
 .filter:hover { border-color: #3a3e47; }
@@ -94,7 +94,7 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .hint { color: var(--muted); font-size: 12.5px; margin: 10px 0 8px; line-height: 1.45; }
 .hint strong { color: var(--text); font-weight: 600; }
 .erase-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.erase-bar span { margin-right: auto; font-size: 13px; }
+.erase-bar span { margin-inline-end: auto; font-size: 13px; }
 .btn-small { padding: 6px 10px; font-size: 12.5px; }
 .zones { position: absolute; inset: 0; cursor: crosshair; z-index: 3; }
 .zone-box { position: absolute; border: 2px dashed #ff6b5b; background: rgba(255, 107, 91, .18); border-radius: 4px; }
@@ -105,7 +105,7 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 /* ---------- progression ---------- */
 .progress { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
 .progress-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-.elapsed { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.elapsed { margin-inline-start: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
 .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 .spinner.done { animation: none; border-color: var(--ok); }
 .spinner.fail { animation: none; border-color: var(--err); }
@@ -163,7 +163,7 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .side figcaption { color: var(--muted); font-size: 12.5px; }
 
 .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.meta { color: var(--muted); font-size: 12.5px; margin-right: auto; }
+.meta { color: var(--muted); font-size: 12.5px; margin-inline-end: auto; }
 .btn {
   border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 9px 14px; border-radius: 10px;
   cursor: pointer; text-decoration: none; font-weight: 550; transition: .15s;
@@ -177,7 +177,7 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .history-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
 .hist {
   flex: none; width: 120px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
-  background: var(--panel); cursor: pointer; padding: 0; text-align: left; transition: .15s;
+  background: var(--panel); cursor: pointer; padding: 0; text-align: start; transition: .15s;
 }
 .hist:hover { border-color: var(--accent); }
 .hist img { width: 100%; height: 86px; object-fit: cover; display: block; }
@@ -217,3 +217,20 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
   color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), var(--accent-2));
 }
 .update-btn:disabled { opacity: .5; cursor: wait; }
+
+/* ---------- langue ---------- */
+.lang {
+  padding: 6px 12px; border-radius: 9px; cursor: pointer; background: transparent; border: 1px solid var(--line);
+  color: var(--text); font-size: 13px; font-weight: 600; transition: .15s;
+}
+.lang:hover { border-color: var(--accent); color: var(--accent); }
+.lang:lang(ar) { font-size: 14.5px; font-family: "Geeza Pro", var(--font); }
+/* De droite à gauche (arabe). La zone d'image (curseur avant / après, zones à effacer,
+   côte à côte) travaille en coordonnées d'image : elle reste de gauche à droite ; ses
+   étiquettes (Avant, Après) sont traduites. */
+[dir="rtl"] body { font-size: 14.5px; }
+[dir="rtl"] .stage, [dir="rtl"] .side, [dir="rtl"] code { direction: ltr; }
+[dir="rtl"] .option select { direction: rtl; }
+[dir="rtl"] h2, [dir="rtl"] .history h3 { letter-spacing: 0; text-transform: none; }
+/* noms de fichiers sous les vignettes : toujours de gauche à droite (« 2.jpg », pas « jpg.2 ») */
+[dir="rtl"] .thumb > span { direction: ltr; text-align: right; }
