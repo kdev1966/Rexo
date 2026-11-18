@@ -177,3 +177,7 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .stopped h1 { font-size: 20px; margin: 12px 0 8px; }
 .stopped p { color: var(--muted); line-height: 1.6; margin: 0; }
 @media (max-width: 700px) { .topbar-note { display: none; } }
+
+.btn-print { display: inline-flex; align-items: center; gap: 7px; }
+.btn-print svg { width: 17px; height: 17px; }
+.print-frame { position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0; visibility: hidden; }

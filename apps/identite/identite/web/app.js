@@ -148,9 +148,42 @@ function renderReport(r) {
   const file = state.view === 'original' ? r.fichiers.identite : r.fichiers[state.view];
   $('downloadBtn').href = `/media/resultats/${encodeURIComponent(file)}?telecharger=1`;
   $('downloadBtn').textContent = 'Télécharger ' + ({ identite: 'la photo', planche_8: 'la planche', planche_4_portrait: 'la planche' }[state.view] || 'la photo');
+  // Impression : la planche affichée, ou la planche de 8 photos depuis la photo seule et l'original
+  const aImprimer = state.view.startsWith('planche') ? state.view : 'planche_8';
+  $('printBtn').querySelector('span').textContent =
+    state.view.startsWith('planche') ? 'Imprimer la planche' : 'Imprimer la planche de 8';
+  $('printBtn').onclick = () => imprimer(r.fichiers[aImprimer], r.version);
   $('openBtn').onclick = () => api('/api/ouvrir', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fichier: file }),
   }).then(() => toast('Ouvert dans Aperçu : imprimer à 100 %.')).catch((e) => toast(e.message, true));
+}
+
+// ---------- impression ----------
+// La planche (1772 × 1181 px à 300 dpi) est posée dans un cadre invisible, à sa taille réelle
+// de 150 × 100 mm, sur une page de la même taille sans marge : la fenêtre d'impression du
+// système s'ouvre, l'échelle reste à 100 %.
+function imprimer(fichier, version) {
+  const ancien = document.querySelector('.print-frame');
+  if (ancien) ancien.remove();
+  const f = document.createElement('iframe');
+  f.className = 'print-frame';
+  f.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(f);
+  const doc = f.contentDocument;
+  doc.open();
+  doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Planche</title><style>' +
+    '@page { size: 150mm 100mm; margin: 0; }' +
+    'html, body { margin: 0; padding: 0; background: #fff; }' +
+    'img { display: block; width: 150mm; height: 100mm; }' +
+    '</style></head><body><img alt=""></body></html>');
+  doc.close();
+  const img = doc.querySelector('img');
+  img.onload = () => {
+    toast('Choisir le papier 10 × 15 cm et l\'échelle 100 %.');
+    setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); }, 50);
+  };
+  img.onerror = () => toast('Planche introuvable : refaire « Fabriquer les photos ».', true);
+  img.src = media('resultats', fichier, version);
 }
 
 // ---------- fabrication ----------
