@@ -7,21 +7,32 @@ modèles IA open source qui tournent sur le processeur. Aucune photo ne quitte l
 |---|---|
 | **Portrait** (couleur) | Visages restaurés par IA (GFPGAN), lissage de la peau limité à la peau détectée, maquillage (lèvres, blush, paupières) placé grâce aux repères du visage |
 | **Photo ancienne** (noir et blanc, sépia) | Agrandissement x2 si elle est petite (Real-ESRGAN), recadrage du tirage, gris neutre, stries et rayures atténuées, bruit, voile, contraste, netteté, visages restaurés, puis colorisation (DDColor) |
+| **Studio** | Personnes détourées par Apple Vision : fond flou, fond uni, couleur sur fond noir et blanc, détourage (PNG transparent), recadrage 4:5, 1:1, 9:16, 16:9, 3:4, 2:3 centré sur les personnes |
+| **Améliorer** | Amélioration automatique d'Apple (lumière, couleurs, balance des blancs, relief), puis rendu de couleur au choix : chaud, froid, vintage chaud, noir et blanc, lumineux, contrasté, doux |
+
+Pour les portraits, le lissage est limité à la peau **des personnes** détectées par Apple Vision :
+un fond couleur chair n'est plus lissé.
 
 Le type est choisi automatiquement : une photo sans couleur est traitée comme ancienne.
 Chaque résultat est un **PSD à calques** (chaque étape réglable dans PhotoCraft) et un JPEG.
 
 ## Installation
 
-Prérequis : Mac Intel, macOS 12 ou plus, Python 3.9 du système, PhotoCraft ≥ 0.23 dans
-`/Applications`.
+Prérequis : Mac Intel, macOS 12 ou plus, outils en ligne de commande d'Apple, PhotoCraft ≥ 0.23
+dans `/Applications`.
 
 ```bash
+shared/python/installer.sh          # Python 3.11.17 autonome (depuis la racine du hub)
+shared/natif/compiler.sh            # reto-segment (Apple Vision)
 cd apps/reveal
-python3 -m venv .venv
-.venv/bin/pip install --only-binary :all: -r requirements.txt
-cd ../.. && python3 -m shared.modeles installer reveal     # modèles IA (≈ 1,5 Go), vérifiés par SHA-256
+../../.outils/python/bin/python3 -m venv .venv
+.venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
+.venv/bin/python -m shared.embedkit.cli models pull --models-path modeles --all --allow-noncommercial
 ```
+
+Licences : GFPGAN, DDColor et la colorisation de Zhang ont un usage commercial **non vérifié**
+(`commercial: unknown` dans `modeles/*.yaml`). Reveal les autorise explicitement
+(`reveal/catalogue.py`, `A_VERIFIER`) et affiche un avertissement à chaque chargement.
 
 ## Utilisation
 
@@ -43,6 +54,15 @@ l'une des deux vues seule. Le PSD s'ouvre dans PhotoCraft d'un clic.
 .venv/bin/python -m reveal.traiter donnees/original/1.jpg   # une photo
 .venv/bin/python -m reveal.traiter --type ancienne donnees/original/x.jpg
 ```
+
+## Formats acceptés
+
+JPEG, PNG, TIFF, WebP, BMP, GIF, TGA, **AVIF**, **HEIC / HEIF** (iPhone), JPEG 2000, PSD, EXR, HDR,
+QOI, ICO. Ce qu'OpenCV ne lit pas est converti sans perte en PNG par `shared/images`, avec le
+premier outil qui réussit : Pillow (AVIF, GIF, TGA…), puis PhotoCraft (HEIC, PSD…), puis `sips`
+(outil d'images de macOS). Les pixels transparents sont posés sur du blanc ; d'un GIF animé, seule
+la première image est gardée. Dans l'interface, les formats que le navigateur n'affiche pas reçoivent
+un aperçu JPEG, mis en cache dans `donnees/.apercus/`.
 
 ## Données
 
@@ -87,5 +107,8 @@ Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_
 | `reveal/traiter.py` | chaîne de traitement, pilote PhotoCraft (`shared.photocraft`) |
 | `reveal/analyse.py` | vision en Python (OpenCV) : peau, maquillage, stries, colorisation de secours |
 | `reveal/ia.py` | modèles ONNX : Real-ESRGAN, GFPGAN, DDColor |
+| `reveal/vision.py` | Apple Vision et Core Image par `reto-segment` : masque des personnes, studio, amélioration, rendus |
+| `reveal/catalogue.py` | modèles par embedkit, contrôle des licences |
+| `modeles/*.yaml` | manifestes embedkit des modèles propres à Reveal |
 | `reveal/interface.py`, `reveal/web/` | interface web locale (Flask, 127.0.0.1 seulement) |
-| `reveal/config.py` | emplacements des données |
+| `reveal/config.py` | emplacements des données, formats acceptés |

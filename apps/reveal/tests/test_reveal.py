@@ -4,6 +4,7 @@ Lancement (depuis apps/reveal) : .venv/bin/python -m unittest discover tests
 """
 
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,7 +13,6 @@ import cv2
 import numpy as np
 
 from reveal import analyse
-from shared import modeles
 
 
 def gradient(h=300, w=400):
@@ -66,25 +66,145 @@ class Streaks(unittest.TestCase):
         self.assertLess(after, before * 0.6)
 
 
-class Catalogue(unittest.TestCase):
-    def test_reveal_models_are_declared(self):
-        noms = {m['nom'] for m in modeles.selection('reveal')}
-        self.assertTrue({'ddcolor', 'gfpgan_1.4', 'real_esrgan_x2'} <= noms)
-        for m in modeles.selection('reveal'):
-            self.assertEqual(len(m['sha256']), 64)
-            self.assertTrue(m['url'].startswith('https://'))
+class Formats(unittest.TestCase):
+    """Formats qu'OpenCV ne lit pas : convertis en PNG par Pillow, PhotoCraft ou sips."""
 
-    def test_models_folder_can_be_overridden(self):
-        old = os.environ.get('KDEV_MODELS_DIR')
-        os.environ['KDEV_MODELS_DIR'] = '/tmp/ailleurs'
-        try:
-            self.assertEqual(modeles.chemin('ddcolor'), Path('/tmp/ailleurs/reveal/ddcolor.onnx'))
-            self.assertFalse(modeles.present('ddcolor'))
-        finally:
-            if old is None:
-                del os.environ['KDEV_MODELS_DIR']
-            else:
-                os.environ['KDEV_MODELS_DIR'] = old
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.ref = gradient()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _pillow_save(self, name, fmt, **kw):
+        from PIL import Image
+        path = self.dir / name
+        Image.fromarray(cv2.cvtColor(self.ref, cv2.COLOR_BGR2RGB)).save(path, fmt, **kw)
+        return path
+
+    def test_avif_is_converted(self):
+        src = self._pillow_save('a.avif', 'AVIF', quality=90)
+        self.assertIsNone(cv2.imread(str(src)))                 # OpenCV ne sait pas le lire
+        img, outil = analyse.load_any(src, self.dir / 'travail')
+        self.assertEqual(outil, 'Pillow')
+        self.assertEqual(img.shape, self.ref.shape)
+        self.assertLess(np.abs(img.astype(int) - self.ref.astype(int)).mean(), 6)
+
+    def test_transparent_gif_goes_on_white(self):
+        from PIL import Image
+        # palette : index 0 = noir (déclaré transparent), index 1 = rouge
+        im = Image.new('P', (40, 30), 0)
+        im.putpalette([0, 0, 0, 255, 0, 0] + [0] * 762)
+        im.paste(1, (0, 0, 20, 30))
+        src = self.dir / 't.gif'
+        im.save(src, transparency=0)
+        img, outil = analyse.load_any(src, self.dir / 'travail')
+        self.assertIsNotNone(outil)
+        self.assertGreater(img[15, 35].min(), 200)              # partie transparente -> blanc
+
+    @unittest.skipUnless(Path('/usr/bin/sips').exists(), 'sips absent')
+    def test_heic_is_converted(self):
+        jpg = self.dir / 'a.jpg'
+        cv2.imwrite(str(jpg), self.ref)
+        heic = self.dir / 'a.heic'
+        subprocess.run(['sips', '-s', 'format', 'heic', str(jpg), '--out', str(heic)], capture_output=True)
+        if not heic.exists():
+            self.skipTest('sips ne sait pas écrire le HEIC ici')
+        img, outil = analyse.load_any(heic, self.dir / 'travail')
+        self.assertIn(outil, ('PhotoCraft', 'sips'))
+        self.assertEqual(img.shape, self.ref.shape)
+
+    def test_corrupted_file_is_refused(self):
+        from shared.images import ConversionImpossible
+        bad = self.dir / 'abime.avif'
+        bad.write_bytes(b'ceci n est pas une image')
+        with self.assertRaises(ConversionImpossible):
+            analyse.load_any(bad, self.dir / 'travail')
+
+    def test_all_accepted_formats_are_lowercase_extensions(self):
+        from shared.images import FORMATS
+        self.assertTrue(all(f.startswith('.') and f == f.lower() for f in FORMATS))
+        self.assertTrue({'.avif', '.heic', '.gif', '.jpg'} <= FORMATS)
+
+
+def portrait_like():
+    """Image de test avec un « visage » clair sur fond sombre (Vision n'y verra pas de personne)."""
+    img = gradient()
+    cv2.circle(img, (200, 150), 60, (150, 180, 220), -1)
+    return img
+
+
+class Vision(unittest.TestCase):
+    """reto-segment (Apple Vision, Core Image) : sauté s'il n'est pas compilé sur la machine."""
+
+    def setUp(self):
+        from reveal import vision
+        if not vision.disponible():
+            self.skipTest('reto-segment non compilé (shared/natif/compiler.sh)')
+        self.vision = vision
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.src = self.dir / 'p.png'
+        cv2.imwrite(str(self.src), portrait_like())
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_enhance_and_styles(self):
+        res = self.vision.ameliorer(self.src, self.dir / 'e.png')
+        self.assertTrue(res['ok'])
+        warm = self.dir / 'chaud.png'
+        cold = self.dir / 'froid.png'
+        self.vision.rendu(self.src, warm, 'chaud')
+        self.vision.rendu(self.src, cold, 'froid')
+        w, c = cv2.imread(str(warm)).astype(int), cv2.imread(str(cold)).astype(int)
+        # BGR : le rendu chaud a plus de rouge et moins de bleu que le froid
+        self.assertGreater(w[:, :, 2].mean() - w[:, :, 0].mean(), c[:, :, 2].mean() - c[:, :, 0].mean())
+
+    def test_crop_reports_its_box(self):
+        res = self.vision.effet_studio('recadrage', self.src, self.dir / 'c.png', ratio='1:1')
+        x, y, w, h = res['box']
+        self.assertEqual(w, h)
+        self.assertEqual(cv2.imread(str(self.dir / 'c.png')).shape[:2], (h, w))
+
+    def test_unknown_values_are_refused(self):
+        with self.assertRaises(self.vision.VisionError):
+            self.vision.effet_studio('inconnu', self.src, self.dir / 'x.png')
+        with self.assertRaises(self.vision.VisionError):
+            self.vision.rendu(self.src, self.dir / 'x.png', 'inconnu')
+        with self.assertRaises(self.vision.VisionError):
+            self.vision.effet_studio('recadrage', self.src, self.dir / 'x.png', ratio='7:3')
+
+
+class Catalogue(unittest.TestCase):
+    """Modèles déclarés pour embedkit (apps/reveal/modeles) et contrôle des licences."""
+
+    def test_reveal_models_are_declared(self):
+        from reveal import catalogue
+        for mid in ('real-esrgan-x2', 'gfpgan-1.4', 'ddcolor', 'zhang-colorization',
+                    'mobilesam', 'migan-512', 'depth-anything-v2-small'):
+            m = catalogue.manifeste(mid)
+            self.assertEqual(len(m.sha256), 64)
+
+    def test_unverified_licences_are_flagged(self):
+        from reveal import catalogue
+        self.assertIs(catalogue.manifeste('real-esrgan-x2').license.commercial, True)
+        for mid in catalogue.A_VERIFIER:
+            self.assertIsNone(catalogue.manifeste(mid).license.commercial)
+
+    def test_unknown_licence_is_refused_without_explicit_permission(self):
+        from reveal import catalogue
+        from shared.embedkit import licenses
+        with self.assertRaises(licenses.LicenseError):
+            licenses.check(catalogue.manifeste('gfpgan-1.4'), allow_noncommercial=False)
+
+    def test_models_live_in_the_shared_store(self):
+        from reveal import catalogue
+        from shared.embedkit import store
+        path = store.model_path(catalogue.manifeste('ddcolor'))
+        self.assertTrue(str(path).startswith(os.environ['EMBEDKIT_CACHE']))
+        self.assertEqual(path.name, 'ddcolor.onnx')
 
 
 class Interface(unittest.TestCase):
@@ -99,13 +219,16 @@ class Interface(unittest.TestCase):
         self.ret.mkdir()
         cv2.imwrite(str(self.orig / 'a.jpg'), gradient())
         (root / 'secret.txt').write_text('privé')
-        self._saved = (interface.ORIGINAL, interface.RETOUCHE)
+        from reveal import config
+        self._saved = (interface.ORIGINAL, interface.RETOUCHE, config.APERCUS)
         interface.ORIGINAL, interface.RETOUCHE = self.orig, self.ret
+        config.APERCUS = root / '.apercus'
+        self.config = config
         self.interface = interface
         self.client = interface.app.test_client()
 
     def tearDown(self):
-        self.interface.ORIGINAL, self.interface.RETOUCHE = self._saved
+        self.interface.ORIGINAL, self.interface.RETOUCHE, self.config.APERCUS = self._saved
         self.tmp.cleanup()
 
     def test_lists_photos(self):
@@ -124,6 +247,32 @@ class Interface(unittest.TestCase):
                              content_type='multipart/form-data')
         self.assertEqual(r.get_json()['name'], 'a_2.jpg')
         self.assertTrue((self.orig / 'a.jpg').exists())
+
+    def test_avif_gets_a_jpeg_preview(self):
+        from PIL import Image
+        Image.fromarray(cv2.cvtColor(gradient(), cv2.COLOR_BGR2RGB)).save(self.orig / 'b.avif', 'AVIF')
+        self.assertIn('b.avif', [p['name'] for p in self.client.get('/api/photos').get_json()])
+        r = self.client.get('/media/original/b.avif')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.mimetype, 'image/jpeg')
+        self.assertTrue((self.config.APERCUS / 'b.avif.jpg').exists())
+        r.close()
+
+    def test_accepts_avif_upload(self):
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.fromarray(cv2.cvtColor(gradient(), cv2.COLOR_BGR2RGB)).save(buf, 'AVIF')
+        r = self.client.post('/api/photos', data={'photo': (io.BytesIO(buf.getvalue()), 'c.avif')},
+                             content_type='multipart/form-data')
+        self.assertEqual(r.get_json()['name'], 'c.avif')
+
+    def test_studio_settings_are_validated(self):
+        bad = [{'effet': 'inconnu'}, {'effet': 'fond-uni', 'couleur': '300,0,0'},
+               {'effet': 'fond-uni', 'couleur': 'rouge'}, {'effet': 'recadrage', 'format': '7:3'}]
+        for opts in bad:
+            r = self.client.post('/api/traiter', json=dict(photo='a.jpg', filtre='studio', **opts))
+            self.assertEqual(r.status_code, 400, opts)
 
     def test_rejects_unknown_format(self):
         import io

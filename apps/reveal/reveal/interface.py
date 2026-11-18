@@ -21,7 +21,10 @@ from pathlib import Path
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
-from .config import APP, IMAGES, ORIGINAL, RETOUCHE
+from shared.images import ConversionImpossible, convertir
+
+from . import config
+from .config import APP, IMAGES, ORIGINAL, RETOUCHE, WEB_NATIF
 
 WEB = Path(__file__).resolve().parent / 'web'
 HOST, PORT = '127.0.0.1', 8765
@@ -32,7 +35,11 @@ FILTRES = {
     'portrait': ('portrait', 'jpg'),
     'ancienne': ('ancienne', 'jpg'),
     'restauration': ('ancienne', 'restauree'),
+    'ameliorer': ('ameliorer', 'jpg'),
+    'studio': ('studio', 'jpg'),
 }
+from .vision import FORMATS_RECADRAGE, STUDIO, STYLES  # noqa: E402
+_COULEUR = re.compile(r'^\d{1,3},\d{1,3},\d{1,3}$')
 
 app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
@@ -95,9 +102,23 @@ def media(zone, name):
     folder = {'original': ORIGINAL, 'retouche': RETOUCHE}.get(zone)
     if folder is None:
         abort(404)
-    resp = send_file(_safe(folder, name))
+    path = _safe(folder, name)
+    if path.suffix.lower() not in WEB_NATIF:
+        path = _apercu(path)                    # AVIF, HEIC, TIFF… : aperçu JPEG pour le navigateur
+    resp = send_file(path)
     resp.headers['Cache-Control'] = 'no-cache'
     return resp
+
+
+def _apercu(path):
+    """Aperçu JPEG (mis en cache) d'une image que le navigateur ne sait pas afficher."""
+    cache = config.APERCUS / (path.name + '.jpg')
+    if not cache.exists() or cache.stat().st_mtime < path.stat().st_mtime:
+        try:
+            convertir(path, cache)
+        except ConversionImpossible:
+            abort(415)
+    return cache
 
 
 # ---------- API ----------
@@ -115,13 +136,25 @@ def api_upload():
     name = secure_filename(f.filename) or 'photo.jpg'
     stem, ext = Path(name).stem, Path(name).suffix.lower()
     if ext not in IMAGES:
-        return jsonify(error='Format non pris en charge (jpg, png, tif, webp).'), 400
+        return jsonify(error='Format non pris en charge. Formats acceptés : %s.'
+                       % ', '.join(sorted(e.lstrip('.') for e in IMAGES))), 400
     target, n = ORIGINAL / (stem + ext), 1
     while target.exists():                      # ne jamais remplacer un original
         n += 1
         target = ORIGINAL / ('%s_%d%s' % (stem, n, ext))
     f.save(str(target))
     return jsonify(name=target.name, url='/media/original/' + target.name)
+
+
+@app.get('/api/styles')
+def api_styles():
+    return jsonify([{'id': k, 'nom': v} for k, v in STYLES.items()])
+
+
+@app.get('/api/studio')
+def api_studio():
+    return jsonify({'effets': [{'id': k, 'nom': v[1]} for k, v in STUDIO.items()],
+                    'formats': list(FORMATS_RECADRAGE)})
 
 
 @app.get('/api/resultats')
@@ -132,9 +165,17 @@ def api_results():
 @app.post('/api/traiter')
 def api_traiter():
     data = request.get_json(silent=True) or {}
-    photo, filtre = data.get('photo', ''), data.get('filtre', 'auto')
+    photo, filtre, style = data.get('photo', ''), data.get('filtre', 'auto'), data.get('style') or None
+    opts = {'effet': data.get('effet') or 'fond-flou', 'couleur': data.get('couleur') or '255,255,255',
+            'format': data.get('format') or '4:5'}
     if filtre not in FILTRES:
         return jsonify(error='Filtre inconnu.'), 400
+    if style and style not in STYLES:
+        return jsonify(error='Rendu inconnu.'), 400
+    if filtre == 'studio' and (opts['effet'] not in STUDIO or opts['format'] not in FORMATS_RECADRAGE
+                               or not _COULEUR.match(opts['couleur'])
+                               or any(int(v) > 255 for v in opts['couleur'].split(','))):
+        return jsonify(error='Réglage du filtre Studio invalide.'), 400
     src = _safe(ORIGINAL, photo)
     with _lock:
         if _current['id'] and _jobs[_current['id']]['etat'] == 'en cours':
@@ -143,7 +184,7 @@ def api_traiter():
         _jobs[job_id] = {'id': job_id, 'photo': photo, 'filtre': filtre, 'etat': 'en cours',
                          'journal': [], 'resultat': None, 'debut': time.time()}
         _current['id'] = job_id
-    threading.Thread(target=_run, args=(job_id, src, filtre), daemon=True).start()
+    threading.Thread(target=_run, args=(job_id, src, filtre, style, opts), daemon=True).start()
     return jsonify(id=job_id)
 
 
@@ -165,11 +206,18 @@ def api_open():
     return jsonify(ok=True)
 
 
-def _run(job_id, src, filtre):
+def _run(job_id, src, filtre, style=None, opts=None):
     job = _jobs[job_id]
     kind, shown = FILTRES[filtre]
+    cmd = [sys.executable, '-m', 'reveal.traiter', '--type', kind, str(src)]
+    if style and kind == 'ameliorer':
+        cmd += ['--style', style]
+    if kind == 'studio':
+        cmd += ['--effet', opts['effet'], '--couleur', opts['couleur'], '--format', opts['format']]
+        if opts['effet'] == 'detourage':
+            shown = 'detoure'
     try:
-        proc = subprocess.Popen([sys.executable, '-m', 'reveal.traiter', '--type', kind, str(src)], cwd=str(APP),
+        proc = subprocess.Popen(cmd, cwd=str(APP),
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         for raw in proc.stdout:
             line = _ansi.sub('', raw).rstrip()

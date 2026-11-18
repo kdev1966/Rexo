@@ -16,7 +16,7 @@ function toast(msg, isErr) {
   clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 3500);
 }
 const media = (zone, name) => `/media/${zone}/${encodeURIComponent(name)}?v=${Date.now()}`;
-const FILTER_NAMES = { auto: 'Automatique', portrait: 'Portrait', ancienne: 'Photo ancienne', restauration: 'Restauration seule' };
+const FILTER_NAMES = { auto: 'Automatique', portrait: 'Portrait', ancienne: 'Photo ancienne', restauration: 'Restauration seule', ameliorer: 'Améliorer', studio: 'Studio' };
 
 // ---------- bibliothèque ----------
 async function loadPhotos() {
@@ -75,7 +75,29 @@ dz.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) u
 document.querySelectorAll('.filter').forEach((b) => b.onclick = () => {
   state.filtre = b.dataset.filtre;
   document.querySelectorAll('.filter').forEach((x) => x.classList.toggle('is-active', x === b));
+  $('styleOption').hidden = state.filtre !== 'ameliorer';
+  $('studioOptions').hidden = state.filtre !== 'studio';
+  studioVisibility();
 });
+function studioVisibility() {
+  const e = $('studioEffet').value;
+  $('couleurOption').hidden = e !== 'fond-uni';
+  $('formatOption').hidden = e !== 'recadrage';
+}
+async function loadStudio() {
+  const d = await api('/api/studio');
+  for (const e of d.effets) { const o = document.createElement('option'); o.value = e.id; o.textContent = e.nom; $('studioEffet').appendChild(o); }
+  for (const f of d.formats) { const o = document.createElement('option'); o.value = f; o.textContent = f; $('studioFormat').appendChild(o); }
+  $('studioEffet').onchange = studioVisibility;
+  studioVisibility();
+}
+function hexToRgb(h) { return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(','); }
+async function loadStyles() {
+  const sel = $('styleSelect');
+  for (const s of await api('/api/styles')) {
+    const o = document.createElement('option'); o.value = s.id; o.textContent = s.nom; sel.appendChild(o);
+  }
+}
 
 // ---------- traitement ----------
 $('applyBtn').onclick = async () => {
@@ -83,7 +105,9 @@ $('applyBtn').onclick = async () => {
   try {
     const { id } = await api('/api/traiter', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photo: state.photo, filtre: state.filtre }),
+      body: JSON.stringify({ photo: state.photo, filtre: state.filtre,
+        style: state.filtre === 'ameliorer' ? $('styleSelect').value : '',
+        effet: $('studioEffet').value, couleur: hexToRgb($('studioCouleur').value), format: $('studioFormat').value }),
     });
     state.job = { id, etat: 'en cours' };
     $('applyBtn').disabled = true;
@@ -190,7 +214,7 @@ $('openPsd').onclick = async () => {
 
 // ---------- démarrage ----------
 (async function init() {
-  try { await Promise.all([loadPhotos(), loadResults()]); }
+  try { await Promise.all([loadPhotos(), loadResults(), loadStyles(), loadStudio()]); }
   catch (e) { toast('Serveur injoignable : ' + e.message, true); return; }
   // lien direct : /?photo=1.jpg&mode=side
   const q = new URLSearchParams(location.search);

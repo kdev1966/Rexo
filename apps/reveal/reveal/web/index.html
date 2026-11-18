@@ -20,7 +20,7 @@
     <section>
       <h2><span class="step">1</span> Photo</h2>
       <label class="dropzone" id="dropzone">
-        <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.tif,.tiff,.webp" hidden>
+        <input type="file" id="fileInput" accept=".jpg,.jpeg,.jpe,.png,.tif,.tiff,.webp,.bmp,.gif,.tga,.avif,.heic,.heif,.jp2,.psd,.exr,.hdr,.qoi,.ico" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
         <span><strong>Déposer une photo</strong> ou cliquer pour choisir</span>
       </label>
@@ -46,7 +46,24 @@
           <span class="f-icon">◇</span>
           <span class="f-text"><strong>Restauration seule</strong><small>Comme « photo ancienne », résultat en noir et blanc</small></span>
         </button>
+        <button class="filter" data-filtre="studio">
+          <span class="f-icon">◎</span>
+          <span class="f-text"><strong>Studio</strong><small>Fond flou, fond uni, couleur sur fond noir et blanc, détourage, recadrage (Apple Vision)</small></span>
+        </button>
+        <button class="filter" data-filtre="ameliorer">
+          <span class="f-icon">☀</span>
+          <span class="f-text"><strong>Améliorer</strong><small>Lumière, couleurs, balance des blancs et relief (Apple), rendu de couleur au choix</small></span>
+        </button>
       </div>
+      <div class="options-studio" id="studioOptions" hidden>
+        <label class="option"><span>Effet</span><select id="studioEffet"></select></label>
+        <label class="option" id="couleurOption"><span>Couleur du fond</span><input type="color" id="studioCouleur" value="#ffffff"></label>
+        <label class="option" id="formatOption"><span>Format</span><select id="studioFormat"></select></label>
+      </div>
+      <label class="option" id="styleOption" hidden>
+        <span>Rendu de couleur</span>
+        <select id="styleSelect"><option value="">Aucun</option></select>
+      </label>
     </section>
 
     <button class="apply" id="applyBtn" disabled>Appliquer le filtre</button>

@@ -10,7 +10,7 @@ Photos anciennes (N&B/sépia) : agrandissement x2 si petite (Real-ESRGAN), puis
                                stries, rayures, bruit, voile, contraste, netteté ; fichier
                                visages par IA (GFPGAN) ; fichier NOM_photocraft_restauree.jpg),
                                puis colorisation (DDColor) en calque séparé au-dessus.
-Les modèles IA (catalogue shared/modeles) tournent sur le processeur, sans connexion.
+Les modèles IA (embedkit, manifestes dans apps/reveal/modeles) tournent sur le processeur, sans connexion.
 
 Résultat : retouche/NOM_photocraft.psd (calques modifiables), NOM_photocraft.jpg, et
 NOM_photocraft_avant.jpg (l'original à la même géométrie, pour comparer avant / après).
@@ -29,9 +29,12 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
+from shared.images import ConversionImpossible
 from shared.photocraft import PhotoCraft, PhotoCraftError
 
-from . import analyse, ia
+from . import analyse, ia, vision
 from .config import DONNEES, IMAGES, ORIGINAL, REGLAGES, RETOUCHE
 from .config import TRAVAIL as WORK
 
@@ -94,6 +97,7 @@ class Job:
         self.width, self.height = info['width'], info['height']
         self.img = analyse.load(path)
         self.extras = []          # images complémentaires enregistrées avec le résultat (suffixe, image)
+        self.extra_files = []     # fichiers complémentaires copiés tels quels (suffixe, chemin)
 
     def select_from_mask(self, mask, name):
         """Charge un masque calculé en Python comme sélection dans le document de la photo."""
@@ -123,6 +127,10 @@ class Job:
             path = jpg.with_name(jpg.stem + suffix + '.jpg')
             analyse.cv2.imwrite(str(path), image, [analyse.cv2.IMWRITE_JPEG_QUALITY, 92])
             self.outputs[suffix.strip('_')] = path.name
+        for suffix, src in getattr(self, 'extra_files', []):
+            path = jpg.with_name(jpg.stem + suffix + Path(src).suffix)
+            shutil.copyfile(src, path)
+            self.outputs[suffix.strip('_')] = path.name
         return psd, jpg
 
 
@@ -139,7 +147,7 @@ def portrait(job):
     d = max(f.eye_dist for f in faces)
 
     # Visages par IA (GFPGAN), calque séparé à 50 % pour garder le grain et la ressemblance
-    if ia.available('gfpgan_1.4'):
+    if ia.available('gfpgan-1.4'):
         t = time.time()
         try:
             restored = ia.restore_faces(job.img, faces, blend=1.0)
@@ -161,6 +169,18 @@ def portrait(job):
     pc.cmd('filter.blur.surfaceBlur', radius=max(3, round(d / 10)), threshold=16)
     pc.cmd('filter.noise.addNoise', amount=1.5, distribution='gaussian', monochromatic=True, seed=7)
     skin = analyse.skin_mask(base, faces)
+    # A. La peau seulement sur les personnes (Apple Vision) : le fond couleur chair n'est plus lissé
+    if vision.disponible():
+        try:
+            people, part = vision.masque_personnes(job.work / 'base_portrait.png', job.work / 'personnes.png')
+            k = max(3, int(d * 0.15)) | 1
+            people = analyse.cv2.GaussianBlur(analyse.cv2.dilate(people, np.ones((k, k), np.uint8)), (k, k), 0)
+            before = analyse.coverage(skin)
+            skin = skin * people
+            log('  personnes (Apple Vision) : %.0f %% de l\'image ; peau limitée aux personnes : %.0f %% -> %.0f %%'
+                % (part * 100, before * 100, analyse.coverage(skin) * 100))
+        except vision.VisionError as e:
+            log('  masque des personnes indisponible : %s' % str(e)[:120])
     log('  peau : %.0f %% de l\'image' % (analyse.coverage(skin) * 100))
     job.select_from_mask(skin, 'peau')
     pc.cmd('layer.layerMask.revealSelection')
@@ -178,6 +198,53 @@ def portrait(job):
         pc.cmd('layer.newFillLayer.solidColor', color=color)
         pc.cmd('layer.setProps', name=label, blend=mode, opacity=opacity)
         deselect(pc)
+    return True
+
+
+def ameliorer(job, style=None):
+    """C. Amélioration automatique d'Apple (lumière, couleurs, balance des blancs, relief),
+    puis rendu de couleur facultatif. Chaque étape est un calque du PSD."""
+    pc = job.pc
+    start = job.work / 'avant.png'
+    job.extras.append(('_avant', export_current(job, 'avant')))
+    out = job.work / 'ameliore.png'
+    res = vision.ameliorer(start, out)
+    pc.call('doc.place', path=str(out))
+    pc.cmd('layer.setProps', name='Amélioration (Apple)')
+    log('  amélioration : %s' % ', '.join(n.replace('CI', '') for n in res.get('enhance', [])))
+    if style:
+        styled = job.work / 'rendu.png'
+        vision.rendu(out, styled, style)
+        pc.call('doc.place', path=str(styled))
+        pc.cmd('layer.setProps', name='Rendu : %s' % vision.STYLES[style])
+        log('  rendu de couleur : %s' % vision.STYLES[style])
+    return True
+
+
+def studio(job, effet, couleur='255,255,255', ratio='4:5'):
+    """B. Effets de studio sur les personnes détourées par Apple Vision."""
+    pc = job.pc
+    avant = export_current(job, 'avant')
+    out = job.work / 'studio.png'
+    res = vision.effet_studio(effet, job.work / 'avant.png', out, couleur=couleur, ratio=ratio)
+    label = vision.STUDIO[effet][1]
+    log('  personnes (Apple Vision) : %.0f %% de l\'image' % (res.get('coverage', 0) * 100))
+    if effet == 'recadrage':
+        x, y, w, h = res['box']
+        pc.cmd('image.crop', x=x, y=y, width=w, height=h)
+        job.width, job.height = w, h
+        avant = avant[y:y + h, x:x + w]
+        log('  recadrage %s : %dx%d (cadre %d, %d)' % (ratio, w, h, x, y))
+    else:
+        pc.call('doc.place', path=str(out))
+        pc.cmd('layer.setProps', name=label if effet != 'fond-uni' else '%s (%s)' % (label, couleur))
+        if effet == 'detourage':
+            for layer in pc.cmd('layer.list')['layers']:
+                if layer['name'] == 'Background':
+                    pc.cmd('layer.setProps', layer=layer['id'], visible=False)
+            job.extra_files.append(('_detoure', out))          # PNG transparent, livré tel quel
+        log('  effet : %s' % label)
+    job.extras.append(('_avant', avant))
     return True
 
 
@@ -257,7 +324,7 @@ def ancienne(job):
         log('  correcteur localisé : %s (%d px)' % (r.get('nom', 'tracé'), size))
 
     # 6. Visages restaurés par IA (GFPGAN), sur un calque séparé réglable
-    if ia.available('gfpgan_1.4'):
+    if ia.available('gfpgan-1.4'):
         faces = [f for f in analyse.faces_from(pc.cmd('image.detectFaces', minScore=0.5), min_score=0.6)
                  if f.eye_dist >= 8]
         faces = faces_for_ai(job, faces)
@@ -302,7 +369,11 @@ def ancienne(job):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('photos', nargs='*', type=Path, help='photos à traiter (défaut : tout original/)')
-    ap.add_argument('--type', choices=['auto', 'portrait', 'ancienne'], default='auto')
+    ap.add_argument('--type', choices=['auto', 'portrait', 'ancienne', 'ameliorer', 'studio'], default='auto')
+    ap.add_argument('--effet', choices=sorted(vision.STUDIO), default='fond-flou', help='effet (avec --type studio)')
+    ap.add_argument('--couleur', default='255,255,255', help='fond uni : couleur R,V,B (0-255)')
+    ap.add_argument('--format', dest='ratio', choices=vision.FORMATS_RECADRAGE, default='4:5', help='recadrage')
+    ap.add_argument('--style', choices=sorted(vision.STYLES), help='rendu de couleur (avec --type ameliorer)')
     args = ap.parse_args()
 
     photos = [p.resolve() for p in args.photos] or sorted(
@@ -317,23 +388,32 @@ def main():
                 log('== %s' % src.name)
                 t = time.time()
                 try:
-                    img = analyse.load(src)
+                    img, outil = analyse.load_any(src, WORK / src.stem)
+                    if outil:
+                        log('  format %s converti par %s' % (src.suffix.lower().lstrip('.').upper(), outil))
                     kind = args.type
                     if kind == 'auto':
                         kind = 'ancienne' if analyse.is_monochrome(img) else 'portrait'
                     log('  type : %s' % kind)
-                    start = None
-                    if kind == 'ancienne' and max(img.shape[:2]) < 1600 and ia.available('real_esrgan_x2'):
+                    start = img if outil else None          # photo convertie : PhotoCraft ouvre le PNG
+                    if kind == 'ancienne' and max(img.shape[:2]) < 1600 and ia.available('real-esrgan-x2'):
                         t2 = time.time()
                         try:
                             start = ia.upscale_x2(img)
                             log('  agrandie x2 (Real-ESRGAN) : %dx%d, %.0f s'
                                 % (start.shape[1], start.shape[0], time.time() - t2))
                         except Exception as e:
-                            start = None
+                            start = img if outil else None
                             log('  agrandissement impossible, taille d\'origine gardée : %s' % str(e)[:120])
                     job = Job(pc, src, start)
-                    done = portrait(job) if kind == 'portrait' else ancienne(job)
+                    if kind == 'portrait':
+                        done = portrait(job)
+                    elif kind == 'ameliorer':
+                        done = ameliorer(job, args.style)
+                    elif kind == 'studio':
+                        done = studio(job, args.effet, args.couleur, args.ratio)
+                    else:
+                        done = ancienne(job)
                     if done:
                         psd, jpg = job.save()
                         log('  -> %s, %s (%.0f s)' % (psd.name, jpg.name, time.time() - t))
@@ -342,7 +422,7 @@ def main():
                         ok += 1
                     else:
                         pc.call('doc.close', index=job.index)
-                except (PhotoCraftError, ValueError) as e:
+                except (PhotoCraftError, ValueError, ConversionImpossible) as e:
                     log('  ERREUR : %s' % e)
                     try:
                         for _ in range(5):
