@@ -6,6 +6,7 @@ Lancement (depuis apps/identite) : .venv/bin/python -m unittest discover tests
 import math
 import unittest
 
+import cv2
 import numpy as np
 
 from identite import cadrage, couleurs, fond, planche
@@ -79,6 +80,16 @@ class Geometrie(unittest.TestCase):
         v = visage_synthetique()
         self.assertAlmostEqual(cadrage.ouverture(v.yeux[0], 0.0), 0.3, places=6)
 
+    def test_reduction_sans_crenelage(self):
+        """Damier d'un pixel réduit 4 fois : gris uniforme, pas de grain."""
+        damier = (np.indices((2000, 2000)).sum(axis=0) % 2 * 255).astype(np.uint8)
+        img = cv2.merge([damier] * 3)
+        m = np.array([[0.25, 0, 0], [0, 0.25, 0]])
+        out, _ = cadrage.rendre(img, m, (35, 45), (214, 214, 214))
+        zone = out[50:450, 50:350].astype(np.float32)
+        self.assertLess(zone.std(), 3.0)
+        self.assertAlmostEqual(float(zone.mean()), 127.5, delta=3)
+
     def test_rendu_et_couverture(self):
         v = visage_synthetique()
         img = np.full((1000, 1000, 3), 128, np.uint8)
@@ -100,7 +111,7 @@ class Couleurs(unittest.TestCase):
 
     def test_dominante_corrigee(self):
         img, masque = self.scene((200, 192, 185))          # fond gris, lumière froide (BGR)
-        gains, raison = couleurs.gains_fond(img, masque)
+        gains, raison, etat = couleurs.gains_fond(img, masque)
         self.assertIsNotNone(gains, raison)
         b, v, r = couleurs.appliquer_gains(img, gains)[5, 5].astype(int)
         self.assertLess(r, b)                                # même sens, sans inversion
@@ -108,15 +119,39 @@ class Couleurs(unittest.TestCase):
 
     def test_fond_colore_refuse(self):
         img, masque = self.scene((230, 120, 40))            # fond bleu franc
-        gains, raison = couleurs.gains_fond(img, masque)
+        gains, raison, etat = couleurs.gains_fond(img, masque)
         self.assertIsNone(gains)
         self.assertIn('coloré', raison)
 
     def test_fond_trop_petit(self):
         img, masque = self.scene((200, 200, 200))
         masque[:] = 1.0
-        gains, raison = couleurs.gains_fond(img, masque)
+        gains, raison, etat = couleurs.gains_fond(img, masque)
         self.assertIsNone(gains)
+
+    def test_fond_presque_neutre_laisse_tel_quel(self):
+        """Toile à peine teintée (photo de studio déjà réglée) : aucune correction."""
+        img, masque = self.scene((201, 196, 201))          # gris légèrement violacé
+        gains, raison, etat = couleurs.gains_fond(img, masque)
+        self.assertIsNone(gains, raison)
+        self.assertEqual(etat, 'neutre')
+
+    def test_force_selon_l_ecart(self):
+        self.assertEqual(couleurs.force_fond(0.05), 0.0)
+        self.assertAlmostEqual(couleurs.force_fond(0.125), 0.5)
+        self.assertAlmostEqual(couleurs.force_fond(0.15), 1.0)
+        self.assertAlmostEqual(couleurs.force_fond(0.30), 0.5)
+        self.assertEqual(couleurs.force_fond(0.4), 0.0)
+
+    def test_teinte_de_la_peau(self):
+        pupilles = np.array([[60.0, 50.0], [140.0, 50.0]])
+        img = np.zeros((200, 200, 3), np.uint8)
+        img[:] = (110, 140, 200)                            # peau naturelle (BGR)
+        i, q = couleurs.teinte_peau(img, pupilles)
+        self.assertGreater(i, 0.1)
+        self.assertTrue(couleurs.PEAU_Q[0] <= q <= couleurs.PEAU_Q[1], q)
+        img[:] = (110, 175, 170)                            # peau verdâtre
+        self.assertLess(couleurs.teinte_peau(img, pupilles)[1], couleurs.PEAU_Q[0])
 
     def test_conversions_lineaires(self):
         x = np.arange(256, dtype=np.uint8).reshape(1, -1, 1).repeat(3, axis=2)

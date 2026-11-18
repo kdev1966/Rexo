@@ -92,7 +92,8 @@ def fabriquer(src, dest=RESULTATS, mode_couleurs='auto', norme=FRANCE, dpi=DPI):
         travail = Path(t)
         png = lire(src, travail)
         visage, masque = analyser(png, travail / 'masque.png')
-        corrigee, rapport_couleurs = couleurs.corriger(png, masque, travail, mode_couleurs)
+        corrigee, rapport_couleurs = couleurs.corriger(png, masque, travail, mode_couleurs,
+                                                       visage.pupilles)
     detouree = fond.remplacer(corrigee, masque, norme.fond)
     tete = cadrage.mesurer(visage, masque)
     m, infos = cadrage.placer(tete, norme, dpi)
@@ -130,7 +131,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Photos d'identité (normes françaises) et planches 10 × 15 cm")
     ap.add_argument('photos', nargs='*', help='photos (par défaut : toutes celles de donnees/original/)')
     ap.add_argument('--couleurs', choices=couleurs.MODES, default='auto',
-                    help='balance des blancs : auto (fond neutre, sinon peau), fond, apple, aucune')
+                    help='balance des blancs : auto (dominante nette du fond ou de la peau), fond, apple, aucune')
     ap.add_argument('--fond', default=None, help='couleur du fond r,v,b (gris clair par défaut)')
     ap.add_argument('--sortie', default=str(RESULTATS), help='dossier des résultats')
     a = ap.parse_args(argv)

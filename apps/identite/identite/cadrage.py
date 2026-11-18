@@ -135,6 +135,18 @@ def rendre(img, m, taille_mm, fond, dpi=DPI):
     couverture = part de chaque bord (haut, bas, gauche, droite) réellement couverte par la photo."""
     w, h = px(taille_mm[0], dpi), px(taille_mm[1], dpi)
     fond_bgr = tuple(int(c) for c in fond[::-1])
+    # Forte réduction : warpAffine ne lisse pas avant d'échantillonner (crénelage, grain
+    # scintillant sur la peau). On réduit d'abord par moyenne des pixels (INTER_AREA),
+    # puis la transformation travaille à l'échelle 1.
+    echelle = math.sqrt(abs(np.linalg.det(m[:, :2])))
+    if echelle < 0.9:
+        sw = max(1, int(round(img.shape[1] * echelle)))
+        sh = max(1, int(round(img.shape[0] * echelle)))
+        kx, ky = sw / img.shape[1], sh / img.shape[0]
+        img = cv2.resize(img, (sw, sh), interpolation=cv2.INTER_AREA)
+        m = m.copy()
+        m[:, 0] /= kx
+        m[:, 1] /= ky
     out = cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT,
                          borderValue=fond_bgr)
     un = cv2.warpAffine(np.ones(img.shape[:2], np.uint8), m, (w, h), flags=cv2.INTER_NEAREST, borderValue=0)

@@ -8,10 +8,10 @@ d'IA à télécharger. Aucune photo ne quitte la machine.
 
 | Étape | Méthode |
 |---|---|
-| **Balance des blancs** | Le fond d'origine sert de charte de gris : sa dominante, mesurée en lumière linéaire loin de la personne, donne la correction. Elle est appliquée en entier pour une légère dominante, et à moitié seulement pour un fond nettement teinté, qui peut être un choix du studio. Si le fond est coloré, trop petit ou brûlé, la balance d'Apple sur la peau des visages (`CIFaceBalance`) prend le relais |
+| **Balance des blancs** | Ne corrige que ce qui est manifestement faux : une photo de studio déjà réglée est laissée telle quelle. Le fond d'origine sert de charte de gris. Sous un écart de 0,10, il est jugé neutre (sa teinte vient de la toile) et rien n'est corrigé. De 0,10 à 0,15, la correction monte jusqu'à être entière. De 0,15 à 0,30, elle redescend jusqu'à la moitié, car un fond franchement teinté peut être un choix du studio. Si le fond ne sert pas de référence, c'est la peau qui décide : dans l'espace YIQ, une peau bien rendue a une composante Q proche de 0 (mesuré de +0,01 à +0,04). La balance d'Apple (`CIFaceBalance`) n'intervient que si la peau sort de cette plage |
 | **Exposition** | Réglages automatiques d'Apple (courbe de tons, ombres et hautes lumières), sans relief ni vivacité |
 | **Fond** | Personne détourée par Apple Vision, fond remplacé par un gris clair uni (le blanc est refusé). Les bords des cheveux sont nettoyés de la couleur de l'ancien fond |
-| **Cadrage** | Ligne des yeux remise à l'horizontale. Tête de 34 mm du bas du menton au sommet du crâne (norme : 32 à 36 mm), centrée, crâne à 5 mm du bord haut. Photo de 35 × 45 mm à 300 points par pouce |
+| **Cadrage** | Photo réduite par moyenne des pixels (sans crénelage), ligne des yeux remise à l'horizontale. Tête de 34 mm du bas du menton au sommet du crâne (norme : 32 à 36 mm), centrée, crâne à 5 mm du bord haut. Photo de 35 × 45 mm à 300 points par pouce |
 | **Contrôles** | Avertissements, la photo est produite quand même : plusieurs visages, tête tournée ou très penchée, yeux fermés ou plissés, définition faible, cheveux ou haut de la tête coupés, photo d'origine trop serrée |
 | **Planches** | 10 × 15 cm à l'italienne : « 8 photos d'identité » (4 × 2) et « 4 photos d'identité + 1 portrait » (portrait de 66 × 88 mm). Traits de coupe d'un bord à l'autre de la planche, visibles dans les marges et entre les photos |
 
@@ -69,7 +69,7 @@ cd apps/identite
 .venv/bin/python -m identite.fabriquer --fond 220,220,220 photo.jpg # autre gris
 ```
 
-`--couleurs` : `auto` (fond neutre, sinon peau), `fond`, `apple` ou `aucune`.
+`--couleurs` : `auto` (dominante nette du fond, sinon de la peau), `fond`, `apple` (toujours la balance d'Apple) ou `aucune`. Le rapport donne la teinte de la peau avant et après.
 
 Résultats dans `donnees/resultats/`, en JPEG à 300 points par pouce : `NOM_identite.jpg`
 (35 × 45 mm), `NOM_planche_8.jpg`, `NOM_planche_4_portrait.jpg` (150 × 100 mm), et
