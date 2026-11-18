@@ -7,6 +7,10 @@ Un client (nom, prénom, téléphone) a plusieurs photos ; chaque photo a sa per
 photographiée (le client lui-même, un enfant, un conjoint…). La recherche porte sur les
 noms et prénoms du client et des personnes photographiées, sans tenir compte des accents
 ni des majuscules, ou sur le téléphone, quelle que soit son écriture.
+
+Téléphones au format tunisien : 8 chiffres sans 0 initial (20 123 456), indicatif +216
+(ou 00216), enregistrés sous la forme « 20 123 456 ». Un numéro étranger est accepté s'il
+commence par + ou 00 ; il est gardé tel quel, espaces normalisés.
 """
 
 import re
@@ -56,14 +60,53 @@ def cle(*parties):
     return ' '.join(sans_accents(' '.join(p for p in parties if p)).split())
 
 
+INDICATIF = '216'          # Tunisie
+CHIFFRES_NATIONAUX = 8
+
+
 def chiffres_tel(tel):
-    """Chiffres du téléphone, au format national : +33 6 12… et 0033 6 12… -> 0612…"""
-    d = re.sub(r'\D', '', tel or '')
-    if d.startswith('0033'):
-        d = '0' + d[4:]
-    elif d.startswith('33') and len(d) == 11:
-        d = '0' + d[2:]
+    """Chiffres du téléphone pour la recherche : numéro national tunisien (8 chiffres) quand
+    il est reconnu, +216 et 00216 retirés ; sinon tous les chiffres, sans le 00 initial."""
+    brut = (tel or '').strip()
+    d = re.sub(r'\D', '', brut)
+    if d.startswith('00'):
+        d = d[2:]
+    if d.startswith(INDICATIF) and len(d) == len(INDICATIF) + CHIFFRES_NATIONAUX:
+        return d[len(INDICATIF):]
     return d
+
+
+def chiffres_recherche(texte):
+    """Chiffres cherchés : comme chiffres_tel, et l'indicatif retiré aussi d'un numéro
+    incomplet (« +216 20 12 » -> « 2012 »)."""
+    brut = (texte or '').strip()
+    d = re.sub(r'\D', '', brut)
+    international = brut.startswith('+') or d.startswith('00')
+    if d.startswith('00'):
+        d = d[2:]
+    if (international or len(d) > CHIFFRES_NATIONAUX) and d.startswith(INDICATIF):
+        return d[len(INDICATIF):]
+    return d
+
+
+def formater_tel(tel):
+    """Forme enregistrée : « 20 123 456 » pour un numéro tunisien ; sinon le numéro tel quel
+    (espaces normalisés). Lève BaseError si le numéro n'est pas valide."""
+    brut = ' '.join((tel or '').split())
+    if not brut:
+        return ''
+    if re.search(r'[^\d\s+().-]', brut):
+        raise BaseError('téléphone : chiffres seulement (ex. 20 123 456)')
+    d = chiffres_tel(brut)
+    international = brut.startswith('+') or re.sub(r'\D', '', brut).startswith('00')
+    tunisien = not international or re.sub(r'\D', '', brut).lstrip('0').startswith(INDICATIF)
+    if tunisien:
+        if len(d) != CHIFFRES_NATIONAUX:
+            raise BaseError('numéro tunisien : 8 chiffres (ex. 20 123 456)')
+        return '%s %s %s' % (d[:2], d[2:5], d[5:])
+    if not 8 <= len(d) <= 15:
+        raise BaseError('numéro étranger invalide (indicatif compris, ex. +33 6 12 34 56 78)')
+    return brut
 
 
 def _propre(texte, longueur=80):
@@ -79,6 +122,19 @@ class Base:
         self.chemin.parent.mkdir(parents=True, exist_ok=True)
         with closing(self._connexion()) as c, c:
             c.executescript(SCHEMA)
+            self._remettre_au_format(c)
+
+    @staticmethod
+    def _remettre_au_format(c):
+        """Fiches enregistrées avant la règle actuelle : téléphone et clé de recherche recalculés."""
+        for r in c.execute('SELECT id, telephone, tel_chiffres FROM clients').fetchall():
+            try:
+                tel = formater_tel(r['telephone'])
+            except BaseError:
+                tel = r['telephone']                # illisible : gardé tel quel
+            if tel != r['telephone'] or chiffres_tel(tel) != r['tel_chiffres']:
+                c.execute('UPDATE clients SET telephone=?, tel_chiffres=? WHERE id=?',
+                          (tel, chiffres_tel(tel), r['id']))
 
     def _connexion(self):
         c = sqlite3.connect(str(self.chemin), timeout=10)
@@ -89,11 +145,9 @@ class Base:
     # ---------- clients ----------
 
     def creer_client(self, nom, prenom='', telephone=''):
-        nom, prenom, telephone = _propre(nom), _propre(prenom), _propre(telephone, 30)
+        nom, prenom, telephone = _propre(nom), _propre(prenom), formater_tel(_propre(telephone, 30))
         if not nom:
             raise BaseError('le nom du client est obligatoire')
-        if telephone and len(chiffres_tel(telephone)) < 6:
-            raise BaseError('numéro de téléphone invalide')
         with closing(self._connexion()) as c, c:
             cur = c.execute('INSERT INTO clients (nom, prenom, telephone, tel_chiffres, cle, cree_le) '
                             'VALUES (?, ?, ?, ?, ?, ?)',
@@ -101,7 +155,7 @@ class Base:
             return cur.lastrowid
 
     def modifier_client(self, client_id, nom, prenom='', telephone=''):
-        nom, prenom, telephone = _propre(nom), _propre(prenom), _propre(telephone, 30)
+        nom, prenom, telephone = _propre(nom), _propre(prenom), formater_tel(_propre(telephone, 30))
         if not nom:
             raise BaseError('le nom du client est obligatoire')
         with closing(self._connexion()) as c, c:
@@ -134,7 +188,7 @@ class Base:
             elif len(chiffres) >= 3 and len(chiffres) >= len(re.sub(r'\s', '', texte)) - 1:
                 # surtout des chiffres : téléphone (format national, n'importe quelle partie)
                 rows = c.execute('SELECT * FROM clients WHERE tel_chiffres LIKE ? ORDER BY nom, prenom LIMIT ?',
-                                 ('%' + chiffres_tel(texte) + '%', limite)).fetchall()
+                                 ('%' + chiffres_recherche(texte) + '%', limite)).fetchall()
             else:
                 mots = cle(texte).split()
                 cond = ' AND '.join(['(c.cle LIKE ? OR EXISTS (SELECT 1 FROM photos p '

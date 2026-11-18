@@ -36,7 +36,9 @@ marge de chaque côté pour cette estimation.
   machine et n'entrent jamais dans le dépôt git (`donnees/` est ignoré).
 - **Recherche** (onglet Clients) : par nom ou prénom du client ou des personnes photographiées,
   sans tenir compte des accents ni des majuscules, ou par téléphone, quelle que soit son
-  écriture (`06 12…`, `+33 6 12…`). Depuis la fiche : réimprimer une planche, ouvrir le
+  écriture (`20123456`, `+216 20 123 456`, `00216…`, ou une partie : `123 456`).
+- **Téléphones** au format tunisien : 8 chiffres, enregistrés sous la forme `20 123 456`
+  (+216 et 00216 retirés). Un numéro étranger est accepté avec son indicatif (`+33 6…`). Depuis la fiche : réimprimer une planche, ouvrir le
   dossier, modifier le client, supprimer une photo ou le client.
 - **Suppression** : « Retirer de la liste » (Atelier) met à la Corbeille le portrait, ses
   planches et son rapport ; on peut aussi les retirer automatiquement après l'enregistrement.

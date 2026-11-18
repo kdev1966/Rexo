@@ -504,7 +504,7 @@ async function ouvrirClient(id) {
 function modifierClient(c) {
   const e = $('clientEdit'); e.innerHTML = ''; e.hidden = false;
   const champ = (val, ph) => { const i = document.createElement('input'); i.className = 'input'; i.value = val; i.placeholder = ph; return i; };
-  const n = champ(c.nom, 'Nom'), p = champ(c.prenom, 'Prénom'), t = champ(c.telephone, 'Téléphone');
+  const n = champ(c.nom, 'Nom'), p = champ(c.prenom, 'Prénom'), t = champ(c.telephone, 'Téléphone : 20 123 456');
   const ok = bouton('Enregistrer', 'btn btn-primary btn-small', async () => {
     try {
       await api('/api/clients/' + c.id, jsonPost('PUT', { nom: n.value, prenom: p.value, telephone: t.value }));

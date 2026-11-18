@@ -288,20 +288,48 @@ class BaseClients(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_recherche_par_nom_sans_accents(self):
-        cid = self.b.creer_client('Lefèvre', 'Hélène', '06 12 34 56 78')
+        cid = self.b.creer_client('Lefèvre', 'Hélène', '20 123 456')
         self.b.creer_client('Martin', 'Paul', '')
         self.assertEqual([c['id'] for c in self.b.chercher('helene')], [cid])
         self.assertEqual([c['id'] for c in self.b.chercher('LEFEVRE hel')], [cid])
         self.assertEqual(self.b.chercher('dupont'), [])
 
+    def test_telephone_tunisien_enregistre_au_format(self):
+        from identite.base import formater_tel
+        for saisie in ('20123456', '20 123 456', '+216 20 123 456', '0021620123456', '+216-20-123-456'):
+            self.assertEqual(formater_tel(saisie), '20 123 456', saisie)
+        self.assertEqual(formater_tel('+33 6 12 34 56 78'), '+33 6 12 34 56 78')   # étranger : tel quel
+        self.assertEqual(formater_tel(''), '')
+
+    def test_telephone_invalide(self):
+        from identite.base import BaseError, formater_tel
+        for saisie in ('2012345', '201234567', '0612345678', '+216 20 12', 'abc', '+33 6'):
+            with self.assertRaises(BaseError, msg=saisie):
+                formater_tel(saisie)
+
     def test_recherche_par_telephone(self):
-        cid = self.b.creer_client('Lefèvre', 'Hélène', '+33 6 12 34 56 78')
-        for q in ('0612345678', '06 12 34', '+33612345678', '345678'):
+        cid = self.b.creer_client('Ben Salah', 'Amel', '+216 98 765 432')
+        self.assertEqual(self.b.client(cid)['telephone'], '98 765 432')
+        for q in ('98765432', '98 765 432', '+216 98 765 432', '0021698765432', '765 432', '+216 98 76'):
             self.assertEqual([c['id'] for c in self.b.chercher(q)], [cid], q)
+        self.assertEqual(self.b.chercher('20 123 456'), [])
+
+    def test_anciennes_fiches_remises_au_format(self):
+        import sqlite3
+        from contextlib import closing
+
+        from identite.base import Base
+        with closing(sqlite3.connect(str(self.b.chemin))) as c, c:
+            c.execute("INSERT INTO clients (nom, prenom, telephone, tel_chiffres, cle, cree_le) "
+                      "VALUES ('Trabelsi', 'Sami', '+216 22333444', '21622333444', 'trabelsi sami', 0)")
+        b = Base(self.b.chemin)
+        fiche = b.chercher('trabelsi')[0]
+        self.assertEqual(fiche['telephone'], '22 333 444')
+        self.assertEqual([c['nom'] for c in b.chercher('22333444')], ['Trabelsi'])
 
     def test_parent_et_enfants(self):
         """Une mère fait faire les photos de ses enfants : on la retrouve par leurs prénoms."""
-        mere = self.b.creer_client('Benali', 'Samira', '0700000000')
+        mere = self.b.creer_client('Benali', 'Samira', '50 000 000')
         self.b.ajouter_photo(mere, 'Benali', 'Yanis', 'enfant', '/tmp/a')
         self.b.ajouter_photo(mere, 'Benali', 'Inès', 'enfant', '/tmp/b')
         self.b.ajouter_photo(mere, 'Benali', 'Samira', 'lui-même', '/tmp/c')
@@ -369,13 +397,13 @@ class Archive(unittest.TestCase):
 
     def test_enregistrer_puis_supprimer(self):
         b = self.archive.base()
-        cid = b.creer_client('Benali', 'Samira', '07 00 00 00 00')
+        cid = b.creer_client('Benali', 'Samira', '+216 50 111 222')
         pid = self.archive.enregistrer('enfant.jpg', cid, 'Benali', 'Inès', 'enfant')
         dossier = self.archive.base().photo(pid)['dossier']
         from pathlib import Path
         noms = sorted(p.name for p in Path(dossier).iterdir())
         self.assertEqual(noms, ['identite.jpg', 'original.jpg', 'planche_4_portrait.jpg', 'planche_8.jpg', 'rapport.json'])
-        self.assertIn('BENALI Samira - 07 00 00 00 00', dossier)
+        self.assertIn('BENALI Samira - 50 111 222', dossier)
         self.assertTrue(Path(dossier).name.endswith('Inès Benali'))
         # le portrait et ses planches quittent la liste de travail, vers la Corbeille
         self.archive.retirer_du_travail('enfant.jpg')
