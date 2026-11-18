@@ -32,6 +32,16 @@ cd apps/identite
 .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
 ```
 
+## Application à ouvrir d'un double-clic
+
+```bash
+shared/lanceur/creer_app.sh identite --bureau     # depuis la racine du hub
+```
+
+Crée `~/Applications/Identité.app` et un raccourci sur le Bureau. Un double-clic démarre le
+serveur local et ouvre la page dans le navigateur ; quitter l'application (Cmd+Q) arrête le
+serveur. Journal : `~/Library/Logs/RetoHub/identite.log`. Sans `--bureau`, pas de raccourci.
+
 ## Utilisation
 
 ### Interface web

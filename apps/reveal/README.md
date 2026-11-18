@@ -35,6 +35,16 @@ Licences : GFPGAN, DDColor et la colorisation de Zhang ont un usage commercial *
 (`commercial: unknown` dans `modeles/*.yaml`). Reveal les autorise explicitement
 (`reveal/catalogue.py`, `A_VERIFIER`) et affiche un avertissement à chaque chargement.
 
+## Application à ouvrir d'un double-clic
+
+```bash
+shared/lanceur/creer_app.sh reveal --bureau     # depuis la racine du hub
+```
+
+Crée `~/Applications/Reveal.app` et un raccourci sur le Bureau. Un double-clic démarre le
+serveur local et ouvre la page dans le navigateur ; quitter l'application (Cmd+Q) arrête le
+serveur. Journal : `~/Library/Logs/RetoHub/reveal.log`. Sans `--bureau`, pas de raccourci.
+
 ## Utilisation
 
 ### Interface web
