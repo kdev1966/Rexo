@@ -26,6 +26,8 @@ shared/natif/         reto-segment (Swift, Apple Vision et Core Image) : détour
                       compiler.sh le compile sur la machine, __init__.py l'appelle depuis Python
 shared/python/        installer.sh : Python 3.11 autonome partagé (python-build-standalone, SHA-256 épinglé)
 shared/lanceur/       creer_app.sh : application macOS à ouvrir d'un double-clic (serveur local + navigateur)
+shared/langues.py     traduction des interfaces (arabe) : catalogue JSON par application, messages du serveur
+shared/web/           scripts communs des pages (langues.js : traduction, sens de droite à gauche)
 shared/images/        conversion de tous les formats d'image en PNG ou JPEG (Pillow, PhotoCraft, sips)
 docs/adr/             décisions d'architecture
 ```

@@ -118,3 +118,40 @@ def ajouter_version(app, module, dossier_app):
 
         threading.Thread(target=relancer, daemon=True).start()
         return jsonify(ok=True)
+
+
+def ajouter_langues(app, catalogue_ar):
+    """Langue arabe pour l'application Flask `app` : catalogue `catalogue_ar` (JSON, voir
+    shared/langues.py). Ajoute /commun/<fichier> (scripts communs de shared/web),
+    /langues/ar.js (le catalogue pour la page) et la traduction des messages du serveur
+    quand la page envoie « X-Langue: ar »."""
+    import json
+
+    from flask import Response, send_from_directory
+
+    from shared.langues import Catalogue
+
+    catalogue = Catalogue(catalogue_ar)
+    commun = HUB / 'shared' / 'web'
+
+    @app.get('/commun/<path:nom>')
+    def fichiers_communs(nom):
+        return send_from_directory(commun, nom)
+
+    @app.get('/langues/ar.js')
+    def catalogue_js():
+        texte = Path(catalogue_ar).read_text(encoding='utf-8')
+        json.loads(texte)                         # catalogue invalide : erreur ici, pas dans la page
+        r = Response('window.CATALOGUE_AR = %s;\n' % texte, mimetype='application/javascript')
+        r.headers['Cache-Control'] = 'no-cache'
+        return r
+
+    @app.after_request
+    def traduire_reponse(r):
+        if request.headers.get('X-Langue') == 'ar' and r.is_json:
+            donnees = r.get_json(silent=True)
+            if donnees is not None:
+                r.set_data(json.dumps(catalogue.traduire_json(donnees), ensure_ascii=False))
+        return r
+
+    return catalogue

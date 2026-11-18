@@ -18,6 +18,7 @@
   </nav>
   <div class="topbar-right">
     <div class="topbar-note">Normes françaises · 35 × 45 mm · rien ne quitte cet ordinateur</div>
+    <button class="lang" id="langBtn" type="button"></button>
     <button class="quit" id="quitBtn" title="Arrêter le serveur et libérer la mémoire">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
       <span>Quitter</span>
@@ -119,7 +120,7 @@
       </div>
       <ul class="warnings" id="warnings"></ul>
       <dl class="facts" id="facts"></dl>
-      <p class="hint print-hint">« Imprimer » envoie la planche à sa taille réelle (15 × 10 cm, 300 dpi). Dans la fenêtre d'impression, choisir le papier <strong>10 × 15 cm</strong> et l'échelle <strong>100 %</strong> (sans « ajuster à la page »).</p>
+      <p class="hint print-hint">« Imprimer » envoie la planche à sa taille réelle (15 × 10 cm, 300 dpi). Dans la fenêtre d'impression, choisir le papier 10 × 15 cm et l'échelle 100 % (sans « ajuster à la page »).</p>
     </div>
 
     <div class="report save" id="saveCard" hidden>
@@ -202,6 +203,8 @@
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<script src="/langues/ar.js"></script>
+<script src="/commun/langues.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

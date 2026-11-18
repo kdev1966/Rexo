@@ -5,7 +5,10 @@ const state = { photos: [], photo: null, mode: 'auto', fond: [214, 214, 214], vi
 const SVG = 'http://www.w3.org/2000/svg';
 
 // ---------- utilitaires ----------
+const tr = (t) => I18N.tr(t);
 async function api(url, opts) {
+  opts = Object.assign({}, opts);
+  opts.headers = I18N.entetes(opts.headers);     // le serveur traduit ses messages
   const r = await fetch(url, opts);
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || ('Erreur ' + r.status));
@@ -59,7 +62,7 @@ async function supprimerPortrait(nom, bouton) {
   if (!confirmer(bouton, 'Supprimer ?')) return;
   try {
     await api('/api/photos/' + encodeURIComponent(nom), { method: 'DELETE' });
-    toast(nom + ' et ses planches sont dans la Corbeille.');
+    toast(I18N.iso(nom) + ' et ses planches sont dans la Corbeille.');
     if (state.photo === nom) await oublierPhoto(); else await loadPhotos();
   } catch (e) { toast(e.message, true); }
 }
@@ -85,8 +88,8 @@ function personne(f) {
 }
 function resumeFiche(f) {
   const c = f.client;
-  const client = [c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ') + (c.telephone ? ' · ' + c.telephone : '');
-  return f.lien === 'lui-même' ? client : personne(f) + ' (' + f.lien + ') · client : ' + client;
+  const client = I18N.iso([c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ')) + (c.telephone ? ' · ' + I18N.iso(c.telephone) : '');
+  return f.lien === 'lui-même' ? client : I18N.iso(personne(f)) + ' (' + f.lien + ') · client : ' + client;
 }
 
 // ---------- affichage ----------
@@ -165,13 +168,13 @@ function renderReport(r) {
 
   const c = r.cadrage, col = r.couleurs || {};
   const facts = [
-    ['Tête (menton → crâne)', `${c.tete_mm} mm`],
-    ['Crâne / menton', `${c.crane_mm} / ${c.menton_mm} mm du haut`],
-    ['Redressement', `${c.redressement}°`],
-    ['Tête tournée', `${Math.round(r.lacet || 0)}°`],
+    ['Tête (menton → crâne)', `${I18N.iso(c.tete_mm)} mm`],          // nombres isolés : bon ordre en arabe
+    ['Crâne / menton', `${I18N.iso(c.crane_mm + ' / ' + c.menton_mm)} mm du haut`],
+    ['Redressement', I18N.iso(`${c.redressement}°`)],
+    ['Tête tournée', I18N.iso(`${Math.round(r.lacet || 0)}°`)],
     ['Couleurs', col.methode || '—'],
   ];
-  if (col.gains_rvb) facts.push(['Gains R V B', col.gains_rvb.join(' · ')]);
+  if (col.gains_rvb) facts.push(['Gains R V B', I18N.iso(col.gains_rvb.join(' · '))]);
   const dl = $('facts'); dl.innerHTML = '';
   for (const [k, v] of facts) {
     const d = document.createElement('div');
@@ -339,7 +342,7 @@ function afficherClientChoisi() {
   $('clientPicker').hidden = !!c || save.nouveau;
   $('clientChosen').hidden = !c;
   $('newClientForm').hidden = !save.nouveau;
-  if (c) $('clientChosenText').textContent = [c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ') + (c.telephone ? ' · ' + c.telephone : '');
+  if (c) $('clientChosenText').textContent = I18N.iso([c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ')) + (c.telephone ? ' · ' + I18N.iso(c.telephone) : '');
 }
 function libelleClient(c) {
   return [c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ');
@@ -354,8 +357,8 @@ function listeResultats(ul, clients, onPick, vide) {
     const b = document.createElement('strong'); b.textContent = libelleClient(c);
     const sm = document.createElement('small');
     const autres = (c.personnes || []).filter((p) => p !== [c.prenom, c.nom].filter(Boolean).join(' '));
-    sm.textContent = [c.telephone, c.nb_photos ? c.nb_photos + ' photo' + (c.nb_photos > 1 ? 's' : '') : '',
-      autres.length ? 'pour ' + autres.join(', ') : ''].filter(Boolean).join(' · ');
+    sm.textContent = [c.telephone ? I18N.iso(c.telephone) : '', c.nb_photos ? nbPhotos(c.nb_photos) : '',
+      autres.length ? tr('pour {}'.replace('{}', I18N.liste(autres.map(I18N.iso)))) : ''].filter(Boolean).join(' · ');
     li.append(b, sm);
     li.onclick = () => onPick(c);
     ul.appendChild(li);
@@ -421,7 +424,10 @@ function lireFiche() {
     f.client = { nom: $('ncNom').value.trim(), prenom: $('ncPrenom').value.trim(), telephone: $('ncTel').value.trim() };
     const manque = [['nom', 'le nom', 'ncNom'], ['prenom', 'le prénom', 'ncPrenom'], ['telephone', 'le téléphone', 'ncTel']]
       .filter(([k]) => !f.client[k]);
-    if (manque.length) { $(manque[0][2]).focus(); throw new Error('Nouveau client : saisir ' + manque.map((m) => m[1]).join(', ') + '.'); }
+    if (manque.length) {
+      $(manque[0][2]).focus();
+      throw new Error(tr('Nouveau client : saisir ' + I18N.liste(manque.map((m) => tr(m[1]))) + '.'));
+    }
   } else { $('clientSearch').focus(); throw new Error('Choisir un client existant ou créer un nouveau client.'); }
   if (f.lien !== 'lui-même') {
     f.prenom = $('pPrenom').value.trim(); f.nom = $('pNom').value.trim();
@@ -443,11 +449,11 @@ $('ficheForm').onsubmit = async (e) => {
       fd.append('photo', cible.fichier);
       fd.append('fiche', JSON.stringify(fiche));
       nom = (await api('/api/photos', { method: 'POST', body: fd })).name;
-      toast('Portrait ajouté : ' + nom);
+      toast('Portrait ajouté : ' + I18N.iso(nom));
     } else {
       nom = cible.nom;
       await api('/api/travail/' + encodeURIComponent(nom), jsonPost('PUT', fiche));
-      toast('Client enregistré pour ' + nom);
+      toast('Client enregistré pour ' + I18N.iso(nom));
     }
     fermerFiche();
     await loadPhotos();
@@ -505,7 +511,8 @@ async function chercherClients() {
 }
 $('clientsSearch').oninput = () => { clearTimeout(clientsT); clientsT = setTimeout(chercherClients, 200); };
 
-const dateFr = (t) => new Date(t * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+const nbPhotos = (n) => tr(n === 1 ? '1 photo' : n + ' photos');
+const dateFr = (t) => new Date(t * 1000).toLocaleDateString(I18N.locale, { day: 'numeric', month: 'long', year: 'numeric' });
 
 function bouton(texte, classe, onclick) {
   const b = document.createElement('button');
@@ -522,8 +529,8 @@ async function ouvrirClient(id) {
   const t = document.createElement('div');
   const h = document.createElement('h2'); h.textContent = libelleClient(c);
   const m = document.createElement('div'); m.className = 'meta';
-  m.textContent = [c.telephone || 'pas de téléphone', 'client depuis le ' + dateFr(c.cree_le),
-    c.photos.length + ' photo' + (c.photos.length > 1 ? 's' : '')].join(' · ');
+  m.textContent = [c.telephone ? I18N.iso(c.telephone) : tr('pas de téléphone'), tr('client depuis le ' + dateFr(c.cree_le)),
+    nbPhotos(c.photos.length)].join(' · ');
   t.append(h, m);
   const act = document.createElement('div'); act.className = 'actions';
   act.append(bouton('Modifier', 'btn btn-small', () => modifierClient(c)));
@@ -561,7 +568,7 @@ async function ouvrirClient(id) {
     const body = document.createElement('div'); body.className = 'card-body';
     const nom = document.createElement('strong'); nom.textContent = [p.prenom, p.nom].filter(Boolean).join(' ');
     const sm = document.createElement('small');
-    sm.textContent = (p.lien === 'lui-même' ? 'le client' : p.lien) + ' · ' + dateFr(p.cree_le);
+    sm.textContent = tr(p.lien === 'lui-même' ? 'le client' : p.lien) + ' · ' + dateFr(p.cree_le);
     const ac = document.createElement('div'); ac.className = 'card-actions';
     if (p.present) {
       ac.append(bouton('Imprimer 8', 'btn btn-small', () => imprimer(`/archive/${p.id}/planche_8?v=1`)),
@@ -605,7 +612,7 @@ $('archiveChoose').onclick = async () => {
   try {
     const r = await api('/api/archive/choisir', jsonPost('POST', {}));
     $('archivePath').textContent = r.dossier;
-    if (!r.annule) toast('Les prochaines photos seront rangées dans ' + r.dossier);
+    if (!r.annule) toast('Les prochaines photos seront rangées dans ' + I18N.iso(r.dossier));
   } catch (e) { toast(e.message, true); }
 };
 $('archiveOpen').onclick = () => api('/api/archive/ouvrir', jsonPost('POST', {})).catch((e) => toast(e.message, true));
@@ -660,3 +667,5 @@ window.addEventListener('hashchange', ongletDepuisAdresse);
   verifier();
   window.addEventListener('focus', verifier);
 })();
+
+I18N.bouton($('langBtn'));                       // العربية / Français

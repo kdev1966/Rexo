@@ -52,6 +52,18 @@ marge de chaque côté pour cette estimation.
   et chaque suppression demande un second clic.
 - **Sauvegarde** : copier le dossier de l'archive et `donnees/clients.sqlite`.
 
+## Langue arabe
+
+Le bouton **العربية** de la barre du haut passe toute l'interface en arabe, de droite à
+gauche ; **Français** la ramène. Le choix est retenu par le navigateur. Vocabulaire tunisien :
+« حريف / حرفاء » (client), « الاسم » (prénom), « اللقب » (nom). Les chiffres restent
+occidentaux ; numéros de téléphone, chemins et noms de fichiers restent de gauche à droite.
+
+Les textes sont dans `identite/web/ar.json` : chaque clé est le texte français affiché, `{}`
+marquant une partie variable ; la valeur est sa traduction (`{1}`, `{2}`… pour changer
+l'ordre). Un texte absent reste en français. Le moteur est commun au hub : `shared/langues.py`
+(messages du serveur) et `shared/web/langues.js` (page).
+
 ## Installation
 
 Prérequis : Mac Intel, macOS 12 ou plus, outils en ligne de commande d'Apple.

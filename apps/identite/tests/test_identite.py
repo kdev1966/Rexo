@@ -475,3 +475,70 @@ class Archive(unittest.TestCase):
         cid = b.creer_client('Martin', 'Paul')
         self.archive.choisir_archive(Path(self.tmp.name) / 'Autre archive')
         self.assertEqual([c['id'] for c in self.archive.base().chercher('martin')], [cid])
+
+
+class Langues(unittest.TestCase):
+    """Traduction arabe (shared/langues.py) et catalogue d'Identité."""
+
+    def catalogue(self, contenu):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from shared.langues import Catalogue
+        self.tmp = tempfile.TemporaryDirectory()
+        f = Path(self.tmp.name) / 'ar.json'
+        f.write_text(json.dumps(contenu, ensure_ascii=False), encoding='utf-8')
+        return Catalogue(f)
+
+    def tearDown(self):
+        if hasattr(self, 'tmp'):
+            self.tmp.cleanup()
+
+    def test_textes_et_modeles(self):
+        c = self.catalogue({'Quitter': 'خروج', 'enfant': 'ابن / ابنة', '{} ({}) · client : {}': '{1} ({2}) · الحريف: {3}',
+                            'menton : {} à {} mm': 'الذقن: من {1} إلى {2} مم', 'le nom': 'اللقب', 'le prénom': 'الاسم',
+                            'nouveau client : saisir {}': 'حريف جديد: أدخل {}'})
+        self.assertEqual(c.traduire('Quitter'), 'خروج')
+        self.assertEqual(c.traduire('  Quitter\n'), '  خروج\n')                   # espaces gardés
+        self.assertEqual(c.traduire('Youssef Ben Salah (enfant) · client : BEN SALAH Amel'),
+                         'Youssef Ben Salah (ابن / ابنة) · الحريف: BEN SALAH Amel')   # partie traduite, noms intacts
+        self.assertEqual(c.traduire('menton : 32 à 36 mm'), 'الذقن: من 32 إلى 36 مم')
+        self.assertEqual(c.traduire('nouveau client : saisir le nom, le prénom'), 'حريف جديد: أدخل اللقب، الاسم')
+        self.assertEqual(c.traduire('Texte absent'), 'Texte absent')              # rien ne casse
+
+    def test_reponse_json(self):
+        c = self.catalogue({'client inconnu': 'حريف غير معروف', 'aucune': 'بدون'})
+        r = c.traduire_json({'error': 'client inconnu', 'nom': 'aucune',
+                             'couleurs': {'methode': 'aucune'}, 'avertissements': ['client inconnu']})
+        self.assertEqual(r, {'error': 'حريف غير معروف', 'nom': 'aucune',          # un nom n'est jamais traduit
+                             'couleurs': {'methode': 'بدون'}, 'avertissements': ['حريف غير معروف']})
+
+    def test_catalogue_d_identite(self):
+        """Chaque traduction reprend autant de parties variables que le texte français."""
+        import json
+        import re
+        from pathlib import Path
+
+        import identite
+        cat = json.loads((Path(identite.__file__).parent / 'web' / 'ar.json').read_text(encoding='utf-8'))
+        self.assertGreater(len(cat), 150)
+        for fr, ar in cat.items():
+            n = fr.count('{}')
+            nums = sorted(int(x) for x in re.findall(r'\{(\d+)\}', ar))
+            if nums:                                   # numéros existants (une répétition peut être omise)
+                self.assertTrue(set(nums) <= set(range(1, n + 1)) and 1 in nums, fr)
+            else:
+                self.assertEqual(ar.count('{}'), n, fr)
+            self.assertTrue(re.search('[؀-ۿ]', ar), fr)              # bien de l'arabe
+
+    def test_serveur_traduit_ses_messages(self):
+        from identite import interface
+        client = interface.app.test_client()
+        r = client.post('/api/fabriquer', json={'photo': 'x.jpg', 'couleurs': 'magie'}, headers={'X-Langue': 'ar'})
+        self.assertEqual(r.get_json()['error'], 'إعداد ألوان غير معروف.')
+        r = client.post('/api/fabriquer', json={'photo': 'x.jpg', 'couleurs': 'magie'})
+        self.assertEqual(r.get_json()['error'], 'Réglage des couleurs inconnu.')
+        js = client.get('/langues/ar.js')
+        self.assertTrue(js.get_data(as_text=True).startswith('window.CATALOGUE_AR = {'))
+        self.assertEqual(client.get('/commun/langues.js').status_code, 200)
