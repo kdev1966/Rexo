@@ -1,11 +1,11 @@
 """Analyse d'image en Python (OpenCV) : masques de peau et de maquillage, rayures, colorisation."""
 
 import math
+from pathlib import Path
 
 import cv2
 import numpy as np
 
-from shared import modeles as catalogue
 
 
 # ---------- utilitaires ----------
@@ -15,6 +15,21 @@ def load(path):
     if img is None:
         raise ValueError('Image illisible : %s' % path)
     return img
+
+
+def load_any(path, work):
+    """Lit une photo de n'importe quel format pris en charge.
+
+    OpenCV d'abord ; sinon conversion sans perte en PNG dans `work` (Pillow, PhotoCraft ou sips).
+    Renvoie (image BGR, nom de l'outil de conversion ou None si lue directement).
+    """
+    img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if img is not None:
+        return img, None
+    from shared.images import convertir
+    png = Path(work) / 'converti.png'
+    outil = convertir(path, png)
+    return load(png), outil
 
 
 def save_mask(mask, path):
@@ -307,9 +322,10 @@ _net = None
 def _colorizer():
     global _net
     if _net is None:
-        net = cv2.dnn.readNetFromCaffe(str(catalogue.chemin('zhang_colorization_prototxt')),
-                                       str(catalogue.chemin('zhang_colorization_poids')))
-        pts = np.load(str(catalogue.chemin('zhang_colorization_points'))).transpose().reshape(2, 313, 1, 1).astype(np.float32)
+        from . import catalogue
+        net = cv2.dnn.readNetFromCaffe(str(catalogue.annexe('zhang-colorization', 'prototxt')),
+                                       str(catalogue.chemin('zhang-colorization')))
+        pts = np.load(str(catalogue.annexe('zhang-colorization', 'points'))).transpose().reshape(2, 313, 1, 1).astype(np.float32)
         net.getLayer(net.getLayerId('class8_ab')).blobs = [pts]
         net.getLayer(net.getLayerId('conv8_313_rh')).blobs = [np.full([1, 313], 2.606, np.float32)]
         _net = net

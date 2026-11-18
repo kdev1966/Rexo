@@ -1,0 +1,92 @@
+"""Conversion d'une image de n'importe quel format pris en charge vers PNG ou JPEG.
+
+Chaque outil couvre des formats différents (mesuré sur macOS 12, Intel) :
+
+    format        Pillow 11.3   PhotoCraft 0.23   sips (macOS)
+    AVIF          oui           non (écriture)    non
+    HEIC / HEIF   non           oui               oui
+    GIF, TGA      oui           oui               oui
+    JPEG 2000     selon build   non               oui
+    PSD           aplati        oui               oui
+
+On essaie donc Pillow, puis PhotoCraft (photocraft-cli convert), puis sips ; le premier qui
+réussit gagne. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
+à plusieurs images, seule la première image est gardée.
+"""
+
+import subprocess
+from pathlib import Path
+
+PHOTOCRAFT_CLI = Path('/Applications/PhotoCraft.app/Contents/MacOS/photocraft-cli')
+
+# Formats acceptés par les applications (en plus de ceux qu'OpenCV lit directement)
+FORMATS = {
+    '.jpg', '.jpeg', '.jpe', '.png', '.tif', '.tiff', '.webp', '.bmp',
+    '.gif', '.tga', '.avif', '.heic', '.heif', '.jp2', '.psd', '.exr', '.hdr', '.qoi', '.ico',
+}
+
+
+class ConversionImpossible(RuntimeError):
+    pass
+
+
+def _pillow(src, dst):
+    try:
+        from PIL import Image
+    except ImportError:
+        return False
+    try:
+        with Image.open(src) as im:
+            im.seek(0)
+            if im.mode in ('RGBA', 'LA', 'P', 'PA'):
+                rgba = im.convert('RGBA')
+                fond = Image.new('RGB', rgba.size, 'white')
+                fond.paste(rgba, mask=rgba.split()[3])
+                im = fond
+            elif im.mode not in ('RGB', 'L'):
+                im = im.convert('RGB')
+            if dst.suffix.lower() in ('.jpg', '.jpeg'):
+                im.convert('RGB').save(dst, 'JPEG', quality=90)
+            else:
+                im.save(dst, 'PNG')
+        return dst.is_file() and dst.stat().st_size > 0
+    except Exception:
+        return False
+
+
+def _photocraft(src, dst):
+    if not PHOTOCRAFT_CLI.exists():
+        return False
+    try:
+        r = subprocess.run([str(PHOTOCRAFT_CLI), 'convert', str(src), str(dst)],
+                           capture_output=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return r.returncode == 0 and dst.is_file() and dst.stat().st_size > 0
+
+
+def _sips(src, dst):
+    fmt = 'jpeg' if dst.suffix.lower() in ('.jpg', '.jpeg') else 'png'
+    try:
+        r = subprocess.run(['sips', '-s', 'format', fmt, str(src), '--out', str(dst)],
+                           capture_output=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return r.returncode == 0 and dst.is_file() and dst.stat().st_size > 0
+
+
+OUTILS = (('Pillow', _pillow), ('PhotoCraft', _photocraft), ('sips', _sips))
+
+
+def convertir(src, dst):
+    """Convertit `src` en `dst` (PNG ou JPEG selon l'extension). Renvoie le nom de l'outil utilisé."""
+    src, dst = Path(src), Path(dst)
+    if dst.suffix.lower() not in ('.png', '.jpg', '.jpeg'):
+        raise ValueError('Destination PNG ou JPEG attendue : %s' % dst.name)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    for nom, outil in OUTILS:
+        if dst.exists():
+            dst.unlink()
+        if outil(src, dst):
+            return nom
+    raise ConversionImpossible('Aucun outil ne sait lire %s (essayés : Pillow, PhotoCraft, sips)' % src.name)
