@@ -22,14 +22,30 @@ Chaque résultat est un **PSD à calques** (chaque étape réglable dans PhotoCr
 Prérequis : Mac Intel, macOS 12 ou plus, outils en ligne de commande d'Apple, PhotoCraft ≥ 0.23
 dans `/Applications`.
 
+Toutes les commandes se lancent **depuis la racine du hub** :
+
 ```bash
-shared/python/installer.sh          # Python 3.11.17 autonome (depuis la racine du hub)
+shared/python/installer.sh          # Python 3.11.17 autonome
 shared/natif/compiler.sh            # rexo-segment (Apple Vision)
-cd apps/reveal
-../../.outils/python/bin/python3 -m venv .venv
-.venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
-.venv/bin/python -m shared.embedkit.cli models pull --models-path modeles --all --allow-noncommercial
+.outils/python/bin/python3 -m venv apps/reveal/.venv
+apps/reveal/.venv/bin/pip install --require-hashes --only-binary :all: -r apps/reveal/requirements.txt
+
+# Modèles d'IA (environ 1,6 Go), dans le magasin partagé avec Rexo Studio
+export EMBEDKIT_CACHE=~/.local/share/kdev-models/embedkit
+apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path apps/reveal/modeles \
+    models pull --allow-noncommercial gfpgan-1.4 ddcolor zhang-colorization real-esrgan-x2 mobilesam migan-512
+apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path apps/reveal/modeles models verify
 ```
+
+Trois points comptent dans cette commande :
+- **la racine du hub** : c'est là que Python trouve le code partagé (`shared`) ;
+- **`EMBEDKIT_CACHE`** : sans elle, l'outil range les modèles dans son dossier par défaut,
+  où Rexo Reveal ne les cherche pas (il les cherche dans `~/.local/share/kdev-models/embedkit`,
+  ou dans `$KDEV_MODELS_DIR/embedkit` si cette variable est définie) ;
+- **`--models-path` avant `models`** : c'est une option générale de l'outil.
+
+Les modèles déjà présents et intacts ne sont pas retéléchargés ; `models verify` contrôle
+leur empreinte SHA-256, et `models list` indique ce qui est installé.
 
 Licences : GFPGAN, DDColor et la colorisation de Zhang ont un usage commercial **non vérifié**
 (`commercial: unknown` dans `modeles/*.yaml`). Reveal les autorise explicitement
