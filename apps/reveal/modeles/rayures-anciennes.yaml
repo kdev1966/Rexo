@@ -1,0 +1,15 @@
+id: rayures-anciennes
+task: segment
+tier: 1
+runtime: onnx
+source:
+  repo: artiva-ai/modelos          # export ONNX du détecteur de « Bringing Old Photos Back to Life »
+  file: rasgunos_old_photos.onnx
+  revision: 2f5528556abb9a543bc2af8f7405b0466bdca82b
+sha256: 7fde08b6af282f5b577ae1ef296a0614d7f3541637051df1a552da12bf78ec6f
+size_mb: 150.6
+license:
+  code: MIT                 # microsoft/Bringing-Old-Photos-Back-to-Life ; poids MIT selon le README
+  weights: MIT
+  commercial: true
+notes: Masque des rayures, fissures et déchirures d'une photo ancienne (gris).

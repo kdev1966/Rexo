@@ -136,5 +136,17 @@
  "modèle MI-GAN absent": "نموذج MI-GAN غير موجود",
  "Attention : « {} » est chargé sans licence commerciale claire ({}).": "تنبيه: يُحمَّل «{1}» دون رخصة تجارية واضحة ({2}).",
  "Rexo Reveal est arrêté": "تم إيقاف Rexo Reveal",
- "Pour reprendre, double-cliquez sur l'icône Rexo Reveal du Bureau.": "للمتابعة، انقر مرتين على أيقونة Rexo Reveal في سطح المكتب."
+ "Pour reprendre, double-cliquez sur l'icône Rexo Reveal du Bureau.": "للمتابعة، انقر مرتين على أيقونة Rexo Reveal في سطح المكتب.",
+ "Fond de studio uni": "خلفية استوديو موحّدة",
+ "Repeint le fond derrière les personnes en dégradé lisse (taches et auréoles du fond disparaissent)": "يعيد طلاء الخلفية خلف الأشخاص بتدرّج ناعم (تختفي البقع والهالات من الخلفية)",
+ "fond de studio uni : {} % de l'image repeint": "خلفية استوديو موحّدة: أُعيد طلاء {}% من الصورة",
+ "fond de studio uni : personnes mal séparées du fond, option ignorée": "خلفية استوديو موحّدة: الأشخاص غير منفصلين جيدًا عن الخلفية، تم تجاهل الخيار",
+ "fond de studio uni impossible : {}": "تعذّرت خلفية الاستوديو الموحّدة: {}",
+ "ton d'origine du tirage gardé (sépia)": "الحفاظ على اللون الأصلي للصورة (بني داكن)",
+ "parties arrachées reconstituées (LaMa) : {} % de l'image": "إعادة بناء الأجزاء الممزقة (LaMa): {}% من الصورة",
+ "taches atténuées, teinte du tirage unifiée : {} % de l'image": "تخفيف البقع وتوحيد لون الصورة: {}% من الصورة",
+ "rayures, fissures et déchirures effacées (LaMa) : {} % de l'image": "إزالة الخدوش والشقوق والتمزقات (LaMa): {}% من الصورة",
+ "aucune rayure ni fissure trouvée": "لم يُعثر على خدوش أو شقوق",
+ "réparation : {} s": "الإصلاح: {} ث",
+ "réparation impossible : {}": "تعذّر الإصلاح: {}"
 }

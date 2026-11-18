@@ -35,7 +35,7 @@ import numpy as np
 from shared.images import ConversionImpossible
 from shared.photocraft import PhotoCraft, PhotoCraftError
 
-from . import analyse, effacer, ia, vision
+from . import analyse, effacer, ia, restauration, vision
 from .config import DONNEES, IMAGES, ORIGINAL, REGLAGES, RETOUCHE
 from .config import TRAVAIL as WORK
 
@@ -319,7 +319,8 @@ def ancienne(job):
         place_python_result(job, fixed, 'stries')
         log('  stries atténuées : %.1f %% de l\'image' % (changed * 100))
         cur = fixed
-    scratches = analyse.scratch_mask(cur)
+    # rayures franches : déjà effacées par la réparation (détecteur + LaMa) quand elle a eu lieu
+    scratches = analyse.scratch_mask(cur) if not getattr(job, 'repare', False) else np.zeros(cur.shape[:2])
     if analyse.coverage(scratches) > 0.0005:
         job.select_from_mask(scratches, 'rayures')
         pc.cmd('select.modify.expand', radius=1)
@@ -333,8 +334,13 @@ def ancienne(job):
     pc.cmd('filter.noise.dustAndScratches', radius=max(1, round(longest / 600)), threshold=8)
 
     # 5. Voile, contraste, ombres et hautes lumières (Camera Raw de PhotoCraft)
-    pc.cmd('filter.cameraRaw', dehaze=25, clarity=18, texture=8, contrast=10,
-           highlights=-35, shadows=30, whites=12, blacks=-18)
+    if getattr(job, 'repare', False):
+        # photo déjà réparée : contraste local doux, sinon les traces de taches reviennent
+        pc.cmd('filter.cameraRaw', dehaze=10, clarity=6, texture=4, contrast=10,
+               highlights=-30, shadows=25, whites=10, blacks=-15)
+    else:
+        pc.cmd('filter.cameraRaw', dehaze=25, clarity=18, texture=8, contrast=10,
+               highlights=-35, shadows=30, whites=12, blacks=-18)
     pc.cmd('image.autoContrast')
     pc.cmd('filter.sharpen.unsharpMask', amount=70, radius=max(0.6, round(longest / 900, 1)), threshold=3)
 
@@ -366,14 +372,43 @@ def ancienne(job):
             pc.cmd('layer.setProps', name='Visages (IA)', opacity=0.75)
             log('  %d visage(s) restauré(s) : %.1f s' % (len(faces), time.time() - t))
 
-    # 7. Version restaurée seule (noir et blanc), pour juger la restauration
+    # 6 bis. Option « fond de studio uni » : le fond derrière les personnes devient un dégradé lisse
+    if getattr(job, 'fond_uni', False):
+        cur = export_current(job, 'avant_fond')
+        try:
+            lisse, part, job.masque_fond = restauration.fond_uni(cur)
+        except Exception as e:
+            lisse, part = cur, 0.0
+            log('  fond de studio uni impossible : %s' % str(e)[:120])
+        if part:
+            path = job.work / 'fond_uni.png'
+            analyse.cv2.imwrite(str(path), lisse)
+            pc.call('doc.place', path=str(path))
+            pc.cmd('layer.setProps', name='Fond de studio (uni)')
+            log('  fond de studio uni : %.0f %% de l\'image repeint' % (part * 100))
+        else:
+            log('  fond de studio uni : personnes mal séparées du fond, option ignorée')
+
+    # 7. Version restaurée seule, au ton du tirage d'origine (sépia) s'il en avait un
     restored = export_current(job, 'restauree')
-    job.extras.append(('_restauree', restored))
+    teinte = getattr(job, 'teinte', None)
+    if restauration.teinte_marquee(teinte):
+        tonee = restauration.ton_d_origine(restored, teinte)
+        job.extras.append(('_restauree', tonee))
+        path = job.work / 'ton_origine.png'
+        analyse.cv2.imwrite(str(path), tonee)
+        pc.call('doc.place', path=str(path))
+        pc.cmd('layer.setProps', name='Ton d\'origine (sépia)')
+        log('  ton d\'origine du tirage gardé (sépia)')
+    else:
+        job.extras.append(('_restauree', restored))
 
     # 8. Colorisation de l'image restaurée (DDColor, sinon modèle OpenCV)
     t = time.time()
     try:
-        color = ia.colorize_ddcolor(restored) if ia.available('ddcolor') else analyse.colorize(restored)
+        fond = getattr(job, 'masque_fond', None)
+        color = ia.colorize(restored, fond=fond) if (ia.available('ddcolor-tiny') or ia.available('ddcolor')) \
+            else analyse.colorize(restored)
     except Exception as e:
         log('  DDColor impossible, modèle OpenCV utilisé : %s' % str(e)[:120])
         color = analyse.colorize(restored)
@@ -398,6 +433,8 @@ def main():
     ap.add_argument('--couleur', default='255,255,255', help='fond uni : couleur R,V,B (0-255)')
     ap.add_argument('--format', dest='ratio', choices=vision.FORMATS_RECADRAGE, default='4:5', help='recadrage')
     ap.add_argument('--style', choices=sorted(vision.STYLES), help='rendu de couleur (avec --type ameliorer)')
+    ap.add_argument('--fond-uni', action='store_true',
+                    help='photo ancienne : repeint le fond derrière les personnes en dégradé lisse')
     args = ap.parse_args()
 
     photos = [p.resolve() for p in args.photos] or sorted(
@@ -420,6 +457,19 @@ def main():
                         kind = 'ancienne' if analyse.is_monochrome(img) else 'portrait'
                     log('  type : %s' % kind)
                     start = img if outil else None          # photo convertie : PhotoCraft ouvre le PNG
+                    repare, teinte = False, None
+                    if kind == 'ancienne' and restauration.disponible():
+                        # avant l'agrandissement : image plus petite, et Real-ESRGAN affine une image propre
+                        t2 = time.time()
+                        try:
+                            img, lignes, teinte = restauration.reparer(img)
+                            start = img
+                            repare = True
+                            for l in lignes:
+                                log('  ' + l)
+                            log('  réparation : %.0f s' % (time.time() - t2))
+                        except Exception as e:
+                            log('  réparation impossible : %s' % str(e)[:120])
                     if kind == 'ancienne' and max(img.shape[:2]) < 1600 and ia.available('real-esrgan-x2'):
                         t2 = time.time()
                         try:
@@ -427,9 +477,11 @@ def main():
                             log('  agrandie x2 (Real-ESRGAN) : %dx%d, %.0f s'
                                 % (start.shape[1], start.shape[0], time.time() - t2))
                         except Exception as e:
-                            start = img if outil else None
+                            start = img if (outil or start is not None) else None
                             log('  agrandissement impossible, taille d\'origine gardée : %s' % str(e)[:120])
                     job = Job(pc, src, start)
+                    job.repare, job.teinte = repare, teinte
+                    job.fond_uni = args.fond_uni
                     if kind == 'portrait':
                         done = portrait(job)
                     elif kind == 'ameliorer':

@@ -88,6 +88,7 @@ document.querySelectorAll('.filter').forEach((b) => b.onclick = () => {
   document.querySelectorAll('.filter').forEach((x) => x.classList.toggle('is-active', x === b));
   $('styleOption').hidden = state.filtre !== 'ameliorer';
   $('studioOptions').hidden = state.filtre !== 'studio';
+  $('fondUniOption').hidden = !['ancienne', 'restauration'].includes(state.filtre);
   studioVisibility();
   $('erasePanel').hidden = state.filtre !== 'effacer';
   if (state.filtre === 'effacer' && state.photo) showSingle(media('original', state.photo));
@@ -123,7 +124,8 @@ $('applyBtn').onclick = async () => {
       body: JSON.stringify({ photo: state.photo, filtre: state.filtre,
         style: state.filtre === 'ameliorer' ? $('styleSelect').value : '',
         effet: $('studioEffet').value, couleur: hexToRgb($('studioCouleur').value), format: $('studioFormat').value,
-        zones: state.filtre === 'effacer' ? state.zones : undefined }),
+        zones: state.filtre === 'effacer' ? state.zones : undefined,
+        fond_uni: ['ancienne', 'restauration'].includes(state.filtre) && $('fondUni').checked }),
     });
     state.job = { id, etat: 'en cours' };
     $('applyBtn').disabled = true;

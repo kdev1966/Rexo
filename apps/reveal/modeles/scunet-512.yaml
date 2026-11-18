@@ -1,0 +1,18 @@
+id: scunet-512
+task: restore
+tier: 1
+runtime: onnx
+source:
+  repo: artiva-ai/modelos          # export ONNX de SCUNet (scunet_color_real_psnr)
+  file: scunet_color_real_psnr_512.onnx
+  revision: 2f5528556abb9a543bc2af8f7405b0466bdca82b
+sha256: 2ead3aa0d3c85458cb76480cc96c72b210fcaac24daf369ed65571efc0587141
+size_mb: 74.4
+license:
+  code: Apache-2.0          # cszn/SCUNet
+  weights: Apache-2.0
+  commercial: true
+io:
+  input:
+    size: 512               # fixe ; traitement par tuiles
+notes: Débruitage (grain et bruit des tirages anciens).

@@ -178,7 +178,7 @@ def api_traiter():
     data = request.get_json(silent=True) or {}
     photo, filtre, style = data.get('photo', ''), data.get('filtre', 'auto'), data.get('style') or None
     opts = {'effet': data.get('effet') or 'fond-flou', 'couleur': data.get('couleur') or '255,255,255',
-            'format': data.get('format') or '4:5'}
+            'format': data.get('format') or '4:5', 'fond_uni': data.get('fond_uni') is True}
     if filtre not in FILTRES:
         return jsonify(error='Filtre inconnu.'), 400
     if style and style not in STYLES:
@@ -234,6 +234,8 @@ def _run(job_id, src, filtre, style=None, opts=None):
             shown = 'detoure'
     if kind == 'effacer':
         cmd += ['--zones', json.dumps(opts['zones'])]
+    if kind == 'ancienne' and opts.get('fond_uni'):
+        cmd += ['--fond-uni']
     try:
         # UTF-8 des deux côtés (sous Windows, la console serait en cp1252)
         proc = suivre(subprocess.Popen(

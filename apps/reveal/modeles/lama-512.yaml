@@ -1,0 +1,18 @@
+id: lama-512
+task: inpaint
+tier: 1
+runtime: onnx
+source:
+  repo: artiva-ai/modelos          # export ONNX de Big-LaMa (Samsung AI Center)
+  file: lama_512.onnx
+  revision: 2f5528556abb9a543bc2af8f7405b0466bdca82b
+sha256: 59bfc738a9e9aa419d027aae39f9ed9ad8c36331c780756c45cf83c3d54ee2e6
+size_mb: 207.6
+license:
+  code: Apache-2.0          # advimman/lama
+  weights: Apache-2.0
+  commercial: true
+io:
+  input:
+    size: 512               # fixe ; image et masque
+notes: "Reconstitution des zones masquées (champ récepteur large, adapté aux longues lignes)."

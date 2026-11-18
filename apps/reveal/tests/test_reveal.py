@@ -365,6 +365,69 @@ class Langues(unittest.TestCase):
 
 
 
+
+class Restauration(unittest.TestCase):
+    """Réparation des photos anciennes : manques, tirage monochrome ; rayures et LaMa si les
+    modèles sont installés."""
+
+    def setUp(self):
+        from reveal import restauration
+        self.r = restauration
+
+    def test_tirage_monochrome(self):
+        rng = np.random.default_rng(0)
+        g = rng.integers(40, 220, (120, 90), dtype=np.uint8)
+        sepia = cv2.merge([(g * 0.75).astype(np.uint8), (g * 0.9).astype(np.uint8), g])
+        self.assertTrue(self.r.tirage_monochrome(sepia))
+        couleur = rng.integers(0, 255, (120, 90, 3), dtype=np.uint8)
+        self.assertFalse(self.r.tirage_monochrome(couleur))
+
+    def test_coin_arrache(self):
+        img = np.full((300, 240, 3), 245, np.uint8)               # fond clair du scan
+        img[10:290, 10:230] = (90, 120, 150)                      # tirage
+        pts = np.array([[150, 10], [230, 10], [230, 120]], np.int32)
+        cv2.fillPoly(img, [pts], (245, 245, 245))                  # coin arraché : on voit le fond
+        m, part = self.r.manques(img)
+        self.assertIsNotNone(m)
+        self.assertGreater(m[30, 215], 0)                          # dans le coin arraché
+        self.assertEqual(m[200, 100], 0)                           # dans le tirage
+        self.assertEqual(m[5, 5], 0)                               # hors du tirage
+
+    def test_photo_recadree_sans_fond(self):
+        img = np.full((200, 160, 3), (90, 120, 150), np.uint8)
+        self.assertIsNone(self.r.manques(img)[0])
+
+    def test_fond_uni_sans_personne(self):
+        """Sans personne détourée de façon sûre, l'option ne touche à rien."""
+        from reveal import vision
+        if not vision.disponible():
+            self.skipTest('modèles du détourage absents')
+        img = np.full((240, 180, 3), 128, np.uint8)
+        out, part, masque = self.r.fond_uni(img)
+        self.assertEqual(part, 0.0)
+        self.assertIsNone(masque)
+        self.assertTrue((out == img).all())
+
+    def test_rayure_effacee(self):
+        if not self.r.disponible():
+            self.skipTest('modèles rayures-anciennes et lama-512 absents')
+        g = np.tile(np.linspace(60, 180, 400, dtype=np.float32), (300, 1))
+        img = cv2.cvtColor(g.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        abime = img.copy()
+        cv2.line(abime, (20, 40), (380, 260), (250, 250, 250), 3)
+        # le détecteur répond par un masque 0/1 à la taille de l'image (une ligne synthétique
+        # parfaitement nette ne ressemble pas aux rayures réelles : sa détection n'est pas testée)
+        m = self.r.rayures(abime)
+        self.assertEqual(m.shape, abime.shape[:2])
+        self.assertTrue(set(np.unique(m)) <= {0, 1})
+        trace = np.zeros(abime.shape[:2], np.uint8)
+        cv2.line(trace, (20, 40), (380, 260), 1, 7)
+        out = self.r.reconstituer(abime, trace)
+        ecart = np.abs(out.astype(int) - img).max(axis=2)
+        self.assertLess(ecart[trace > 0].mean(), 20)               # la ligne blanche a disparu
+        self.assertEqual(ecart[trace == 0].max(), 0)               # le reste n'est pas touché
+
+
 class ScriptsDeLaPage(unittest.TestCase):
     """Une erreur de syntaxe dans un script arrête toute la page (dépôt, onglets, Quitter) :
     vérifiée par Node, sauté s'il n'est pas installé."""

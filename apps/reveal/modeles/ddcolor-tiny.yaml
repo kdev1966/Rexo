@@ -1,0 +1,20 @@
+id: ddcolor-tiny
+task: colorize
+tier: 1
+runtime: onnx
+source:
+  repo: edgetools/ddcolor          # export ONNX (poids fp16, entrées et sorties float32) de ddcolor_paper_tiny
+  file: ddcolor-tiny-fp16.onnx
+  revision: 4755ae9f1f7a35a9e7693b96c2a88f3432cb6ab0
+sha256: 2653da00dc15e54a45e5200b61dbf82ee9ceaf56b02bb9b9657569ac775e82e6
+size_mb: 135.4
+license:
+  code: Apache-2.0          # piddnad/DDColor
+  weights: Apache-2.0
+  commercial: true
+io:
+  input:
+    size: 512               # RGB gris refait depuis L (a = b = 0), 0..1, sans normalisation ImageNet
+  output:
+    ab: [1, 2, 512, 512]
+notes: Colorisation légère (DDColor tiny), 7 fois plus petite que DDColor.
