@@ -1,18 +1,13 @@
-"""Effets natifs d'Apple (Vision, Core Image) par l'outil partagé reto-segment.
+"""Effets natifs d'Apple (Vision, Core Image) par l'outil partagé reto-segment (shared.natif).
 
-L'outil se compile avec shared/natif/compiler.sh (macOS 12 ou plus). Il lit les formats que
-macOS connaît (pas l'AVIF sous macOS 12) : Reveal lui passe toujours ses PNG de travail.
-Chaque appel répond par une ligne JSON {"ok": true, ...} ou {"ok": false, "error": ...}.
+Reveal lui passe toujours ses PNG de travail (reto-segment ne lit pas l'AVIF sous macOS 12).
 """
-
-import json
-import subprocess
-from pathlib import Path
 
 import cv2
 import numpy as np
 
-SEGMENT = Path(__file__).resolve().parents[3] / 'shared' / 'natif' / 'bin' / 'reto-segment'
+from shared.natif import NatifError as VisionError  # noqa: F401  (nom utilisé par Reveal)
+from shared.natif import disponible, executer as _run  # noqa: F401
 
 # Rendus de couleur proposés par reto-segment (option --name de « style »)
 STYLES = {
@@ -24,32 +19,6 @@ STYLES = {
     'contraste': 'Contrasté',
     'doux': 'Doux',
 }
-
-
-class VisionError(RuntimeError):
-    pass
-
-
-def disponible():
-    return SEGMENT.exists()
-
-
-def _run(*args, timeout=300):
-    if not disponible():
-        raise VisionError('reto-segment absent : lancer shared/natif/compiler.sh')
-    try:
-        r = subprocess.run([str(SEGMENT)] + [str(a) for a in args], capture_output=True, text=True,
-                           timeout=timeout)
-    except subprocess.TimeoutExpired:
-        raise VisionError('reto-segment : délai dépassé')
-    lines = [l for l in r.stdout.splitlines() if l.strip().startswith('{')]
-    try:
-        res = json.loads(lines[-1]) if lines else {}
-    except ValueError:
-        res = {}
-    if not res.get('ok'):
-        raise VisionError('reto-segment %s : %s' % (args[0], res.get('error') or r.stderr.strip()[:200]))
-    return res
 
 
 def masque_personnes(src, dst):

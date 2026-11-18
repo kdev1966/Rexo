@@ -1,0 +1,10 @@
+# Identité : environnement Python 3.11.17 autonome (shared/python/installer.sh), versions figées,
+# mêmes paquets et mêmes empreintes que Reveal.
+# Installer avec : .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
+
+numpy==2.4.6 \
+    --hash=sha256:0280e0356c0829a18d9de1cb7eee50ec22ca639878d7240307ca0943d73cd2c4
+opencv-python-headless==4.10.0.84 \
+    --hash=sha256:5ae454ebac0eb0a0b932e3406370aaf4212e6a3fdb5038cc86c7aea15a6851da
+pillow==11.3.0 \
+    --hash=sha256:1cd110edf822773368b396281a2293aeb91c90a2db00d78ea43e7e861631b722

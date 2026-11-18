@@ -12,6 +12,7 @@ applications (pilote PhotoCraft, catalogue des modèles IA) est dans `shared/`.
 | Application | Rôle | Dossier |
 |---|---|---|
 | **Reveal** | Retouche de portraits (visages, peau, maquillage) et restauration puis colorisation de photos anciennes, avec PhotoCraft et des modèles IA locaux | [`apps/reveal`](apps/reveal) |
+| **Identité** | Photos d'identité aux normes françaises (35 × 45 mm, fond gris clair, balance des blancs) et planches 10 × 15 cm avec traits de coupe | [`apps/identite`](apps/identite) |
 
 ## Organisation
 
@@ -21,7 +22,8 @@ shared/photocraft/    pilote de PhotoCraft (photocraft-cli serve)
 shared/embedkit/      couche d'IA locale (repris de Rexo Studio) : registre de modèles, téléchargement
                       épinglé et vérifié (SHA-256), audit des licences, ONNX, détourage, effacement, profondeur
 shared/natif/         reto-segment (Swift, Apple Vision et Core Image) : détourage des personnes, fonds,
-                      recadrage, amélioration, rendus de couleur ; compiler.sh le compile sur la machine
+                      recadrage, amélioration, rendus de couleur, repères du visage, balance des blancs ;
+                      compiler.sh le compile sur la machine, __init__.py l'appelle depuis Python
 shared/python/        installer.sh : Python 3.11 autonome partagé (python-build-standalone, SHA-256 épinglé)
 shared/images/        conversion de tous les formats d'image en PNG ou JPEG (Pillow, PhotoCraft, sips)
 docs/adr/             décisions d'architecture

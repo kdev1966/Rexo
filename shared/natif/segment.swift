@@ -19,6 +19,15 @@
 //            {"ok","width","height","box":[x,y,l,h],"cut_bottom"}
 //   card     carton de fin : <entree> = logo (ou -), --size LxH, --lines fichier JSON
 //            [[texte, taille relative], ...] ; texte par Core Text (arabe correct)
+//   face     masque des personnes (PNG, comme mask) et, dans la reponse, les visages :
+//            "faces": [{box, roll, yaw, pitch, contour, left_eye, right_eye, pupils, lips,
+//            nose}] en pixels de l'image redressee, origine en haut a gauche ; angles en
+//            degres (photo d'identite : cadrage et controles)
+//   balance  reglages automatiques d'Apple, sans relief ni vivacite : balance des blancs
+//            sur la peau des visages (CIFaceBalance), courbe de tons, ombres et hautes
+//            lumieres ; --keep liste les filtres gardes (noms Core Image separes par
+//            des virgules, CIFaceBalance,CIToneCurve,CIHighlightShadowAdjust par defaut) ;
+//            reponse : "applied" et les reglages de CIFaceBalance (photo d'identite)
 //   enhance  photo amelioree : lumiere et couleurs (Apple), balance des blancs sur
 //            les zones blanches, relief ; --enhance applique la meme amelioration
 //            avant n'importe quel effet (Vision travaille alors sur la photo amelioree)
@@ -74,12 +83,12 @@ func atOrigin(_ image: CIImage) -> CIImage {
 
 let args = CommandLine.arguments
 guard args.count >= 4 else {
-    fail("usage : reto-segment cutout|mask|bw|blur|uni|style|crop|orient <entree> <sortie> [options]")
+    fail("usage : reto-segment cutout|mask|face|bw|blur|uni|style|crop|orient <entree> <sortie> [options]")
 }
 let effect = args[1]
 let input = URL(fileURLWithPath: args[2])
 let output = URL(fileURLWithPath: args[3])
-guard ["cutout", "mask", "bw", "blur", "uni", "style", "crop", "orient", "enhance", "trim", "card"].contains(effect) else {
+guard ["cutout", "mask", "bw", "blur", "uni", "style", "crop", "orient", "enhance", "trim", "card", "face", "balance"].contains(effect) else {
     fail("effet inconnu : \(effect)")
 }
 
@@ -325,6 +334,27 @@ func finish(_ result: CIImage, png: Bool, coverage: Double) -> Never {
     info.merge(report) { _, new in new }
     print(String(data: try! JSONSerialization.data(withJSONObject: info), encoding: .utf8)!)
     exit(0)
+}
+
+// Reglages automatiques d'Apple choisis (photo d'identite : couleurs naturelles)
+if effect == "balance" {
+    let keep = Set((option("--keep") ?? "CIFaceBalance,CIToneCurve,CIHighlightShadowAdjust")
+        .split(separator: ",").map { String($0) })
+    var r = rawImage
+    var applied: [String] = []
+    for f in rawImage.autoAdjustmentFilters(options: [.redEye: false]) where keep.contains(f.name) {
+        f.setValue(r, forKey: kCIInputImageKey)
+        if let out = f.outputImage { r = out; applied.append(f.name) }
+        if f.name == "CIFaceBalance" {
+            var params: [String: Any] = [:]
+            for k in ["inputOrigI", "inputOrigQ", "inputStrength", "inputWarmth"] {
+                if let v = f.value(forKey: k) as? NSNumber { params[k] = v.doubleValue }
+            }
+            report["face_balance"] = params
+        }
+    }
+    report["applied"] = applied
+    finish(r.applyingFilter("CIColorClamp").cropped(to: extent), png: pngOutput, coverage: 0)
 }
 
 // Photo amelioree seule (lumiere, couleurs, balance des blancs, relief)
@@ -604,6 +634,42 @@ case "crop":
     report["box"] = [Int(rect.minX), Int(H - rect.maxY), Int(rect.width), Int(rect.height)]
     finish(atOrigin(image.cropped(to: rect)), png: pngOutput, coverage: coverage)
 case "mask":
+    finish(mask, png: true, coverage: coverage)
+case "face":
+    // Rectangles d'abord (revision 3 : roll, yaw et pitch), puis repères sur ces visages
+    let rects = VNDetectFaceRectanglesRequest()
+    if #available(macOS 12.0, *) { rects.revision = VNDetectFaceRectanglesRequestRevision3 }
+    let faces = VNDetectFaceLandmarksRequest()
+    if avoidDiscrete { rects.usesCPUOnly = true; faces.usesCPUOnly = true }
+    do {
+        let handler = VNImageRequestHandler(ciImage: rawImage, options: [:])
+        try handler.perform([rects])
+        faces.inputFaceObservations = rects.results ?? []
+        try handler.perform([faces])
+    } catch {
+        fail("Vision (visages) : \(error.localizedDescription)")
+    }
+    let size = CGSize(width: extent.width, height: extent.height)
+    func pts(_ region: VNFaceLandmarkRegion2D?) -> [[Double]] {
+        guard let r = region else { return [] }
+        return r.pointsInImage(imageSize: size).map {
+            [(Double($0.x) * 10).rounded() / 10, ((Double(size.height) - Double($0.y)) * 10).rounded() / 10] }
+    }
+    func deg(_ n: NSNumber?) -> Any {
+        guard let v = n?.doubleValue else { return NSNull() }
+        return (v * 180 / Double.pi * 10).rounded() / 10
+    }
+    report["faces"] = (faces.results ?? []).map { o -> [String: Any] in
+        let b = VNImageRectForNormalizedRect(o.boundingBox, Int(size.width), Int(size.height))
+        let l = o.landmarks
+        return [
+            "box": [b.minX, size.height - b.maxY, b.width, b.height].map { (Double($0) * 10).rounded() / 10 },
+            "confidence": (Double(o.confidence) * 1000).rounded() / 1000,
+            "roll": deg(o.roll), "yaw": deg(o.yaw), "pitch": deg(o.pitch),
+            "contour": pts(l?.faceContour), "left_eye": pts(l?.leftEye), "right_eye": pts(l?.rightEye),
+            "pupils": pts(l?.leftPupil) + pts(l?.rightPupil), "lips": pts(l?.outerLips),
+            "nose": pts(l?.noseCrest)]
+    }
     finish(mask, png: true, coverage: coverage)
 case "cutout":
     finish(decontaminated().applyingFilter("CIBlendWithMask", parameters: [
