@@ -8,6 +8,7 @@ modèles IA open source qui tournent sur le processeur. Aucune photo ne quitte l
 | **Portrait** (couleur) | Visages restaurés par IA (GFPGAN), lissage de la peau limité à la peau détectée, maquillage (lèvres, blush, paupières) placé grâce aux repères du visage |
 | **Photo ancienne** (noir et blanc, sépia) | Agrandissement x2 si elle est petite (Real-ESRGAN), recadrage du tirage, gris neutre, stries et rayures atténuées, bruit, voile, contraste, netteté, visages restaurés, puis colorisation (DDColor) |
 | **Studio** | Personnes détourées par Apple Vision : fond flou, fond uni, couleur sur fond noir et blanc, détourage (PNG transparent), recadrage 4:5, 1:1, 9:16, 16:9, 3:4, 2:3 centré sur les personnes |
+| **Effacer** | Objets ou personnes indésirables : on trace un cadre serré autour, ou on clique dessus (Alt-clic exclut une partie) ; plusieurs zones par photo. MobileSAM détoure, MI-GAN reconstitue le décor ; calque « Effacement (IA) » masqué à la seule zone reconstituée |
 | **Améliorer** | Amélioration automatique d'Apple (lumière, couleurs, balance des blancs, relief), puis rendu de couleur au choix : chaud, froid, vintage chaud, noir et blanc, lumineux, contrasté, doux |
 
 Pour les portraits, le lissage est limité à la peau **des personnes** détectées par Apple Vision :
@@ -107,6 +108,7 @@ Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_
 | `reveal/traiter.py` | chaîne de traitement, pilote PhotoCraft (`shared.photocraft`) |
 | `reveal/analyse.py` | vision en Python (OpenCV) : peau, maquillage, stries, colorisation de secours |
 | `reveal/ia.py` | modèles ONNX : Real-ESRGAN, GFPGAN, DDColor |
+| `reveal/effacer.py` | effacement : zones (cadres, clics), MobileSAM, MI-GAN (embedkit) |
 | `reveal/vision.py` | Apple Vision et Core Image par `reto-segment` : masque des personnes, studio, amélioration, rendus |
 | `reveal/catalogue.py` | modèles par embedkit, contrôle des licences |
 | `modeles/*.yaml` | manifestes embedkit des modèles propres à Reveal |

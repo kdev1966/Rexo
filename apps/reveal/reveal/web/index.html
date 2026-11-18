@@ -50,6 +50,10 @@
           <span class="f-icon">◎</span>
           <span class="f-text"><strong>Studio</strong><small>Fond flou, fond uni, couleur sur fond noir et blanc, détourage, recadrage (Apple Vision)</small></span>
         </button>
+        <button class="filter" data-filtre="effacer">
+          <span class="f-icon">⌫</span>
+          <span class="f-text"><strong>Effacer</strong><small>Objets ou personnes indésirables : tracez un cadre ou cliquez dessus, le décor est reconstitué</small></span>
+        </button>
         <button class="filter" data-filtre="ameliorer">
           <span class="f-icon">☀</span>
           <span class="f-text"><strong>Améliorer</strong><small>Lumière, couleurs, balance des blancs et relief (Apple), rendu de couleur au choix</small></span>
@@ -59,6 +63,15 @@
         <label class="option"><span>Effet</span><select id="studioEffet"></select></label>
         <label class="option" id="couleurOption"><span>Couleur du fond</span><input type="color" id="studioCouleur" value="#ffffff"></label>
         <label class="option" id="formatOption"><span>Format</span><select id="studioFormat"></select></label>
+      </div>
+      <div class="erase-panel" id="erasePanel" hidden>
+        <p class="hint">Sur la photo : <strong>tracez un cadre</strong> serré autour de ce qu'il faut effacer, ou
+          <strong>cliquez</strong> dessus. <strong>Alt-clic</strong> : exclure une partie de la dernière zone.</p>
+        <div class="erase-bar">
+          <span id="zoneCount">Aucune zone</span>
+          <button class="btn btn-small" id="undoZone">Annuler la dernière</button>
+          <button class="btn btn-small" id="clearZones">Tout retirer</button>
+        </div>
       </div>
       <label class="option" id="styleOption" hidden>
         <span>Rendu de couleur</span>
@@ -98,6 +111,7 @@
       <div class="compare" id="compare" hidden>
         <img id="imgAfter" alt="Après" draggable="false">
         <img id="imgBefore" alt="Avant" draggable="false">
+        <div class="zones" id="zonesLayer" hidden></div>
         <div class="handle" id="handle" role="slider" tabindex="0" aria-label="Comparer avant et après"
              aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span></span></div>
         <span class="tag tag-before">Avant</span>

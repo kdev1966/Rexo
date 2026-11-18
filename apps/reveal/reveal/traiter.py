@@ -34,7 +34,7 @@ import numpy as np
 from shared.images import ConversionImpossible
 from shared.photocraft import PhotoCraft, PhotoCraftError
 
-from . import analyse, ia, vision
+from . import analyse, effacer, ia, vision
 from .config import DONNEES, IMAGES, ORIGINAL, REGLAGES, RETOUCHE
 from .config import TRAVAIL as WORK
 
@@ -248,6 +248,27 @@ def studio(job, effet, couleur='255,255,255', ratio='4:5'):
     return True
 
 
+def effacement(job, zones):
+    """D. Efface les objets ou personnes désignés ; calque « Effacement » masqué à la zone reconstituée."""
+    pc = job.pc
+    avant = export_current(job, 'avant')
+    t = time.time()
+    result, hole, details = effacer.effacer(avant, zones)
+    for n, part, score in details:
+        log('  zone %d : %s' % (n, 'rien trouvé' if not part else
+                                '%.1f %% de l\'image (confiance %.2f)' % (part * 100, score)))
+    path = job.work / 'efface.png'
+    analyse.cv2.imwrite(str(path), result)
+    pc.call('doc.place', path=str(path))
+    pc.cmd('layer.setProps', name='Effacement (IA)')
+    job.select_from_mask(hole.astype(np.float32), 'zone_effacee')
+    pc.cmd('layer.layerMask.revealSelection')
+    deselect(pc)
+    log('  effacé : %.1f %% de l\'image en %.1f s (MobileSAM + MI-GAN)' % (hole.mean() * 100, time.time() - t))
+    job.extras.append(('_avant', avant))
+    return True
+
+
 def sum_masks(masks):
     out = masks[0]
     for m in masks[1:]:
@@ -369,7 +390,9 @@ def ancienne(job):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('photos', nargs='*', type=Path, help='photos à traiter (défaut : tout original/)')
-    ap.add_argument('--type', choices=['auto', 'portrait', 'ancienne', 'ameliorer', 'studio'], default='auto')
+    ap.add_argument('--type', choices=['auto', 'portrait', 'ancienne', 'ameliorer', 'studio', 'effacer'],
+                    default='auto')
+    ap.add_argument('--zones', help='effacer : zones en JSON, ex. [{"cadre": [0.1, 0.2, 0.3, 0.4]}]')
     ap.add_argument('--effet', choices=sorted(vision.STUDIO), default='fond-flou', help='effet (avec --type studio)')
     ap.add_argument('--couleur', default='255,255,255', help='fond uni : couleur R,V,B (0-255)')
     ap.add_argument('--format', dest='ratio', choices=vision.FORMATS_RECADRAGE, default='4:5', help='recadrage')
@@ -412,6 +435,8 @@ def main():
                         done = ameliorer(job, args.style)
                     elif kind == 'studio':
                         done = studio(job, args.effet, args.couleur, args.ratio)
+                    elif kind == 'effacer':
+                        done = effacement(job, json.loads(args.zones or '[]'))
                     else:
                         done = ancienne(job)
                     if done:
@@ -422,7 +447,8 @@ def main():
                         ok += 1
                     else:
                         pc.call('doc.close', index=job.index)
-                except (PhotoCraftError, ValueError, ConversionImpossible) as e:
+                except (PhotoCraftError, ValueError, ConversionImpossible, effacer.EffacementError,
+                        vision.VisionError) as e:
                     log('  ERREUR : %s' % e)
                     try:
                         for _ in range(5):

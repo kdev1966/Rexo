@@ -1,7 +1,7 @@
 'use strict';
 
 const $ = (id) => document.getElementById(id);
-const state = { photos: [], results: [], photo: null, filtre: 'auto', mode: 'slider', shown: null, job: null };
+const state = { photos: [], results: [], photo: null, filtre: 'auto', mode: 'slider', shown: null, job: null, zones: [] };
 
 // ---------- utilitaires ----------
 async function api(url, opts) {
@@ -16,7 +16,7 @@ function toast(msg, isErr) {
   clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 3500);
 }
 const media = (zone, name) => `/media/${zone}/${encodeURIComponent(name)}?v=${Date.now()}`;
-const FILTER_NAMES = { auto: 'Automatique', portrait: 'Portrait', ancienne: 'Photo ancienne', restauration: 'Restauration seule', ameliorer: 'Améliorer', studio: 'Studio' };
+const FILTER_NAMES = { auto: 'Automatique', portrait: 'Portrait', ancienne: 'Photo ancienne', restauration: 'Restauration seule', ameliorer: 'Améliorer', studio: 'Studio', effacer: 'Effacer' };
 
 // ---------- bibliothèque ----------
 async function loadPhotos() {
@@ -49,6 +49,14 @@ async function loadResults() {
 }
 function selectPhoto(name) {
   state.photo = name;
+  state.zones = []; renderZones();
+  if (state.filtre === 'effacer') {
+    document.querySelectorAll('.thumb').forEach((t) => t.classList.toggle('is-active', t.title === name));
+    $('applyBtn').disabled = !!(state.job && state.job.etat === 'en cours');
+    $('viewerTitle').textContent = name + ' — zones à effacer';
+    showSingle(media('original', name));
+    return;
+  }
   document.querySelectorAll('.thumb').forEach((t) => t.classList.toggle('is-active', t.title === name));
   $('applyBtn').disabled = !!(state.job && state.job.etat === 'en cours');
   $('viewerTitle').textContent = name;
@@ -78,6 +86,9 @@ document.querySelectorAll('.filter').forEach((b) => b.onclick = () => {
   $('styleOption').hidden = state.filtre !== 'ameliorer';
   $('studioOptions').hidden = state.filtre !== 'studio';
   studioVisibility();
+  $('erasePanel').hidden = state.filtre !== 'effacer';
+  if (state.filtre === 'effacer' && state.photo) showSingle(media('original', state.photo));
+  eraseVisibility();
 });
 function studioVisibility() {
   const e = $('studioEffet').value;
@@ -102,12 +113,14 @@ async function loadStyles() {
 // ---------- traitement ----------
 $('applyBtn').onclick = async () => {
   if (!state.photo) return;
+  if (state.filtre === 'effacer' && !state.zones.length) { toast('Tracez au moins une zone à effacer sur la photo.', true); return; }
   try {
     const { id } = await api('/api/traiter', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photo: state.photo, filtre: state.filtre,
         style: state.filtre === 'ameliorer' ? $('styleSelect').value : '',
-        effet: $('studioEffet').value, couleur: hexToRgb($('studioCouleur').value), format: $('studioFormat').value }),
+        effet: $('studioEffet').value, couleur: hexToRgb($('studioCouleur').value), format: $('studioFormat').value,
+        zones: state.filtre === 'effacer' ? state.zones : undefined }),
     });
     state.job = { id, etat: 'en cours' };
     $('applyBtn').disabled = true;
@@ -148,6 +161,7 @@ async function poll(id) {
 // ---------- visionneuse ----------
 function showSingle(url) {
   state.shown = null;
+  eraseVisibility(true);
   $('empty').hidden = true; $('side').hidden = true; $('actions').hidden = true;
   const c = $('compare'); c.hidden = false; c.className = 'compare mode-after';
   $('imgAfter').src = url;
@@ -155,6 +169,7 @@ function showSingle(url) {
 }
 function showResult(r) {
   state.shown = r;
+  eraseVisibility(false);
   $('empty').hidden = true;
   $('viewerTitle').textContent = (r.photo || '') + ' — retouche';
   const before = r.avant ? media('retouche', r.avant) : null;
@@ -204,6 +219,75 @@ document.querySelectorAll('#modes button').forEach((b) => b.onclick = () => setM
     if (e.key === 'ArrowLeft') { setPos(cur - 2); e.preventDefault(); }
     if (e.key === 'ArrowRight') { setPos(cur + 2); e.preventDefault(); }
   });
+})();
+
+// ---------- zones à effacer : cadres et clics dessinés sur la photo ----------
+function eraseVisibility(single) {
+  const on = state.filtre === 'effacer' && (single === undefined ? !state.shown : single);
+  $('zonesLayer').hidden = !on;
+}
+function renderZones() {
+  const layer = $('zonesLayer'); layer.innerHTML = '';
+  state.zones.forEach((z, i) => {
+    let ax = 0, ay = 0;
+    if (z.cadre) {
+      const [x, y, w, h] = z.cadre, d = document.createElement('div');
+      d.className = 'zone-box';
+      Object.assign(d.style, { left: x * 100 + '%', top: y * 100 + '%', width: w * 100 + '%', height: h * 100 + '%' });
+      layer.appendChild(d); ax = x + w / 2; ay = y;
+    }
+    for (const p of z.points || []) {
+      const d = document.createElement('div');
+      d.className = 'zone-pt' + (p[2] === 0 ? ' neg' : '');
+      Object.assign(d.style, { left: p[0] * 100 + '%', top: p[1] * 100 + '%' });
+      layer.appendChild(d);
+      if (!z.cadre && !ax) { ax = p[0]; ay = p[1]; }
+    }
+    const n = document.createElement('div');
+    n.className = 'zone-num'; n.textContent = i + 1;
+    Object.assign(n.style, { left: ax * 100 + '%', top: ay * 100 + '%' });
+    layer.appendChild(n);
+  });
+  const c = state.zones.length;
+  $('zoneCount').textContent = c ? c + (c > 1 ? ' zones' : ' zone') : 'Aucune zone';
+}
+(function eraseTool() {
+  const layer = $('zonesLayer');
+  let start = null, ghost = null;
+  const frac = (e) => {
+    const r = layer.getBoundingClientRect();
+    return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
+  };
+  layer.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    layer.setPointerCapture(e.pointerId);
+    start = { p: frac(e), alt: e.altKey };
+    ghost = document.createElement('div'); ghost.className = 'zone-box'; layer.appendChild(ghost);
+  });
+  layer.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const [x, y] = frac(e), [x0, y0] = start.p;
+    Object.assign(ghost.style, { left: Math.min(x, x0) * 100 + '%', top: Math.min(y, y0) * 100 + '%',
+      width: Math.abs(x - x0) * 100 + '%', height: Math.abs(y - y0) * 100 + '%' });
+  });
+  layer.addEventListener('pointerup', (e) => {
+    if (!start) return;
+    const [x, y] = frac(e), [x0, y0] = start.p;
+    const w = Math.abs(x - x0), h = Math.abs(y - y0);
+    if (w < 0.01 && h < 0.01) {                       // un clic
+      if (start.alt && state.zones.length) {
+        const last = state.zones[state.zones.length - 1];
+        (last.points = last.points || []).push([x0, y0, 0]);
+      } else if (state.zones.length < 20) {
+        state.zones.push({ points: [[x0, y0, 1]] });
+      }
+    } else if (state.zones.length < 20) {             // un cadre
+      state.zones.push({ cadre: [Math.min(x, x0), Math.min(y, y0), w, h] });
+    }
+    start = null; renderZones();
+  });
+  $('undoZone').onclick = () => { state.zones.pop(); renderZones(); };
+  $('clearZones').onclick = () => { state.zones = []; renderZones(); };
 })();
 
 $('openPsd').onclick = async () => {

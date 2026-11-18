@@ -37,7 +37,9 @@ FILTRES = {
     'restauration': ('ancienne', 'restauree'),
     'ameliorer': ('ameliorer', 'jpg'),
     'studio': ('studio', 'jpg'),
+    'effacer': ('effacer', 'jpg'),
 }
+from .effacer import EffacementError, valider as valider_zones  # noqa: E402
 from .vision import FORMATS_RECADRAGE, STUDIO, STYLES  # noqa: E402
 _COULEUR = re.compile(r'^\d{1,3},\d{1,3},\d{1,3}$')
 
@@ -176,6 +178,11 @@ def api_traiter():
                                or not _COULEUR.match(opts['couleur'])
                                or any(int(v) > 255 for v in opts['couleur'].split(','))):
         return jsonify(error='Réglage du filtre Studio invalide.'), 400
+    if filtre == 'effacer':
+        try:
+            opts['zones'] = valider_zones(data.get('zones'))
+        except (EffacementError, TypeError, ValueError) as e:
+            return jsonify(error='Zones à effacer invalides : %s' % e), 400
     src = _safe(ORIGINAL, photo)
     with _lock:
         if _current['id'] and _jobs[_current['id']]['etat'] == 'en cours':
@@ -216,6 +223,8 @@ def _run(job_id, src, filtre, style=None, opts=None):
         cmd += ['--effet', opts['effet'], '--couleur', opts['couleur'], '--format', opts['format']]
         if opts['effet'] == 'detourage':
             shown = 'detoure'
+    if kind == 'effacer':
+        cmd += ['--zones', json.dumps(opts['zones'])]
     try:
         proc = subprocess.Popen(cmd, cwd=str(APP),
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)

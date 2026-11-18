@@ -177,6 +177,32 @@ class Vision(unittest.TestCase):
             self.vision.effet_studio('recadrage', self.src, self.dir / 'x.png', ratio='7:3')
 
 
+class Effacement(unittest.TestCase):
+    """MobileSAM + MI-GAN (embedkit) : sauté si les modèles ne sont pas installés."""
+
+    def test_zones_are_validated(self):
+        from reveal import effacer
+        ok = effacer.valider([{'cadre': [0.1, 0.1, 0.2, 0.2]}, {'points': [[0.5, 0.5], [0.6, 0.6, 0]]}])
+        self.assertEqual(ok[1]['points'][0][2], 1)
+        for bad in ([], [{}], [{'cadre': [0.9, 0.1, 0.2, 0.2]}], [{'points': [[1.5, 0.2]]}],
+                    [{'cadre': [0.1, 0.1, 0, 0.2]}], [{'cadre': [0, 0, 0.1, 0.1]}] * 21):
+            with self.assertRaises(effacer.EffacementError, msg=str(bad)[:60]):
+                effacer.valider(bad)
+
+    def test_a_dark_square_disappears(self):
+        from reveal import catalogue, effacer
+        if not (catalogue.present('mobilesam') and catalogue.present('migan-512')):
+            self.skipTest('MobileSAM ou MI-GAN absent')
+        img = gradient(360, 480)
+        clean = img.copy()
+        cv2.rectangle(img, (200, 140), (260, 200), (20, 20, 20), -1)
+        result, hole, details = effacer.effacer(img, [{'cadre': [180 / 480, 120 / 360, 100 / 480, 100 / 360]}])
+        self.assertGreater(details[0][1], 0)
+        zone = (slice(150, 190), slice(210, 250))
+        self.assertLess(np.abs(result[zone].astype(int) - clean[zone].astype(int)).mean(), 25)
+        self.assertEqual(np.abs(result[:100].astype(int) - img[:100].astype(int)).max(), 0)  # hors zone : intact
+
+
 class Catalogue(unittest.TestCase):
     """Modèles déclarés pour embedkit (apps/reveal/modeles) et contrôle des licences."""
 
@@ -273,6 +299,11 @@ class Interface(unittest.TestCase):
         for opts in bad:
             r = self.client.post('/api/traiter', json=dict(photo='a.jpg', filtre='studio', **opts))
             self.assertEqual(r.status_code, 400, opts)
+
+    def test_erase_zones_are_validated(self):
+        for zones in (None, [], [{'cadre': [2, 0, 0.1, 0.1]}]):
+            r = self.client.post('/api/traiter', json={'photo': 'a.jpg', 'filtre': 'effacer', 'zones': zones})
+            self.assertEqual(r.status_code, 400, zones)
 
     def test_rejects_unknown_format(self):
         import io
