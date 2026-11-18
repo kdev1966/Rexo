@@ -1,0 +1,91 @@
+# Reveal
+
+Retouche de photos pour un studio, **100 % locale** : PhotoCraft piloté par Python, avec des
+modèles IA open source qui tournent sur le processeur. Aucune photo ne quitte la machine.
+
+| Type de photo | Ce que fait Reveal, sans retouche à la main |
+|---|---|
+| **Portrait** (couleur) | Visages restaurés par IA (GFPGAN), lissage de la peau limité à la peau détectée, maquillage (lèvres, blush, paupières) placé grâce aux repères du visage |
+| **Photo ancienne** (noir et blanc, sépia) | Agrandissement x2 si elle est petite (Real-ESRGAN), recadrage du tirage, gris neutre, stries et rayures atténuées, bruit, voile, contraste, netteté, visages restaurés, puis colorisation (DDColor) |
+
+Le type est choisi automatiquement : une photo sans couleur est traitée comme ancienne.
+Chaque résultat est un **PSD à calques** (chaque étape réglable dans PhotoCraft) et un JPEG.
+
+## Installation
+
+Prérequis : Mac Intel, macOS 12 ou plus, Python 3.9 du système, PhotoCraft ≥ 0.23 dans
+`/Applications`.
+
+```bash
+cd apps/reveal
+python3 -m venv .venv
+.venv/bin/pip install --only-binary :all: -r requirements.txt
+cd ../.. && python3 -m shared.modeles installer reveal     # modèles IA (≈ 1,5 Go), vérifiés par SHA-256
+```
+
+## Utilisation
+
+### Interface web
+
+```bash
+cd apps/reveal
+.venv/bin/python -m reveal.interface        # puis ouvrir http://127.0.0.1:8765
+```
+
+Choisir ou déposer une photo, choisir un filtre (Automatique, Portrait, Photo ancienne,
+Restauration seule), appliquer, puis comparer avec le curseur avant / après, côte à côte, ou
+l'une des deux vues seule. Le PSD s'ouvre dans PhotoCraft d'un clic.
+
+### Ligne de commande
+
+```bash
+.venv/bin/python -m reveal.traiter                          # toutes les photos de donnees/original/
+.venv/bin/python -m reveal.traiter donnees/original/1.jpg   # une photo
+.venv/bin/python -m reveal.traiter --type ancienne donnees/original/x.jpg
+```
+
+## Données
+
+Tout est rangé dans `donnees/` (ou le dossier donné par `REVEAL_DATA`), jamais versionné :
+
+| Chemin | Contenu |
+|---|---|
+| `original/` | photos à traiter, jamais modifiées |
+| `retouche/NOM_photocraft.psd` | résultat à calques |
+| `retouche/NOM_photocraft.jpg` | résultat final |
+| `retouche/NOM_photocraft_avant.jpg` | l'original à la même géométrie, pour comparer |
+| `retouche/NOM_photocraft_restauree.jpg` | photos anciennes : la restauration en noir et blanc |
+| `reglages.json` | réglages par photo (voir ci-dessous) |
+
+Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_2`, `_3`…
+
+### Réglages par photo
+
+```json
+{
+  "3.jpeg": {
+    "visages_exclus_ia": [[0.37, 0.28]],
+    "correcteur": [{"nom": "strie", "points": [[0.31, 0.26], [0.43, 0.25]], "taille": 0.01}]
+  }
+}
+```
+
+- `visages_exclus_ia` : centres (en fraction de l'image traitée) des visages que GFPGAN ne doit
+  pas toucher ; le traitement affiche la liste des visages détectés avec leur centre.
+- `correcteur` : tracés passés au correcteur localisé de PhotoCraft avant la restauration des visages.
+
+## Tests
+
+```bash
+.venv/bin/python -m unittest discover tests
+```
+
+## Code
+
+| Fichier | Rôle |
+|---|---|
+| `reveal/traiter.py` | chaîne de traitement, pilote PhotoCraft (`shared.photocraft`) |
+| `reveal/analyse.py` | vision en Python (OpenCV) : peau, maquillage, stries, colorisation de secours |
+| `reveal/ia.py` | modèles ONNX : Real-ESRGAN, GFPGAN, DDColor |
+| `reveal/interface.py`, `reveal/web/` | interface web locale (Flask, 127.0.0.1 seulement) |
+| `reveal/config.py` | emplacements des données |

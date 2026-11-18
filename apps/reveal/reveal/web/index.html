@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reveal</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5M21 12h-5M12 21v-5M3 12h5"/></svg>
+    <span>Reveal</span>
+  </div>
+  <div class="topbar-note">PhotoCraft · IA locale · rien ne quitte cet ordinateur</div>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <section>
+      <h2><span class="step">1</span> Photo</h2>
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.tif,.tiff,.webp" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <span><strong>Déposer une photo</strong> ou cliquer pour choisir</span>
+      </label>
+      <div class="thumbs" id="thumbs"></div>
+    </section>
+
+    <section>
+      <h2><span class="step">2</span> Filtre</h2>
+      <div class="filters" id="filters">
+        <button class="filter is-active" data-filtre="auto">
+          <span class="f-icon">✦</span>
+          <span class="f-text"><strong>Automatique</strong><small>Choisit selon la photo : couleur → portrait, noir et blanc → ancienne</small></span>
+        </button>
+        <button class="filter" data-filtre="portrait">
+          <span class="f-icon">◐</span>
+          <span class="f-text"><strong>Portrait</strong><small>Visages IA, lissage de la peau, maquillage placé automatiquement</small></span>
+        </button>
+        <button class="filter" data-filtre="ancienne">
+          <span class="f-icon">❖</span>
+          <span class="f-text"><strong>Photo ancienne</strong><small>Agrandissement, restauration complète puis colorisation IA</small></span>
+        </button>
+        <button class="filter" data-filtre="restauration">
+          <span class="f-icon">◇</span>
+          <span class="f-text"><strong>Restauration seule</strong><small>Comme « photo ancienne », résultat en noir et blanc</small></span>
+        </button>
+      </div>
+    </section>
+
+    <button class="apply" id="applyBtn" disabled>Appliquer le filtre</button>
+
+    <section class="progress" id="progress" hidden>
+      <div class="progress-head">
+        <span class="spinner" id="spinner"></span>
+        <span id="progressTitle">Traitement en cours…</span>
+        <span class="elapsed" id="elapsed">0 s</span>
+      </div>
+      <ol class="log" id="log"></ol>
+    </section>
+  </aside>
+
+  <section class="viewer">
+    <div class="viewer-bar">
+      <div class="viewer-title" id="viewerTitle">Choisissez une photo</div>
+      <div class="segmented" id="modes" role="tablist">
+        <button data-mode="slider" class="is-active">Curseur</button>
+        <button data-mode="side">Côte à côte</button>
+        <button data-mode="before">Avant</button>
+        <button data-mode="after">Après</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>
+        <p>Sélectionnez une photo à gauche, choisissez un filtre, puis « Appliquer ».</p>
+      </div>
+
+      <div class="compare" id="compare" hidden>
+        <img id="imgAfter" alt="Après" draggable="false">
+        <img id="imgBefore" alt="Avant" draggable="false">
+        <div class="handle" id="handle" role="slider" tabindex="0" aria-label="Comparer avant et après"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span></span></div>
+        <span class="tag tag-before">Avant</span>
+        <span class="tag tag-after">Après</span>
+      </div>
+
+      <div class="side" id="side" hidden>
+        <figure><img id="sideBefore" alt="Avant"><figcaption>Avant</figcaption></figure>
+        <figure><img id="sideAfter" alt="Après"><figcaption>Après</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="actions" id="actions" hidden>
+      <span class="meta" id="meta"></span>
+      <a class="btn" id="dlJpg" download>Télécharger le JPEG</a>
+      <button class="btn btn-primary" id="openPsd">Ouvrir le PSD dans PhotoCraft</button>
+    </div>
+
+    <div class="history">
+      <h3>Retouches récentes</h3>
+      <div class="history-strip" id="history"><span class="muted">Aucune pour l'instant.</span></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

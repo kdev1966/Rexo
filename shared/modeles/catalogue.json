@@ -1,0 +1,59 @@
+{
+  "commentaire": "Modèles IA utilisés par les applications de RetoHub. Les fichiers ne sont pas dans le dépôt : ils sont rangés dans ~/.local/share/kdev-models (ou KDEV_MODELS_DIR), au chemin « fichier ». Empreintes SHA-256 vérifiées à l'installation.",
+  "modeles": [
+    {
+      "nom": "ddcolor",
+      "groupes": ["reveal"],
+      "description": "Colorisation de photos noir et blanc (DDColor), format ONNX",
+      "fichier": "reveal/ddcolor.onnx",
+      "url": "https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/ddcolor.onnx",
+      "taille": 980103562,
+      "sha256": "dd6156f056d0690891ef35f9ee87176d4d976ab19bbd36e57d18e841e064d797"
+    },
+    {
+      "nom": "gfpgan_1.4",
+      "groupes": ["reveal"],
+      "description": "Restauration des visages (GFPGAN 1.4), format ONNX",
+      "fichier": "reveal/gfpgan_1.4.onnx",
+      "url": "https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/gfpgan_1.4.onnx",
+      "taille": 340299087,
+      "sha256": "accc4757b26bdb89b32b4d3500d4f79c9dff97c1dd7c7104bf9dcb95e3311385"
+    },
+    {
+      "nom": "real_esrgan_x2",
+      "groupes": ["reveal"],
+      "description": "Agrandissement x2 (Real-ESRGAN), format ONNX",
+      "fichier": "reveal/real_esrgan_x2.onnx",
+      "url": "https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/real_esrgan_x2.onnx",
+      "taille": 69552244,
+      "sha256": "5be2d62ab3b0357986efb20a19638334c0e7a2a055ccbc52c77063da0482b3bb"
+    },
+    {
+      "nom": "zhang_colorization_prototxt",
+      "groupes": ["reveal"],
+      "description": "Colorisation de secours (Zhang et al. 2016) : architecture",
+      "fichier": "reveal/colorization_deploy_v2.prototxt",
+      "url": "https://raw.githubusercontent.com/richzhang/colorization/caffe/colorization/models/colorization_deploy_v2.prototxt",
+      "taille": 9945,
+      "sha256": "d16418cef8df4ccd703a55ae0ef3960861d5010418f77c90d0a47689998a7169"
+    },
+    {
+      "nom": "zhang_colorization_points",
+      "groupes": ["reveal"],
+      "description": "Colorisation de secours (Zhang et al. 2016) : points de couleur",
+      "fichier": "reveal/pts_in_hull.npy",
+      "url": "https://raw.githubusercontent.com/richzhang/colorization/caffe/colorization/resources/pts_in_hull.npy",
+      "taille": 5088,
+      "sha256": "b5dec01315c34f43f1c8c089e84c45ae35d1838d8e77ed0e7ca930f79ffa450e"
+    },
+    {
+      "nom": "zhang_colorization_poids",
+      "groupes": ["reveal"],
+      "description": "Colorisation de secours (Zhang et al. 2016) : poids",
+      "fichier": "reveal/colorization_release_v2.caffemodel",
+      "url": "https://www.dropbox.com/s/dx0qvhhp5hbcx7z/colorization_release_v2.caffemodel?dl=1",
+      "taille": 128946764,
+      "sha256": "f5af1e602646328c792e1094f9876fe9cd4c09ac46fa886e5708a1abc89137b1"
+    }
+  ]
+}

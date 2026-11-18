@@ -1,0 +1,23 @@
+# --- Informations privées : jamais dans le dépôt public ---
+# Notes de travail locales (adresses, comptes, machines)
+CLAUDE.md
+.handoff/
+
+# Photos des clients et résultats : jamais versionnés
+apps/*/donnees/
+
+# Modèles IA : rangés dans ~/.local/share/kdev-models (voir shared/modeles/catalogue.json)
+*.onnx
+*.gguf
+*.caffemodel
+*.bin
+
+# Environnements et caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# macOS
+.DS_Store

@@ -1,0 +1,7 @@
+# Versions figées : dernières publiées en paquets compilés pour Mac Intel sous macOS 12 (Python 3.9).
+# Installer avec : python3 -m venv .venv && .venv/bin/pip install --only-binary :all: -r requirements.txt
+# (--only-binary interdit à pip de recompiler OpenCV depuis les sources, ce qui prend plus d'une heure.)
+numpy==2.0.2
+opencv-python-headless==4.10.0.84
+onnxruntime==1.19.2
+flask==3.1.3

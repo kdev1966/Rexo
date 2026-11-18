@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Interface web locale de Reveal (PhotoCraft + Python).
+
+Lancement (depuis le dossier apps/reveal) :
+    .venv/bin/python -m reveal.interface
+puis ouvrir http://127.0.0.1:8765 dans le navigateur.
+
+Le serveur n'écoute que sur la machine elle-même (127.0.0.1) : aucune photo ne sort.
+Le traitement est fait par reveal.traiter (PhotoCraft piloté par Python), lancé à part.
+"""
+
+import json
+import re
+import subprocess
+import sys
+import threading
+import time
+import uuid
+from pathlib import Path
+
+from flask import Flask, abort, jsonify, request, send_file, send_from_directory
+from werkzeug.utils import secure_filename
+
+from .config import APP, IMAGES, ORIGINAL, RETOUCHE
+
+WEB = Path(__file__).resolve().parent / 'web'
+HOST, PORT = '127.0.0.1', 8765
+
+# filtre de l'interface -> (type passé à traiter.py, image affichée comme « après »)
+FILTRES = {
+    'auto': ('auto', 'jpg'),
+    'portrait': ('portrait', 'jpg'),
+    'ancienne': ('ancienne', 'jpg'),
+    'restauration': ('ancienne', 'restauree'),
+}
+
+app = Flask(__name__, static_folder=None)
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
+_jobs = {}
+_lock = threading.Lock()
+_current = {'id': None}
+_ansi = re.compile(r'\x1b\[[0-9;]*m')
+
+
+# ---------- utilitaires ----------
+
+def _safe(folder, name):
+    """Chemin d'un fichier existant dans `folder`, sans possibilité d'en sortir."""
+    path = (folder / name).resolve()
+    if path.parent != folder.resolve() or not path.is_file():
+        abort(404)
+    return path
+
+
+def _photos():
+    return sorted((p for p in ORIGINAL.iterdir() if p.suffix.lower() in IMAGES and not p.name.startswith('.')),
+                  key=lambda p: p.name.lower())
+
+
+def _results():
+    """Résultats présents dans retouche/, regroupés par série (NOM_photocraft[_n])."""
+    series = {}
+    for p in RETOUCHE.glob('*_photocraft*.jpg'):
+        m = re.match(r'^(.*_photocraft(?:_\d+)?)(?:_(avant|restauree))?\.jpg$', p.name)
+        if not m:
+            continue
+        base, kind = m.group(1), m.group(2) or 'jpg'
+        s = series.setdefault(base, {'base': base, 'date': 0})
+        s[kind] = p.name
+        s['date'] = max(s['date'], p.stat().st_mtime)
+        psd = RETOUCHE / (base + '.psd')
+        if psd.exists():
+            s['psd'] = psd.name
+    out = [s for s in series.values() if 'jpg' in s]
+    for s in out:
+        s['photo'] = re.sub(r'_photocraft(?:_\d+)?$', '', s['base'])
+    return sorted(out, key=lambda s: -s['date'])
+
+
+# ---------- pages et fichiers ----------
+
+@app.get('/')
+def index():
+    return send_file(WEB / 'index.html')
+
+
+@app.get('/static/<path:name>')
+def static_files(name):
+    return send_from_directory(WEB, name)
+
+
+@app.get('/media/<zone>/<path:name>')
+def media(zone, name):
+    folder = {'original': ORIGINAL, 'retouche': RETOUCHE}.get(zone)
+    if folder is None:
+        abort(404)
+    resp = send_file(_safe(folder, name))
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+# ---------- API ----------
+
+@app.get('/api/photos')
+def api_photos():
+    return jsonify([{'name': p.name, 'url': '/media/original/' + p.name} for p in _photos()])
+
+
+@app.post('/api/photos')
+def api_upload():
+    f = request.files.get('photo')
+    if not f or not f.filename:
+        return jsonify(error='Aucun fichier reçu.'), 400
+    name = secure_filename(f.filename) or 'photo.jpg'
+    stem, ext = Path(name).stem, Path(name).suffix.lower()
+    if ext not in IMAGES:
+        return jsonify(error='Format non pris en charge (jpg, png, tif, webp).'), 400
+    target, n = ORIGINAL / (stem + ext), 1
+    while target.exists():                      # ne jamais remplacer un original
+        n += 1
+        target = ORIGINAL / ('%s_%d%s' % (stem, n, ext))
+    f.save(str(target))
+    return jsonify(name=target.name, url='/media/original/' + target.name)
+
+
+@app.get('/api/resultats')
+def api_results():
+    return jsonify(_results())
+
+
+@app.post('/api/traiter')
+def api_traiter():
+    data = request.get_json(silent=True) or {}
+    photo, filtre = data.get('photo', ''), data.get('filtre', 'auto')
+    if filtre not in FILTRES:
+        return jsonify(error='Filtre inconnu.'), 400
+    src = _safe(ORIGINAL, photo)
+    with _lock:
+        if _current['id'] and _jobs[_current['id']]['etat'] == 'en cours':
+            return jsonify(error='Un traitement est déjà en cours, patientez.'), 409
+        job_id = uuid.uuid4().hex[:10]
+        _jobs[job_id] = {'id': job_id, 'photo': photo, 'filtre': filtre, 'etat': 'en cours',
+                         'journal': [], 'resultat': None, 'debut': time.time()}
+        _current['id'] = job_id
+    threading.Thread(target=_run, args=(job_id, src, filtre), daemon=True).start()
+    return jsonify(id=job_id)
+
+
+@app.get('/api/jobs/<job_id>')
+def api_job(job_id):
+    job = _jobs.get(job_id)
+    if not job:
+        abort(404)
+    return jsonify(dict(job, ecoule=round(time.time() - job['debut'])))
+
+
+@app.post('/api/ouvrir')
+def api_open():
+    name = (request.get_json(silent=True) or {}).get('fichier', '')
+    path = _safe(RETOUCHE, name)
+    if path.suffix.lower() != '.psd':
+        abort(400)
+    subprocess.Popen(['open', '-a', 'PhotoCraft', str(path)])
+    return jsonify(ok=True)
+
+
+def _run(job_id, src, filtre):
+    job = _jobs[job_id]
+    kind, shown = FILTRES[filtre]
+    try:
+        proc = subprocess.Popen([sys.executable, '-m', 'reveal.traiter', '--type', kind, str(src)], cwd=str(APP),
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        for raw in proc.stdout:
+            line = _ansi.sub('', raw).rstrip()
+            if line.startswith('RESULTAT '):
+                res = json.loads(line[len('RESULTAT '):])
+                res['apres'] = res.get(shown) or res.get('jpg')
+                job['resultat'] = res
+            elif line.strip() and not line.startswith(('libpng', '20')) and 'onnxruntime' not in line:
+                job['journal'].append(line.strip())
+        proc.wait()
+        job['etat'] = 'termine' if job['resultat'] else 'erreur'
+        if not job['resultat'] and not any('ERREUR' in l for l in job['journal']):
+            job['journal'].append('ERREUR : le traitement n\'a pas produit de résultat.')
+    except Exception as e:                       # le serveur ne doit jamais tomber
+        job['journal'].append('ERREUR : %s' % e)
+        job['etat'] = 'erreur'
+
+
+if __name__ == '__main__':
+    ORIGINAL.mkdir(parents=True, exist_ok=True)
+    RETOUCHE.mkdir(parents=True, exist_ok=True)
+    print('Interface : http://%s:%d  (Ctrl+C pour arrêter)' % (HOST, PORT), flush=True)
+    app.run(host=HOST, port=PORT, debug=False, threaded=True)
