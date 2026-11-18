@@ -43,7 +43,8 @@ shared/lanceur/creer_app.sh reveal --bureau     # depuis la racine du hub
 
 Crée `~/Applications/Reveal.app` et un raccourci sur le Bureau. Un double-clic démarre le
 serveur local et ouvre la page dans le navigateur ; quitter l'application (Cmd+Q) arrête le
-serveur. Journal : `~/Library/Logs/RetoHub/reveal.log`. Sans `--bureau`, pas de raccourci.
+serveur. Le bouton **Quitter** de la page fait de même : il arrête le serveur, et l'application se
+ferme d'elle-même. Un traitement en cours est arrêté (les modèles d'IA quittent la mémoire), PhotoCraft compris. Journal : `~/Library/Logs/RetoHub/reveal.log`. Sans `--bureau`, pas de raccourci.
 
 ## Utilisation
 

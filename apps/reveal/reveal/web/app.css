@@ -189,3 +189,19 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
   background: #26282e; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 10;
 }
 .toast.err { border-color: var(--err); }
+
+/* ---------- quitter ---------- */
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+.quit {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9px; cursor: pointer;
+  background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: 13px; transition: .15s;
+}
+.quit svg { width: 16px; height: 16px; }
+.quit:hover { color: var(--err); border-color: var(--err); }
+.quit.is-confirm { color: #1a0d0d; background: var(--err); border-color: var(--err); }
+.stopped { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; text-align: center; padding: 24px;
+  background: rgba(15, 16, 18, .96); backdrop-filter: blur(6px); }
+.stopped svg { width: 44px; height: 44px; color: var(--muted); }
+.stopped h1 { font-size: 20px; margin: 12px 0 8px; }
+.stopped p { color: var(--muted); line-height: 1.6; margin: 0; }
+@media (max-width: 700px) { .topbar-note { display: none; } }

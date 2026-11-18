@@ -216,3 +216,23 @@ loadPhotos().then(() => {
     selectPhoto(h.photo, true);
   }
 }).catch((e) => toast(e.message, true));
+
+// ---------- quitter : arrête le serveur (et un traitement en cours) ----------
+(function quitter() {
+  const b = $('quitBtn');
+  let arme = null;
+  b.onclick = async () => {
+    const enCours = state.busy;
+    if (enCours && !arme) {           // un traitement tourne : second clic pour confirmer
+      b.classList.add('is-confirm'); b.querySelector('span').textContent = 'Arrêter le traitement ?';
+      arme = setTimeout(() => { arme = null; b.classList.remove('is-confirm'); b.querySelector('span').textContent = 'Quitter'; }, 4000);
+      return;
+    }
+    clearTimeout(arme);
+    try {
+      await fetch('/api/quitter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    } catch (e) { /* serveur déjà arrêté */ }
+    $('stopped').hidden = false;
+    window.close();                    // ne ferme que les onglets ouverts par un script ; sinon l'écran reste
+  };
+})();

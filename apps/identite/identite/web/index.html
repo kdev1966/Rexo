@@ -12,7 +12,13 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18c.8-2.3 2.5-3.5 4.5-3.5s3.7 1.2 4.5 3.5"/></svg>
     <span>Identité</span>
   </div>
-  <div class="topbar-note">Normes françaises · 35 × 45 mm · rien ne quitte cet ordinateur</div>
+  <div class="topbar-right">
+    <div class="topbar-note">Normes françaises · 35 × 45 mm · rien ne quitte cet ordinateur</div>
+    <button class="quit" id="quitBtn" title="Arrêter le serveur et libérer la mémoire">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+      <span>Quitter</span>
+    </button>
+  </div>
 </header>
 
 <main class="layout">
@@ -99,6 +105,15 @@
   </section>
 </main>
 
+
+<div class="stopped" id="stopped" hidden>
+  <div>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+    <h1>Identité est arrêté</h1>
+    <p>Le serveur est fermé et la mémoire libérée. Vous pouvez fermer cet onglet.<br>
+    Pour reprendre, double-cliquez sur l'icône Identité du Bureau.</p>
+  </div>
+</div>
 <div class="toast" id="toast" hidden></div>
 <script src="/static/app.js"></script>
 </body>

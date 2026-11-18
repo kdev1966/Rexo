@@ -12,7 +12,13 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5M21 12h-5M12 21v-5M3 12h5"/></svg>
     <span>Reveal</span>
   </div>
-  <div class="topbar-note">PhotoCraft · IA locale · rien ne quitte cet ordinateur</div>
+  <div class="topbar-right">
+    <div class="topbar-note">PhotoCraft · IA locale · rien ne quitte cet ordinateur</div>
+    <button class="quit" id="quitBtn" title="Arrêter le serveur et libérer la mémoire">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+      <span>Quitter</span>
+    </button>
+  </div>
 </header>
 
 <main class="layout">
@@ -137,6 +143,15 @@
   </section>
 </main>
 
+
+<div class="stopped" id="stopped" hidden>
+  <div>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+    <h1>Reveal est arrêté</h1>
+    <p>Le serveur est fermé et la mémoire libérée. Vous pouvez fermer cet onglet.<br>
+    Pour reprendre, double-cliquez sur l'icône Reveal du Bureau.</p>
+  </div>
+</div>
 <div class="toast" id="toast" hidden></div>
 <script src="/static/app.js"></script>
 </body>

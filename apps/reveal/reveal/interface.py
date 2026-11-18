@@ -22,6 +22,7 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
 from shared.images import ConversionImpossible, convertir
+from shared.serveur import ajouter_quitter, oublier, suivre
 
 from . import config
 from .config import APP, IMAGES, ORIGINAL, RETOUCHE, WEB_NATIF
@@ -45,6 +46,7 @@ _COULEUR = re.compile(r'^\d{1,3},\d{1,3},\d{1,3}$')
 
 app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+ajouter_quitter(app)        # bouton « Quitter » : arrête les traitements (modèles en mémoire) et le serveur
 
 _jobs = {}
 _lock = threading.Lock()
@@ -226,8 +228,8 @@ def _run(job_id, src, filtre, style=None, opts=None):
     if kind == 'effacer':
         cmd += ['--zones', json.dumps(opts['zones'])]
     try:
-        proc = subprocess.Popen(cmd, cwd=str(APP),
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        proc = suivre(subprocess.Popen(cmd, cwd=str(APP), stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT, text=True, bufsize=1))
         for raw in proc.stdout:
             line = _ansi.sub('', raw).rstrip()
             if line.startswith('RESULTAT '):
@@ -237,6 +239,7 @@ def _run(job_id, src, filtre, style=None, opts=None):
             elif line.strip() and not line.startswith(('libpng', '20')) and 'onnxruntime' not in line:
                 job['journal'].append(line.strip())
         proc.wait()
+        oublier(proc)
         job['etat'] = 'termine' if job['resultat'] else 'erreur'
         if not job['resultat'] and not any('ERREUR' in l for l in job['journal']):
             job['journal'].append('ERREUR : le traitement n\'a pas produit de résultat.')

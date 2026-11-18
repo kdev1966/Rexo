@@ -229,6 +229,12 @@ class Interface(unittest.TestCase):
             self.assertEqual(self.client.post('/api/fabriquer', json=corps).status_code, 400, corps)
         self.assertEqual(self.client.post('/api/fabriquer', json={'photo': 'absente.jpg'}).status_code, 404)
 
+    def test_quitter_exige_json(self):
+        """Un formulaire d'un autre site ne peut pas arrêter le serveur (pas d'appel JSON ici :
+        il arrêterait le processus des tests)."""
+        r = self.client.post('/api/quitter', data={'x': '1'})
+        self.assertEqual(r.status_code, 415)
+
     def test_pas_de_resultat(self):
         self.envoyer('neuf.jpg')
         self.assertIsNone(self.client.get('/api/resultat?photo=neuf.jpg').get_json())

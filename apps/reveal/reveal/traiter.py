@@ -25,6 +25,7 @@ Utilisation (depuis le dossier apps/reveal) :
 import argparse
 import json
 import shutil
+import signal
 import sys
 import time
 from pathlib import Path
@@ -461,5 +462,12 @@ def main():
     return 0 if ok == len(photos) else 1
 
 
+def _interrompu(signum, frame):
+    """SIGTERM (bouton « Quitter » de l'interface) : sortie normale, pour que les blocs
+    finally ferment PhotoCraft et effacent le dossier de travail."""
+    raise SystemExit(143)
+
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, _interrompu)
     sys.exit(main())

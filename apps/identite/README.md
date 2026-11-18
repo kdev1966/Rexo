@@ -40,7 +40,8 @@ shared/lanceur/creer_app.sh identite --bureau     # depuis la racine du hub
 
 Crée `~/Applications/Identité.app` et un raccourci sur le Bureau. Un double-clic démarre le
 serveur local et ouvre la page dans le navigateur ; quitter l'application (Cmd+Q) arrête le
-serveur. Journal : `~/Library/Logs/RetoHub/identite.log`. Sans `--bureau`, pas de raccourci.
+serveur. Le bouton **Quitter** de la page fait de même : il arrête le serveur, et l'application se
+ferme d'elle-même. Journal : `~/Library/Logs/RetoHub/identite.log`. Sans `--bureau`, pas de raccourci.
 
 ## Utilisation
 

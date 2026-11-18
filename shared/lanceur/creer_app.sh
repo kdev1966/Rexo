@@ -7,7 +7,8 @@
 #
 # L'application démarre le serveur local (127.0.0.1 seulement), ouvre la page dans le
 # navigateur par défaut, la rouvre si on clique sur son icône dans le Dock, et arrête le
-# serveur quand on la quitte (Cmd+Q). Si le serveur tourne déjà, elle ouvre seulement la page.
+# serveur quand on la quitte (Cmd+Q) ; elle se ferme seule si le serveur s'arrête (bouton
+# « Quitter » de la page). Si le serveur tourne déjà, elle ouvre seulement la page.
 # Journal du serveur : ~/Library/Logs/RetoHub/<application>.log
 # Icône dessinée par icone.py (Pillow de l'application). Relançable : remplace l'application
 # existante. Rien n'est installé hors de ~/Applications (et du raccourci sur le Bureau).
@@ -51,6 +52,21 @@ end run
 on reopen
 	open location adresse
 end reopen
+
+-- Le bouton « Quitter » de la page arrête le serveur : l'application le voit et se ferme.
+property vu : false
+on idle
+	try
+		do shell script "curl -s -o /dev/null --max-time 1 " & adresse
+		set vu to true
+	on error
+		if vu then
+			set pid to ""
+			quit
+		end if
+	end try
+	return 2
+end idle
 
 on quit
 	if pid is not "" then
