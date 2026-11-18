@@ -19,7 +19,8 @@ from werkzeug.utils import secure_filename
 from shared.images import FORMATS, ConversionImpossible, convertir
 from shared.serveur import ajouter_quitter
 
-from . import couleurs
+from . import archive, couleurs
+from .base import LIENS, BaseError
 from .config import DONNEES, ORIGINAL, RESULTATS
 from .fabriquer import fabriquer
 from .normes import FRANCE, Norme
@@ -165,6 +166,179 @@ def api_ouvrir():
     if path.suffix.lower() != '.jpg':
         abort(400)
     subprocess.Popen(['open', '-a', 'Preview', str(path)])
+    return jsonify(ok=True)
+
+
+# ---------- liste de travail : suppression ----------
+
+@app.delete('/api/photos/<path:name>')
+def api_retirer(name):
+    """Met à la Corbeille un portrait de la liste de travail, ses planches et son rapport."""
+    _safe(ORIGINAL, name)
+    if not _verrou.acquire(blocking=False):
+        return jsonify(error='Une photo est en cours de fabrication, patientez.'), 409
+    try:
+        retires = archive.retirer_du_travail(name, APERCUS)
+    except archive.ArchiveError as e:
+        return jsonify(error=str(e)), 404
+    finally:
+        _verrou.release()
+    return jsonify(ok=True, corbeille=len(retires))
+
+
+# ---------- archive des clients ----------
+
+def _json():
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict):
+        abort(415)
+    return d
+
+
+def _erreurs(f):
+    """Erreurs de saisie (BaseError) et d'archive -> 400 avec un message lisible."""
+    from functools import wraps
+
+    @wraps(f)
+    def g(*a, **k):
+        try:
+            return f(*a, **k)
+        except (BaseError, archive.ArchiveError) as e:
+            return jsonify(error=str(e)), 400
+    return g
+
+
+@app.get('/api/archive')
+def api_archive():
+    return jsonify(dossier=str(archive.dossier_archive()), liens=list(LIENS))
+
+
+@app.post('/api/archive/choisir')
+@_erreurs
+def api_archive_choisir():
+    """Sélecteur de dossiers du Mac (osascript), puis retient le dossier choisi."""
+    depart = archive.dossier_archive()
+    script = ('POSIX path of (choose folder with prompt "Dossier de l\'archive des clients" '
+              'default location (POSIX file "%s"))' % str(depart if depart.exists() else Path.home())
+              .replace('"', ''))
+    r = subprocess.run(['osascript', '-e', script], capture_output=True, text=True, timeout=600)
+    if r.returncode != 0:                       # annulé
+        return jsonify(annule=True, dossier=str(depart))
+    return jsonify(dossier=str(archive.choisir_archive(r.stdout.strip())))
+
+
+@app.post('/api/archive/ouvrir')
+@_erreurs
+def api_archive_ouvrir():
+    """Montre dans le Finder le dossier de l'archive, d'un client ou d'une photo."""
+    d = _json()
+    b = archive.base()
+    if d.get('photo_id'):
+        p = b.photo(int(d['photo_id']))
+        if not p:
+            abort(404)
+        cible = Path(p['dossier'])
+    else:
+        cible = archive.dossier_archive()
+        cible.mkdir(parents=True, exist_ok=True)
+    subprocess.Popen(['open', str(cible)])
+    return jsonify(ok=True)
+
+
+@app.get('/api/clients')
+def api_clients():
+    return jsonify(archive.base().chercher(request.args.get('q', '')))
+
+
+@app.post('/api/clients')
+@_erreurs
+def api_client_creer():
+    d = _json()
+    b = archive.base()
+    cid = b.creer_client(str(d.get('nom', '')), str(d.get('prenom', '')), str(d.get('telephone', '')))
+    return jsonify(b.client(cid))
+
+
+@app.get('/api/clients/<int:client_id>')
+def api_client(client_id):
+    fiche = archive.base().client(client_id)
+    if fiche is None:
+        abort(404)
+    for p in fiche['photos']:
+        p['present'] = Path(p['dossier']).is_dir()
+        p.pop('dossier')                        # le navigateur n'a pas besoin des chemins
+    return jsonify(fiche)
+
+
+@app.put('/api/clients/<int:client_id>')
+@_erreurs
+def api_client_modifier(client_id):
+    d = _json()
+    b = archive.base()
+    b.modifier_client(client_id, str(d.get('nom', '')), str(d.get('prenom', '')), str(d.get('telephone', '')))
+    return jsonify(b.client(client_id))
+
+
+@app.delete('/api/clients/<int:client_id>')
+@_erreurs
+def api_client_supprimer(client_id):
+    archive.supprimer_client_archive(client_id)
+    return jsonify(ok=True)
+
+
+@app.post('/api/enregistrer')
+@_erreurs
+def api_enregistrer():
+    """Archive la photo d'identité d'un portrait pour un client (existant ou nouveau)."""
+    d = _json()
+    photo = str(d.get('photo', ''))
+    _safe(ORIGINAL, photo)
+    if _resultat(photo) is None:                # avant de créer une fiche qui resterait vide
+        raise archive.ArchiveError('fabriquer d\'abord les photos de ce portrait')
+    b = archive.base()
+    if d.get('client_id'):
+        client_id = int(d['client_id'])
+    else:
+        c = d.get('client') or {}
+        client_id = b.creer_client(str(c.get('nom', '')), str(c.get('prenom', '')), str(c.get('telephone', '')))
+    fiche = b.client(client_id)
+    if fiche is None:
+        raise BaseError('client inconnu')
+    lien = str(d.get('lien', 'lui-même'))
+    if lien == 'lui-même':
+        nom, prenom = fiche['nom'], fiche['prenom']
+    else:
+        nom, prenom = str(d.get('nom', '')).strip(), str(d.get('prenom', '')).strip()
+        nom = nom or fiche['nom']               # un enfant porte souvent le nom du client
+    if not _verrou.acquire(blocking=False):
+        return jsonify(error='Une photo est en cours de fabrication, patientez.'), 409
+    try:
+        photo_id = archive.enregistrer(photo, client_id, nom, prenom, lien)
+        retire = bool(d.get('retirer')) and bool(archive.retirer_du_travail(photo, APERCUS))
+    finally:
+        _verrou.release()
+    return jsonify(ok=True, client_id=client_id, photo_id=photo_id, retire=retire)
+
+
+@app.get('/archive/<int:photo_id>/<nature>')
+def archive_fichier(photo_id, nature):
+    """Fichier d'une photo archivée, désigné par la base seulement (jamais par un chemin)."""
+    p = archive.base().photo(photo_id)
+    if p is None or nature not in archive.FICHIERS:
+        abort(404)
+    f = archive.fichier_archive(p, nature)
+    if not f.is_file():
+        abort(404)
+    resp = send_file(f, as_attachment=request.args.get('telecharger') == '1',
+                     download_name='%s.jpg' % nature)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+@app.delete('/api/archive/photos/<int:photo_id>')
+@_erreurs
+def api_archive_photo_supprimer(photo_id):
+    archive.supprimer_photo_archive(photo_id)
     return jsonify(ok=True)
 
 

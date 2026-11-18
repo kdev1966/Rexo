@@ -84,7 +84,9 @@ function render() {
   $('empty').hidden = !!state.photo;
   $('shot').hidden = !state.photo;
   $('report').hidden = !r;
-  if (!state.photo) return;
+  $('saveCard').hidden = !r;
+  $('removeBtn').hidden = !state.photo;
+  if (!state.photo) { $('viewerTitle').textContent = 'Choisissez un portrait'; return; }
 
   const img = $('shotImg');
   if (state.view === 'original') {
@@ -152,7 +154,7 @@ function renderReport(r) {
   const aImprimer = state.view.startsWith('planche') ? state.view : 'planche_8';
   $('printBtn').querySelector('span').textContent =
     state.view.startsWith('planche') ? 'Imprimer la planche' : 'Imprimer la planche de 8';
-  $('printBtn').onclick = () => imprimer(r.fichiers[aImprimer], r.version);
+  $('printBtn').onclick = () => imprimer(media('resultats', r.fichiers[aImprimer], r.version));
   $('openBtn').onclick = () => api('/api/ouvrir', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fichier: file }),
   }).then(() => toast('Ouvert dans Aperçu : imprimer à 100 %.')).catch((e) => toast(e.message, true));
@@ -162,7 +164,7 @@ function renderReport(r) {
 // La planche (1772 × 1181 px à 300 dpi) est posée dans un cadre invisible, à sa taille réelle
 // de 150 × 100 mm, sur une page de la même taille sans marge : la fenêtre d'impression du
 // système s'ouvre, l'échelle reste à 100 %.
-function imprimer(fichier, version) {
+function imprimer(url) {
   const ancien = document.querySelector('.print-frame');
   if (ancien) ancien.remove();
   const f = document.createElement('iframe');
@@ -183,7 +185,7 @@ function imprimer(fichier, version) {
     setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); }, 50);
   };
   img.onerror = () => toast('Planche introuvable : refaire « Fabriquer les photos ».', true);
-  img.src = media('resultats', fichier, version);
+  img.src = url;
 }
 
 // ---------- fabrication ----------
@@ -268,4 +270,267 @@ loadPhotos().then(() => {
     $('stopped').hidden = false;
     window.close();                    // ne ferme que les onglets ouverts par un script ; sinon l'écran reste
   };
+})();
+
+// ---------- confirmation par second clic (pas de fenêtre bloquante) ----------
+function confirmer(bouton, question) {
+  if (bouton._arme) {
+    clearTimeout(bouton._arme); bouton._arme = null;
+    bouton.classList.remove('is-confirm'); bouton.querySelector('span').textContent = bouton._libelle;
+    return true;
+  }
+  const span = bouton.querySelector('span');
+  bouton._libelle = span.textContent;
+  span.textContent = question; bouton.classList.add('is-confirm');
+  bouton._arme = setTimeout(() => {
+    bouton._arme = null; bouton.classList.remove('is-confirm'); span.textContent = bouton._libelle;
+  }, 4000);
+  return false;
+}
+const jsonPost = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+
+// ---------- liste de travail : retirer un portrait ----------
+$('removeBtn').onclick = async () => {
+  if (!state.photo || state.busy) return;
+  if (!confirmer($('removeBtn'), 'Mettre à la Corbeille ?')) return;
+  try {
+    await api('/api/photos/' + encodeURIComponent(state.photo), { method: 'DELETE' });
+    toast(state.photo + ' et ses planches sont dans la Corbeille.');
+    oublierPhoto();
+  } catch (e) { toast(e.message, true); }
+};
+async function oublierPhoto() {
+  state.photo = null; state.result = null; state.view = 'identite';
+  history.replaceState(null, '', location.pathname);
+  $('applyBtn').disabled = true;
+  await loadPhotos();
+  render();
+}
+
+// ---------- enregistrement pour un client ----------
+const save = { client: null, nouveau: false, liens: [] };
+
+function afficherClientChoisi() {
+  const c = save.client;
+  $('clientPicker').hidden = !!c || save.nouveau;
+  $('clientChosen').hidden = !c;
+  $('newClientForm').hidden = !save.nouveau;
+  if (c) $('clientChosenText').textContent = [c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ') + (c.telephone ? ' · ' + c.telephone : '');
+}
+function libelleClient(c) {
+  return [c.nom.toUpperCase(), c.prenom].filter(Boolean).join(' ');
+}
+function listeResultats(ul, clients, onPick, vide) {
+  ul.innerHTML = '';
+  if (!clients.length) {
+    const li = document.createElement('li'); li.className = 'none'; li.textContent = vide; ul.appendChild(li); return;
+  }
+  for (const c of clients) {
+    const li = document.createElement('li');
+    const b = document.createElement('strong'); b.textContent = libelleClient(c);
+    const sm = document.createElement('small');
+    const autres = (c.personnes || []).filter((p) => p !== [c.prenom, c.nom].filter(Boolean).join(' '));
+    sm.textContent = [c.telephone, c.nb_photos ? c.nb_photos + ' photo' + (c.nb_photos > 1 ? 's' : '') : '',
+      autres.length ? 'pour ' + autres.join(', ') : ''].filter(Boolean).join(' · ');
+    li.append(b, sm);
+    li.onclick = () => onPick(c);
+    ul.appendChild(li);
+  }
+}
+let chercheT = null;
+$('clientSearch').oninput = () => {
+  clearTimeout(chercheT);
+  const q = $('clientSearch').value.trim();
+  if (!q) { $('clientHits').hidden = true; return; }
+  chercheT = setTimeout(async () => {
+    try {
+      const res = await api('/api/clients?q=' + encodeURIComponent(q));
+      listeResultats($('clientHits'), res, (c) => {
+        save.client = c; $('clientHits').hidden = true; $('clientSearch').value = ''; afficherClientChoisi();
+      }, 'Aucun client : « + Nouveau client »');
+      $('clientHits').hidden = false;
+    } catch (e) { toast(e.message, true); }
+  }, 200);
+};
+$('clientSearch').onblur = () => setTimeout(() => { $('clientHits').hidden = true; }, 200);
+$('clientChange').onclick = () => { save.client = null; afficherClientChoisi(); $('clientSearch').focus(); };
+$('newClientBtn').onclick = () => {
+  save.nouveau = true; save.client = null;
+  const q = $('clientSearch').value.trim();          // ce qui était cherché pré-remplit le nom ou le téléphone
+  if (q && /\d/.test(q)) $('ncTel').value = q; else if (q) $('ncNom').value = q;
+  afficherClientChoisi(); $('ncNom').focus();
+};
+$('newClientCancel').onclick = () => { save.nouveau = false; afficherClientChoisi(); };
+$('lien').onchange = () => { $('personFields').hidden = $('lien').value === 'lui-même'; };
+
+async function chargerLiens() {
+  const a = await api('/api/archive');
+  save.liens = a.liens;
+  $('lien').innerHTML = '';
+  for (const l of a.liens) {
+    const o = document.createElement('option');
+    o.value = l; o.textContent = l === 'lui-même' ? 'Le client lui-même' : l.charAt(0).toUpperCase() + l.slice(1);
+    $('lien').appendChild(o);
+  }
+  $('archivePath').textContent = a.dossier;
+}
+
+$('saveBtn').onclick = async () => {
+  if (!state.photo || !state.result) return;
+  const corps = { photo: state.photo, lien: $('lien').value, retirer: $('retirerApres').checked };
+  if (save.client) corps.client_id = save.client.id;
+  else if (save.nouveau) corps.client = { nom: $('ncNom').value, prenom: $('ncPrenom').value, telephone: $('ncTel').value };
+  else { toast('Choisir un client ou en créer un.', true); $('clientSearch').focus(); return; }
+  if (corps.lien !== 'lui-même') {
+    corps.prenom = $('pPrenom').value; corps.nom = $('pNom').value;
+    if (!corps.prenom.trim()) { toast('Prénom de la personne photographiée ?', true); $('pPrenom').focus(); return; }
+  }
+  $('saveBtn').disabled = true;
+  try {
+    const r = await api('/api/enregistrer', jsonPost('POST', corps));
+    toast('Enregistrée dans l\'archive du client.');
+    save.client = null; save.nouveau = false;
+    ['ncNom', 'ncPrenom', 'ncTel', 'pPrenom', 'pNom'].forEach((id) => { $(id).value = ''; });
+    $('lien').value = 'lui-même'; $('personFields').hidden = true;
+    afficherClientChoisi();
+    if (r.retire) await oublierPhoto();
+  } catch (e) { toast(e.message, true); }
+  finally { $('saveBtn').disabled = false; }
+};
+
+// ---------- onglets ----------
+function montrerOnglet(nom) {
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('is-active', b.dataset.tab === nom));
+  $('atelierView').hidden = nom !== 'atelier';
+  $('clientsView').hidden = nom !== 'clients';
+  if (nom === 'clients') { chercherClients(); $('clientsSearch').focus(); }
+}
+document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => montrerOnglet(b.dataset.tab));
+
+// ---------- clients ----------
+const vueClients = { id: null };
+let clientsT = null;
+async function chercherClients() {
+  try {
+    const res = await api('/api/clients?q=' + encodeURIComponent($('clientsSearch').value.trim()));
+    listeResultats($('clientList'), res, (c) => ouvrirClient(c.id),
+      $('clientsSearch').value.trim() ? 'Aucun client trouvé.' : 'Aucun client pour l\'instant.');
+    [...$('clientList').children].forEach((li, i) => li.classList.toggle('is-active', res[i] && res[i].id === vueClients.id));
+  } catch (e) { toast(e.message, true); }
+}
+$('clientsSearch').oninput = () => { clearTimeout(clientsT); clientsT = setTimeout(chercherClients, 200); };
+
+const dateFr = (t) => new Date(t * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function bouton(texte, classe, onclick) {
+  const b = document.createElement('button');
+  b.className = classe; const sp = document.createElement('span'); sp.textContent = texte; b.appendChild(sp);
+  b.onclick = onclick; return b;
+}
+
+async function ouvrirClient(id) {
+  vueClients.id = id;
+  let c;
+  try { c = await api('/api/clients/' + id); } catch (e) { toast(e.message, true); return; }
+  const d = $('clientDetail'); d.innerHTML = '';
+  const head = document.createElement('div'); head.className = 'client-head';
+  const t = document.createElement('div');
+  const h = document.createElement('h2'); h.textContent = libelleClient(c);
+  const m = document.createElement('div'); m.className = 'meta';
+  m.textContent = [c.telephone || 'pas de téléphone', 'client depuis le ' + dateFr(c.cree_le),
+    c.photos.length + ' photo' + (c.photos.length > 1 ? 's' : '')].join(' · ');
+  t.append(h, m);
+  const act = document.createElement('div'); act.className = 'actions';
+  act.append(bouton('Modifier', 'btn btn-small', () => modifierClient(c)));
+  const del = bouton('Supprimer le client', 'btn-danger', async () => {
+    if (!confirmer(del, 'Fiche et photos à la Corbeille ?')) return;
+    try {
+      await api('/api/clients/' + c.id, { method: 'DELETE' });
+      toast('Client supprimé ; ses photos sont dans la Corbeille.');
+      vueClients.id = null;
+      $('clientDetail').innerHTML = '<div class="empty"><p>Client supprimé.</p></div>';
+      chercherClients();
+    } catch (e) { toast(e.message, true); }
+  });
+  act.append(del);
+  head.append(t, act);
+  d.appendChild(head);
+  const edit = document.createElement('div'); edit.className = 'client-edit'; edit.id = 'clientEdit'; edit.hidden = true;
+  d.appendChild(edit);
+
+  const cards = document.createElement('div'); cards.className = 'cards';
+  if (!c.photos.length) {
+    const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'Aucune photo enregistrée.'; d.appendChild(p);
+  }
+  for (const p of c.photos) {
+    const card = document.createElement('div'); card.className = 'card';
+    if (p.present) {
+      const img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
+      img.src = `/archive/${p.id}/identite?v=${Math.round(p.cree_le)}`;
+      card.appendChild(img);
+    } else {
+      const miss = document.createElement('div'); miss.className = 'missing';
+      miss.textContent = 'Dossier introuvable (déplacé ou supprimé hors de l\'application).';
+      card.appendChild(miss);
+    }
+    const body = document.createElement('div'); body.className = 'card-body';
+    const nom = document.createElement('strong'); nom.textContent = [p.prenom, p.nom].filter(Boolean).join(' ');
+    const sm = document.createElement('small');
+    sm.textContent = (p.lien === 'lui-même' ? 'le client' : p.lien) + ' · ' + dateFr(p.cree_le);
+    const ac = document.createElement('div'); ac.className = 'card-actions';
+    if (p.present) {
+      ac.append(bouton('Imprimer 8', 'btn btn-small', () => imprimer(`/archive/${p.id}/planche_8?v=1`)),
+        bouton('Imprimer 4 + portrait', 'btn btn-small', () => imprimer(`/archive/${p.id}/planche_4_portrait?v=1`)),
+        bouton('Dossier', 'btn btn-small', () => api('/api/archive/ouvrir', jsonPost('POST', { photo_id: p.id })).catch((e) => toast(e.message, true))));
+    }
+    const sup = bouton('Supprimer', 'btn-danger', async () => {
+      if (!confirmer(sup, 'À la Corbeille ?')) return;
+      try {
+        await api('/api/archive/photos/' + p.id, { method: 'DELETE' });
+        toast('Photo mise à la Corbeille.');
+        ouvrirClient(c.id); chercherClients();
+      } catch (e) { toast(e.message, true); }
+    });
+    ac.append(sup);
+    body.append(nom, sm, ac);
+    card.appendChild(body);
+    cards.appendChild(card);
+  }
+  d.appendChild(cards);
+  [...$('clientList').children].forEach((li) => li.classList.remove('is-active'));
+  chercherClients();
+}
+
+function modifierClient(c) {
+  const e = $('clientEdit'); e.innerHTML = ''; e.hidden = false;
+  const champ = (val, ph) => { const i = document.createElement('input'); i.className = 'input'; i.value = val; i.placeholder = ph; return i; };
+  const n = champ(c.nom, 'Nom'), p = champ(c.prenom, 'Prénom'), t = champ(c.telephone, 'Téléphone');
+  const ok = bouton('Enregistrer', 'btn btn-primary btn-small', async () => {
+    try {
+      await api('/api/clients/' + c.id, jsonPost('PUT', { nom: n.value, prenom: p.value, telephone: t.value }));
+      toast('Fiche mise à jour.'); ouvrirClient(c.id);
+    } catch (err) { toast(err.message, true); }
+  });
+  e.append(n, p, t, ok, bouton('Annuler', 'btn btn-small', () => { e.hidden = true; }));
+  n.focus();
+}
+
+$('archiveChoose').onclick = async () => {
+  toast('Choisissez le dossier dans la fenêtre du Finder.');
+  try {
+    const r = await api('/api/archive/choisir', jsonPost('POST', {}));
+    $('archivePath').textContent = r.dossier;
+    if (!r.annule) toast('Les prochaines photos seront rangées dans ' + r.dossier);
+  } catch (e) { toast(e.message, true); }
+};
+$('archiveOpen').onclick = () => api('/api/archive/ouvrir', jsonPost('POST', {})).catch((e) => toast(e.message, true));
+
+chargerLiens().catch((e) => toast(e.message, true));
+afficherClientChoisi();
+(function ongletDepuisAdresse() {                // #onglet=clients[&client=12] : ouvre la vue Clients
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('onglet') === 'clients') {
+    montrerOnglet('clients');
+    if (/^\d+$/.test(q.get('client') || '')) ouvrirClient(Number(q.get('client')));
+  }
 })();

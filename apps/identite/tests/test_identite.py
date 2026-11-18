@@ -273,3 +273,132 @@ class Interface(unittest.TestCase):
     def test_pas_de_resultat(self):
         self.envoyer('neuf.jpg')
         self.assertIsNone(self.client.get('/api/resultat?photo=neuf.jpg').get_json())
+
+
+class BaseClients(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+
+        from identite.base import Base
+        self.tmp = tempfile.TemporaryDirectory()
+        self.b = Base(Path(self.tmp.name) / 'clients.sqlite')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_recherche_par_nom_sans_accents(self):
+        cid = self.b.creer_client('Lefèvre', 'Hélène', '06 12 34 56 78')
+        self.b.creer_client('Martin', 'Paul', '')
+        self.assertEqual([c['id'] for c in self.b.chercher('helene')], [cid])
+        self.assertEqual([c['id'] for c in self.b.chercher('LEFEVRE hel')], [cid])
+        self.assertEqual(self.b.chercher('dupont'), [])
+
+    def test_recherche_par_telephone(self):
+        cid = self.b.creer_client('Lefèvre', 'Hélène', '+33 6 12 34 56 78')
+        for q in ('0612345678', '06 12 34', '+33612345678', '345678'):
+            self.assertEqual([c['id'] for c in self.b.chercher(q)], [cid], q)
+
+    def test_parent_et_enfants(self):
+        """Une mère fait faire les photos de ses enfants : on la retrouve par leurs prénoms."""
+        mere = self.b.creer_client('Benali', 'Samira', '0700000000')
+        self.b.ajouter_photo(mere, 'Benali', 'Yanis', 'enfant', '/tmp/a')
+        self.b.ajouter_photo(mere, 'Benali', 'Inès', 'enfant', '/tmp/b')
+        self.b.ajouter_photo(mere, 'Benali', 'Samira', 'lui-même', '/tmp/c')
+        res = self.b.chercher('ines')
+        self.assertEqual([c['id'] for c in res], [mere])
+        self.assertEqual(res[0]['nb_photos'], 3)
+        self.assertIn('Yanis Benali', res[0]['personnes'])
+        self.assertEqual(len(self.b.client(mere)['photos']), 3)
+
+    def test_saisies_invalides(self):
+        from identite.base import BaseError
+        with self.assertRaises(BaseError):
+            self.b.creer_client('', 'Paul')
+        with self.assertRaises(BaseError):
+            self.b.creer_client('Martin', 'Paul', '12')
+        cid = self.b.creer_client('Martin', 'Paul')
+        with self.assertRaises(BaseError):
+            self.b.ajouter_photo(cid, 'Martin', 'Léo', 'voisin', '/tmp/x')
+        with self.assertRaises(BaseError):
+            self.b.ajouter_photo(999, 'Martin', 'Léo', 'enfant', '/tmp/x')
+
+    def test_suppression_en_cascade(self):
+        cid = self.b.creer_client('Martin', 'Paul')
+        pid = self.b.ajouter_photo(cid, 'Martin', 'Paul', 'lui-même', '/tmp/p')
+        self.assertEqual(self.b.supprimer_client(cid), ['/tmp/p'])
+        self.assertIsNone(self.b.photo(pid))
+        self.assertIsNone(self.b.client(cid))
+
+
+class Archive(unittest.TestCase):
+    """Enregistrement d'une photo fabriquée dans l'archive, puis suppressions (Corbeille de test)."""
+
+    def setUp(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from identite import archive
+        self.archive = archive
+        self.tmp = tempfile.TemporaryDirectory()
+        t = Path(self.tmp.name)
+        self.original, self.resultats, self.corbeille = t / 'original', t / 'resultats', t / 'Corbeille'
+        for d in (self.original, self.resultats):
+            d.mkdir()
+        self.patches = [mock.patch.object(archive, 'ORIGINAL', self.original),
+                        mock.patch.object(archive, 'RESULTATS', self.resultats),
+                        mock.patch.object(archive, 'DONNEES', t / 'donnees'),
+                        mock.patch.object(archive, 'REGLAGES', t / 'donnees' / 'reglages.json'),
+                        mock.patch.object(archive, 'BASE', t / 'donnees' / 'clients.sqlite'),
+                        mock.patch.object(archive, 'ARCHIVE_DEFAUT', t / 'Archive'),
+                        mock.patch.object(archive, 'CORBEILLE', self.corbeille)]
+        for p in self.patches:
+            p.start()
+        (self.original / 'enfant.jpg').write_bytes(b'jpeg')
+        fichiers = {k: 'enfant_%s.jpg' % k for k in archive.FICHIERS}
+        for f in fichiers.values():
+            (self.resultats / f).write_bytes(b'jpeg')
+        (self.resultats / 'enfant_rapport.json').write_text(json.dumps({'photo': 'enfant.jpg', 'fichiers': fichiers}))
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+        self.tmp.cleanup()
+
+    def test_enregistrer_puis_supprimer(self):
+        b = self.archive.base()
+        cid = b.creer_client('Benali', 'Samira', '07 00 00 00 00')
+        pid = self.archive.enregistrer('enfant.jpg', cid, 'Benali', 'Inès', 'enfant')
+        dossier = self.archive.base().photo(pid)['dossier']
+        from pathlib import Path
+        noms = sorted(p.name for p in Path(dossier).iterdir())
+        self.assertEqual(noms, ['identite.jpg', 'original.jpg', 'planche_4_portrait.jpg', 'planche_8.jpg', 'rapport.json'])
+        self.assertIn('BENALI Samira - 07 00 00 00 00', dossier)
+        self.assertTrue(Path(dossier).name.endswith('Inès Benali'))
+        # le portrait et ses planches quittent la liste de travail, vers la Corbeille
+        self.archive.retirer_du_travail('enfant.jpg')
+        self.assertEqual(list(self.original.iterdir()), [])
+        self.assertEqual(list(self.resultats.iterdir()), [])
+        self.assertEqual(len(list(self.corbeille.iterdir())), 5)
+        # la photo archivée part à la Corbeille, le dossier vide du client disparaît
+        self.archive.supprimer_photo_archive(pid)
+        self.assertFalse(Path(dossier).exists())
+        self.assertFalse(Path(dossier).parent.exists())
+        self.assertTrue((Path(dossier).parent.parent).exists())   # l'archive reste
+
+    def test_rien_n_est_archive_sans_fabrication(self):
+        b = self.archive.base()
+        cid = b.creer_client('Martin', 'Paul')
+        (self.original / 'brut.jpg').write_bytes(b'jpeg')
+        with self.assertRaises(self.archive.ArchiveError):
+            self.archive.enregistrer('brut.jpg', cid, 'Martin', 'Paul')
+        self.assertEqual(b.client(cid)['photos'], [])
+
+    def test_meme_base_apres_changement_d_archive(self):
+        from pathlib import Path
+        b = self.archive.base()
+        cid = b.creer_client('Martin', 'Paul')
+        self.archive.choisir_archive(Path(self.tmp.name) / 'Autre archive')
+        self.assertEqual([c['id'] for c in self.archive.base().chercher('martin')], [cid])

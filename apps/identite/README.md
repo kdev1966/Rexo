@@ -20,6 +20,30 @@ les cheveux, est estimé par les proportions de la tête (de l'œil au menton : 
 sans jamais monter au-dessus du haut du masque des personnes. Viser 34 mm laisse 2 mm de
 marge de chaque côté pour cette estimation.
 
+## Clients et archive
+
+- **Enregistrer** : sous les résultats, la carte « Enregistrer pour un client » associe la
+  photo à un client existant (recherche par nom, prénom ou téléphone) ou à un nouveau client.
+  La personne photographiée peut être le client lui-même, ou un enfant, un conjoint, un
+  parent… Une mère qui fait faire les photos de ses enfants a ainsi une seule fiche, avec
+  toutes leurs photos.
+- **Archive** : les fichiers sont copiés dans
+  `<archive>/NOM Prénom - téléphone/AAAA-MM-JJ Prénom Nom/` (photo, deux planches, original,
+  rapport). Le dossier de l'archive est `~/Pictures/Identité` par défaut (« Images » dans le
+  Finder) ; on le change dans l'onglet Clients (« Changer… »).
+- **Base** : une seule base SQLite pour tous les clients, `donnees/clients.sqlite`. Elle reste
+  la même si l'on change de dossier d'archive. Les noms et téléphones ne quittent pas la
+  machine et n'entrent jamais dans le dépôt git (`donnees/` est ignoré).
+- **Recherche** (onglet Clients) : par nom ou prénom du client ou des personnes photographiées,
+  sans tenir compte des accents ni des majuscules, ou par téléphone, quelle que soit son
+  écriture (`06 12…`, `+33 6 12…`). Depuis la fiche : réimprimer une planche, ouvrir le
+  dossier, modifier le client, supprimer une photo ou le client.
+- **Suppression** : « Retirer de la liste » (Atelier) met à la Corbeille le portrait, ses
+  planches et son rapport ; on peut aussi les retirer automatiquement après l'enregistrement.
+  Les suppressions dans l'archive vont aussi à la Corbeille. Rien n'est effacé définitivement,
+  et chaque suppression demande un second clic.
+- **Sauvegarde** : copier le dossier de l'archive et `donnees/clients.sqlite`.
+
 ## Installation
 
 Prérequis : Mac Intel, macOS 12 ou plus, outils en ligne de commande d'Apple.
