@@ -176,8 +176,8 @@ Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_
 |---|---|
 | `reveal/traiter.py` | chaîne de traitement, pilote PhotoCraft (`shared.photocraft`) |
 | `reveal/analyse.py` | vision en Python (OpenCV) : peau, maquillage, stries, colorisation de secours |
-| `reveal/ia.py` | modèles ONNX : Real-ESRGAN, GFPGAN, DDColor (tiny, préféré ; grand en secours) |
-| `reveal/restauration.py` | réparation des photos anciennes : manques, taches, rayures (détecteur de Microsoft), LaMa, grain (SCUNet) |
+| `reveal/restauration.py` | réparation des photos anciennes : manques, taches, teinte d'origine, enchaînement des étapes ; les outils d'IA (rayures, LaMa, grain SCUNet) sont communs : `shared/ia/restauration.py` |
+| `shared/ia/photo.py` (commun) | agrandissement Real-ESRGAN, visages GFPGAN, colorisation DDColor (tiny, préféré ; grand en secours) |
 | `reveal/effacer.py` | effacement : zones (cadres, clics), MobileSAM, MI-GAN (embedkit) |
 | `reveal/vision.py` | masque des personnes, studio, amélioration, rendus : `shared/vision` (MODNet, MobileSAM, effets en numpy), identiques sous macOS et Windows |
 | `modeles/*.yaml` | manifestes embedkit des modèles propres à Reveal |

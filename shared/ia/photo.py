@@ -1,4 +1,5 @@
-"""Modèles d'image IA locaux (ONNX, processeur seul) : agrandissement, visages, colorisation.
+"""Outils d'image par IA, communs aux applications du hub (ONNX, processeur seul) :
+agrandissement, visages restaurés, colorisation.
 
 Modèles du projet libre FaceFusion (github.com/facefusion/facefusion-assets, models-3.0.0),
 déclarés dans le catalogue commun shared/ia/modeles/ :
@@ -13,11 +14,7 @@ Les pré/post-traitements reprennent ceux de FaceFusion et des auteurs de DDColo
 import cv2
 import numpy as np
 
-from shared import ia as _ia
-
-available = _ia.present
-_session = _ia.session
-_run = _ia.executer
+from . import executer as _run, present as available, session as _session  # noqa: F401
 
 
 # ---------- agrandissement ----------
@@ -83,7 +80,9 @@ def _box_mask(size, blur=0.3, padding=0.05):
 
 
 def restore_faces(img, faces, blend=0.8):
-    """GFPGAN 1.4 sur chaque visage (repères PhotoCraft), recollé avec un masque doux."""
+    """GFPGAN 1.4 sur chaque visage, recollé avec un masque doux. `faces` : objets ayant les
+    repères eye_l, eye_r, nose, mouth_l, mouth_r en pixels (visages de PhotoCraft dans Reveal,
+    ou repères de shared.vision.visages)."""
     out = img.astype(np.float32)
     for f in faces:
         M, _ = cv2.estimateAffinePartial2D(_face_points(f), _FFHQ_512, method=cv2.LMEDS)

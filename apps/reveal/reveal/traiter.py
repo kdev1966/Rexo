@@ -32,10 +32,11 @@ from pathlib import Path
 
 import numpy as np
 
+from shared.ia import photo as ia          # agrandissement, visages, colorisation (communs)
 from shared.images import ConversionImpossible
 from shared.photocraft import PhotoCraft, PhotoCraftError
 
-from . import analyse, effacer, ia, restauration, vision
+from . import analyse, effacer, restauration, vision
 from .config import DONNEES, IMAGES, ORIGINAL, REGLAGES, RETOUCHE
 from .config import TRAVAIL as WORK
 

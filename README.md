@@ -24,8 +24,11 @@ apps/<application>/   une application : son code, ses tests, son interface
 shared/photocraft/    pilote de PhotoCraft (photocraft-cli serve)
 shared/embedkit/      couche d'IA locale (repris de Rexo Studio) : registre de modèles, téléchargement
                       épinglé et vérifié (SHA-256), audit des licences, ONNX, détourage, effacement, profondeur
+shared/ia/            catalogue commun des modèles (manifestes, licences, sessions ONNX) et outils d'IA
+                      communs : photo.py (agrandissement, visages restaurés, colorisation),
+                      restauration.py (rayures, reconstitution LaMa, grain SCUNet)
 shared/vision/        vision locale commune, identique sous macOS et Windows (ONNX) : visages (YuNet),
-                      repères du visage (Face Mesh), détourage des personnes (MODNet, MobileSAM) ;
+                      repères du visage (Face Mesh), reconnaissance (SFace), détourage (MODNet, MobileSAM) ;
                       effets.py : fonds, recadrage, amélioration, rendus de couleur (numpy, OpenCV)
 shared/systeme.py     ce qui dépend du système : Corbeille, ouvrir un fichier ou un dossier, choisir un dossier
 shared/python/        Python 3.11 autonome partagé (python-build-standalone, SHA-256 épinglé) :
