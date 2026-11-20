@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rexo Dock</title>
+<link rel="stylesheet" href="/commun/rexo.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="16" rx="2"/><path d="M11 15.5h2"/><path d="M4 21.5h16"/><path d="M12 18.5v3"/></svg>
+    <span>Rexo Dock</span>
+  </div>
+  <div class="device" id="device"><i></i><span id="deviceText">Recherche d'un appareil…</span></div>
+  <div class="topbar-right">
+    <div class="topbar-note">Rien n'est supprimé du téléphone · rien ne quitte cet ordinateur</div>
+    <button class="lang" id="langBtn" type="button"></button>
+    <button class="quit" id="quitBtn" title="Arrêter le serveur">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+      <span>Quitter</span>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <section>
+      <h2><span class="step">1</span> Séance</h2>
+      <input class="input" id="seance" placeholder="Nom de la séance (facultatif)" autocomplete="off" maxlength="80">
+      <p class="hint">Dossier créé : <strong id="seanceApercu"></strong></p>
+    </section>
+
+    <section>
+      <h2><span class="step">2</span> Dossiers</h2>
+      <div class="dest">
+        <div><small>Séances</small><span id="seancesChemin" class="chemin"></span></div>
+        <div class="dest-actions">
+          <button class="btn btn-small" id="seancesOuvrir" type="button"><span>Ouvrir</span></button>
+          <button class="btn btn-small" id="seancesChoisir" type="button"><span>Changer…</span></button>
+        </div>
+      </div>
+      <div class="dest">
+        <div><small>Seconde copie</small><span id="miroirChemin" class="chemin"></span></div>
+        <div class="dest-actions">
+          <button class="btn btn-small" id="miroirChoisir" type="button"><span>Choisir…</span></button>
+          <button class="btn btn-small" id="miroirRetirer" type="button" hidden><span>Retirer</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="step">3</span> Import</h2>
+      <p class="resume" id="selResume">Aucune photo choisie.</p>
+      <button class="btn btn-primary btn-wide" id="importBtn" type="button" disabled><span>Importer la sélection</span></button>
+      <button class="btn btn-wide" id="marquerBtn" type="button" disabled
+        title="Pour des photos déjà copiées autrement : elles ne seront plus proposées comme nouvelles"><span>Marquer comme déjà importées</span></button>
+      <div class="progress" id="progress" hidden>
+        <div class="bar"><i id="progressBar"></i></div>
+        <p id="progressText"></p>
+      </div>
+      <div class="result" id="result" hidden></div>
+    </section>
+  </aside>
+
+  <section class="content">
+    <div class="toolbar">
+      <div class="seg" id="filtres">
+        <button data-filtre="nouveaux" class="is-active">Nouveaux <b id="nbNouveaux">0</b></button>
+        <button data-filtre="tous">Tous <b id="nbTous">0</b></button>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-small" id="toutBtn" type="button"><span>Tout sélectionner</span></button>
+        <button class="btn btn-small" id="rienBtn" type="button"><span>Aucune</span></button>
+        <button class="btn btn-small" id="actualiserBtn" type="button" title="Relire la liste du téléphone"><span>Actualiser</span></button>
+      </div>
+    </div>
+
+    <div class="empty" id="vide">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="16" rx="2"/><path d="M11 15.5h2"/><path d="M4 21.5h16"/><path d="M12 18.5v3"/></svg>
+      <h1 id="videTitre">Branchez un iPhone</h1>
+      <p id="videTexte">Avec son câble USB, sur cet ordinateur.</p>
+    </div>
+    <div class="grille" id="grille"></div>
+  </section>
+</main>
+
+<div class="stopped" id="stopped" hidden>
+  <div>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+    <h1>Rexo Dock est arrêté</h1>
+    <p>Le serveur est fermé. Vous pouvez fermer cet onglet.<br>
+    Pour reprendre, double-cliquez sur l'icône Rexo Dock du Bureau.</p>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="/langues/ar.js"></script>
+<script src="/commun/langues.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

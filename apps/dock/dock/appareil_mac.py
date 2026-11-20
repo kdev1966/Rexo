@@ -213,7 +213,10 @@ class AppareilsMac:
             self._camera.requestOpenSession()
 
     def _deverrouille(self):
+        # Le signal « catalogue complet » ne revient pas toujours après un déverrouillage :
+        # la liste est relue de toute façon après DELAI_RELECTURE.
         self._poser(LECTURE)
+        self._changement()
 
     def _verrouille(self):
         self._poser(VERROUILLE)
