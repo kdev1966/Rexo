@@ -8,7 +8,13 @@ le dossier (déplacé, renommé ou recopié sur le disque de seconde copie, il r
         "ouvertures": [0.31], "yeux_fermes": false, "erreur": null}}}
 
 Les vignettes de la vue « Séances » sont rangées à part, dans les données de l'application
-(jamais dans le dossier du photographe). Rien n'est déplacé ni supprimé dans une séance.
+(jamais dans le dossier du photographe). L'analyse ne déplace ni ne supprime rien ; seules les
+actions du photographe le font :
+
+    garder(dossier, noms)      la photo est bonne malgré le signalement : elle sort de « à trier »
+    ecarter(dossier, noms)     déplacée dans le sous-dossier « Écartées » de la séance (avec son
+                               fichier de retouche .AAE) ; remettre() la ramène
+    corbeille(dossier, noms)   dans la Corbeille du système (récupérable tant qu'elle n'est pas vidée)
 """
 
 import hashlib
@@ -22,6 +28,7 @@ import cv2
 from . import coeur, tri
 
 FICHIER = '.rexo-tri.json'
+ECARTEES = 'Écartées'
 VERSION = 1
 PHOTOS = {'.jpg', '.jpeg', '.heic', '.heif', '.png', '.dng', '.tif', '.tiff', '.webp', '.avif'}
 COTE_VIGNETTE = 360
@@ -45,10 +52,11 @@ def lire(dossier):
     try:
         d = json.loads((Path(dossier) / FICHIER).read_text(encoding='utf-8'))
         if d.get('version') == VERSION and isinstance(d.get('photos'), dict):
+            d.setdefault('ecartees', {})
             return d
     except (OSError, ValueError):
         pass
-    return {'version': VERSION, 'photos': {}}
+    return {'version': VERSION, 'photos': {}, 'ecartees': {}}
 
 
 def ecrire(dossier, donnees):
@@ -134,6 +142,9 @@ def photos(dossier):
     for x in liste:
         if not x['analysee']:
             x.update(floue=False, doublon=False, meilleure=False, serie=None, a_trier=False)
+        x['garde'] = bool(x.get('garde'))
+        if x['garde']:
+            x['a_trier'] = False                # jugée bonne par le photographe
     liste.sort(key=lambda x: (x.get('date') or 0, x['nom']))
     return liste
 
@@ -154,5 +165,121 @@ def vignette(photo, vignettes):
         v.parent.mkdir(parents=True, exist_ok=True)
         provisoire = v.with_name(v.name + '.partiel.jpg')
         cv2.imwrite(str(provisoire), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        os.replace(provisoire, v)
+    return v
+
+
+# ---------- actions du photographe ----------
+
+class ActionImpossible(RuntimeError):
+    pass
+
+
+def _photo(dossier, nom, sous=None):
+    base = (Path(dossier) / sous) if sous else Path(dossier)
+    p = (base / str(nom)).resolve()
+    if p.parent != base.resolve() or not p.is_file():
+        raise ActionImpossible('Photo introuvable : %s' % nom)
+    return p
+
+
+def _retouches(photo):
+    """Fichiers de retouche (.AAE) de l'iPhone posés à côté de la photo."""
+    noms = {n.upper() for n in coeur.noms_retouche(photo.name)}
+    return [f for f in photo.parent.iterdir() if f.is_file() and f.name.upper() in noms]
+
+
+def garder(dossier, noms, valeur=True):
+    with _verrou:
+        d = lire(dossier)
+        for nom in noms:
+            _photo(dossier, nom)
+            d['photos'].setdefault(nom, {})['garde'] = bool(valeur)
+        ecrire(dossier, d)
+    return len(noms)
+
+
+def ecarter(dossier, noms):
+    """Déplace les photos (et leurs .AAE) dans « Écartées » ; leur analyse les suit."""
+    dossier = Path(dossier)
+    cible = dossier / ECARTEES
+    with _verrou:
+        d = lire(dossier)
+        try:
+            for nom in noms:
+                p = _photo(dossier, nom)
+                cible.mkdir(exist_ok=True)
+                nouveau = coeur.nom_libre(p.name, cible)
+                for r in _retouches(p):
+                    os.replace(r, cible / coeur.nom_libre(r.name, cible))
+                os.replace(p, cible / nouveau)
+                info = d['photos'].pop(p.name, {})
+                info['origine'] = p.name
+                d['ecartees'][nouveau] = info
+        finally:
+            ecrire(dossier, d)
+    return len(noms)
+
+
+def remettre(dossier, noms):
+    dossier = Path(dossier)
+    with _verrou:
+        d = lire(dossier)
+        try:
+            for nom in noms:
+                p = _photo(dossier, nom, ECARTEES)
+                info = d['ecartees'].pop(p.name, {})
+                nouveau = coeur.nom_libre(info.pop('origine', p.name), dossier)
+                for r in _retouches(p):
+                    os.replace(r, dossier / coeur.nom_libre(r.name, dossier))
+                os.replace(p, dossier / nouveau)
+                d['photos'][nouveau] = info
+        finally:
+            ecrire(dossier, d)
+    return len(noms)
+
+
+def corbeille(dossier, noms, ecartees=False, dossier_corbeille=None):
+    """Met les photos (et leurs .AAE) dans la Corbeille du système. `dossier_corbeille` : tests."""
+    from shared import systeme
+    sous = ECARTEES if ecartees else None
+    with _verrou:
+        d = lire(dossier)
+        try:
+            for nom in noms:
+                p = _photo(dossier, nom, sous)
+                for r in _retouches(p):
+                    systeme.corbeille(r, dossier_mac=dossier_corbeille)
+                systeme.corbeille(p, dossier_mac=dossier_corbeille)
+                (d['ecartees'] if ecartees else d['photos']).pop(p.name, None)
+        finally:
+            ecrire(dossier, d)
+    return len(noms)
+
+
+def ecartees(dossier):
+    """Photos écartées de la séance, avec leur nom d'origine."""
+    d = lire(dossier)
+    base = Path(dossier) / ECARTEES
+    if not base.is_dir():
+        return []
+    sortie = []
+    for p in sorted(base.iterdir()):
+        if est_photo(p):
+            info = d['ecartees'].get(p.name, {})
+            sortie.append({'nom': p.name, 'origine': info.get('origine', p.name), 'date': info.get('date')})
+    return sortie
+
+
+def apercu(photo, vignettes, cote=1600):
+    """Grande image JPEG pour la comparaison dans la page (créée au besoin, hors de la séance)."""
+    photo = Path(photo)
+    v = chemin_vignette(photo, vignettes).with_name(chemin_vignette(photo, vignettes).stem + '_%d.jpg' % cote)
+    if not v.is_file():
+        from shared.images import reduire
+        img = reduire(photo, cote)
+        v.parent.mkdir(parents=True, exist_ok=True)
+        provisoire = v.with_name(v.name + '.partiel.jpg')
+        cv2.imwrite(str(provisoire), img, [cv2.IMWRITE_JPEG_QUALITY, 88])
         os.replace(provisoire, v)
     return v

@@ -6,7 +6,8 @@ const state = {
   catalogue: [], filtre: 'nouveaux', sel: new Set(), dernier: null,
   signature: '', importNumero: 0, importEnCours: false, etat: null,
   nomsSeances: {},                         // nom tapé pour chaque séance proposée (clé : 1re photo)
-  vue: 'telephone', seances: [], seance: null, photosSeance: [], filtreTri: 'toutes', triVersion: -1,
+  vue: 'telephone', seances: [], seance: null, photosSeance: [], ecartees: [], filtreTri: 'toutes', triVersion: -1,
+  selTri: new Set(), dernierTri: null,
 };
 const ECART_SEANCE = 3 * 3600 * 1000;      // comme coeur.ECART_SEANCE
 
@@ -415,7 +416,7 @@ async function chargerSeances() {
     if (s.analysees < s.photos) info.textContent += ' · ' + remplir('{} à analyser', I18N.iso(s.photos - s.analysees));
     if (s.a_trier) { const bb = document.createElement('b'); bb.textContent = ' · ' + remplir('{} à trier', I18N.iso(s.a_trier)); info.appendChild(bb); }
     b.append(nom, info);
-    b.onclick = () => { state.seance = s.nom; chargerSeances(); };
+    b.onclick = () => { state.seance = s.nom; state.selTri.clear(); chargerSeances(); };
     li.appendChild(b); ul.appendChild(li);
   }
   $('seanceOuvrir').disabled = $('seanceAnalyser').disabled = !state.seance;
@@ -423,10 +424,33 @@ async function chargerSeances() {
 }
 
 async function chargerPhotos() {
-  if (!state.seance) { state.photosSeance = []; afficherSeance(); return; }
-  try { state.photosSeance = await api('/api/seances/photos?seance=' + encodeURIComponent(state.seance)); }
-  catch (e) { state.photosSeance = []; }
+  if (!state.seance) { state.photosSeance = []; state.ecartees = []; afficherSeance(); return; }
+  try {
+    const r = await api('/api/seances/photos?seance=' + encodeURIComponent(state.seance));
+    state.photosSeance = r.photos; state.ecartees = r.ecartees;
+  } catch (e) { state.photosSeance = []; state.ecartees = []; }
   afficherSeance();
+}
+
+const ICONE_AGRANDIR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
+const urlPhoto = (nom, grand, ecartee) => '/seance/vignette?seance=' + encodeURIComponent(state.seance) + '&nom=' + encodeURIComponent(nom)
+  + (grand ? '&grand=1' : '') + (ecartee ? '&ecartee=1' : '');
+
+function listeSeance() {
+  const f = state.filtreTri;
+  if (f === 'ecartees') return (state.ecartees || []).map((x) => Object.assign({ ecartee: true }, x));
+  return state.photosSeance.filter((p) => f === 'toutes' || (f === 'a_trier' && p.a_trier) || (f === 'meilleures' && p.meilleure));
+}
+
+function badgesDe(p, box) {
+  const badge = (txt, cls) => { const s = document.createElement('span'); s.className = 'badge ' + cls; s.textContent = txt; box.appendChild(s); };
+  if (p.ecartee) { badge(tr('Écartée'), 'serie'); return; }
+  if (p.meilleure) badge('★ ' + tr('Meilleure'), 'meilleure');
+  if (p.doublon) badge(remplir('Série {}', I18N.iso(p.serie)), 'serie');
+  if (p.floue) badge(tr('Floue'), 'floue');
+  if (p.yeux_fermes) badge(tr('Yeux fermés'), 'yeux');
+  if (p.garde) badge(tr('Gardée'), 'garde');
+  if (!p.analysee) badge('…', '');
 }
 
 function afficherSeance() {
@@ -434,40 +458,142 @@ function afficherSeance() {
   $('nbToutes').textContent = I18N.iso(ps.length);
   $('nbATrier').textContent = I18N.iso(ps.filter((p) => p.a_trier).length);
   $('nbMeilleures').textContent = I18N.iso(ps.filter((p) => p.meilleure).length);
+  $('nbEcartees').textContent = I18N.iso((state.ecartees || []).length);
   const f = state.filtreTri;
-  const liste = ps.filter((p) => f === 'toutes' || (f === 'a_trier' && p.a_trier) || (f === 'meilleures' && p.meilleure));
+  const liste = listeSeance();
+  const noms = new Set(liste.map((p) => p.nom));
+  for (const n of [...state.selTri]) if (!noms.has(n)) state.selTri.delete(n);
   const grille = $('grilleSeance'); grille.innerHTML = '';
   $('videSeance').hidden = liste.length > 0;
   if (!liste.length) {
-    $('videSeanceTitre').textContent = tr(!state.seances.length ? 'Aucune séance importée' : f === 'a_trier' ? 'Rien à trier' : 'Aucune photo');
-    $('videSeanceTexte').textContent = tr(!state.seances.length ? 'Importez des photos depuis l\'onglet « Téléphone ».'
-      : f === 'a_trier' ? 'Aucune photo floue, aux yeux fermés ou en double n\'a été trouvée.' : '');
+    const vide = !state.seances.length ? ['Aucune séance importée', 'Importez des photos depuis l\'onglet « Téléphone ».']
+      : f === 'a_trier' ? ['Rien à trier', 'Aucune photo floue, aux yeux fermés ou en double n\'a été trouvée.']
+      : f === 'ecartees' ? ['Aucune photo écartée', 'Les photos écartées restent ici, dans le sous-dossier « Écartées » de la séance, jusqu\'à ce que vous les remettiez ou les mettiez à la Corbeille.']
+      : ['Aucune photo', ''];
+    $('videSeanceTitre').textContent = tr(vide[0]); $('videSeanceTexte').textContent = tr(vide[1]);
   }
   for (const p of liste) {
-    const b = document.createElement('button');
-    b.type = 'button';
+    const b = document.createElement('div');
     b.className = 'tuile' + (p.a_trier ? ' a-trier' : '');
-    b.title = p.nom + (p.analysee ? '' : ' · ' + tr('pas encore analysée'));
+    b.dataset.nom = p.nom;
+    b.title = p.nom + (p.ecartee || p.analysee ? '' : ' · ' + tr('pas encore analysée'));
     const img = document.createElement('img'); img.alt = '';
     img.onload = () => img.classList.add('charge');
     img.loading = 'lazy';
-    img.src = '/seance/vignette?seance=' + encodeURIComponent(state.seance) + '&nom=' + encodeURIComponent(p.nom);
+    img.src = urlPhoto(p.nom, false, p.ecartee);
+    const coche = document.createElement('span'); coche.className = 'coche';
+    const agrandir = document.createElement('button');
+    agrandir.type = 'button'; agrandir.className = 'agrandir'; agrandir.innerHTML = ICONE_AGRANDIR;
+    agrandir.title = tr(p.serie ? 'Comparer la série' : 'Voir en grand');
+    agrandir.onclick = (ev) => { ev.stopPropagation(); comparer(p); };
     const badges = document.createElement('div'); badges.className = 'badges';
-    const badge = (txt, cls) => { const s = document.createElement('span'); s.className = 'badge ' + cls; s.textContent = txt; badges.appendChild(s); };
-    if (p.meilleure) badge('★ ' + tr('Meilleure'), 'meilleure');
-    if (p.doublon) badge(remplir('Série {}', I18N.iso(p.serie)), 'serie');
-    if (p.floue) badge(tr('Floue'), 'floue');
-    if (p.yeux_fermes) badge(tr('Yeux fermés'), 'yeux');
-    if (!p.analysee) badge('…', '');
-    b.append(img, badges);
-    b.onclick = () => api('/api/seances/ouvrir', jsonPost({ seance: state.seance, nom: p.nom })).catch((e) => toast(e.message, true));
+    badgesDe(p, badges);
+    b.append(img, coche, agrandir, badges);
+    b.onclick = (ev) => choisirTri(p.nom, ev.shiftKey);
     grille.appendChild(b);
   }
+  majSelTri();
 }
+
+function choisirTri(nom, plage) {
+  const liste = listeSeance().map((p) => p.nom);
+  if (plage && state.dernierTri && liste.includes(state.dernierTri)) {
+    const [a, b] = [liste.indexOf(state.dernierTri), liste.indexOf(nom)].sort((m, n) => m - n);
+    const ajouter = !state.selTri.has(nom);
+    for (const n of liste.slice(a, b + 1)) ajouter ? state.selTri.add(n) : state.selTri.delete(n);
+  } else {
+    state.selTri.has(nom) ? state.selTri.delete(nom) : state.selTri.add(nom);
+  }
+  state.dernierTri = nom;
+  majSelTri();
+}
+
+function majSelTri() {
+  for (const el of document.querySelectorAll('#grilleSeance .tuile')) el.classList.toggle('is-sel', state.selTri.has(el.dataset.nom));
+  const n = state.selTri.size, ecartees = state.filtreTri === 'ecartees';
+  $('actionsTri').hidden = !n;
+  $('triSelTexte').textContent = remplir(n > 1 ? '{} photos choisies' : '{} photo choisie', I18N.iso(n));
+  for (const b of document.querySelectorAll('#actionsTri [data-action]')) {
+    const a = b.dataset.action;
+    b.hidden = ecartees ? !(a === 'remettre' || a === 'corbeille') : a === 'remettre';
+  }
+  const garder = document.querySelector('#actionsTri [data-action="garder"]');
+  const tousGardes = n && [...state.selTri].every((nom) => (state.photosSeance.find((p) => p.nom === nom) || {}).garde);
+  garder.dataset.inverse = tousGardes ? '1' : '';
+  if (!garder._arme) garder.querySelector('span').textContent = tr(tousGardes ? 'Ne plus garder' : 'Garder');
+}
+
+async function agir(action, noms, bouton) {
+  const ecartees = state.filtreTri === 'ecartees';
+  if (action === 'corbeille' && bouton && !confirmer(bouton, noms.length > 1 ? remplir('Confirmer : {} à la Corbeille ?', I18N.iso(noms.length)) : 'Confirmer : à la Corbeille ?')) return false;
+  if (action === 'garder' && bouton && bouton.dataset.inverse) action = 'ne_plus_garder';
+  try {
+    const r = await api('/api/seances/action', jsonPost({ seance: state.seance, noms, action, ecartees }));
+    const messages = { garder: '{} gardée(s) : elles sortent de « À trier ».', ne_plus_garder: '{} de nouveau à trier si signalée(s).',
+      ecarter: '{} écartée(s) : sous-dossier « Écartées ».', remettre: '{} remise(s) dans la séance.',
+      corbeille: '{} dans la Corbeille (récupérable tant qu\'elle n\'est pas vidée).' };
+    toast(remplir(messages[action], I18N.iso(r.n)));
+    for (const n of noms) state.selTri.delete(n);
+    await chargerSeances();
+    return true;
+  } catch (e) { toast(e.message, true); return false; }
+}
+
+for (const b of document.querySelectorAll('#actionsTri [data-action]')) {
+  b.onclick = () => agir(b.dataset.action, [...state.selTri], b);
+}
+$('triAucune').onclick = () => { state.selTri.clear(); majSelTri(); };
+$('triTout').onclick = () => { for (const p of listeSeance()) state.selTri.add(p.nom); majSelTri(); };
+
+// ---------- comparer une série (ou voir une photo en grand) ----------
+function comparer(p) {
+  const serie = p.serie && !p.ecartee ? state.photosSeance.filter((x) => x.serie === p.serie) : [p];
+  $('comparerTitre').textContent = serie.length > 1
+    ? remplir('Série {} · {} photos presque identiques', I18N.iso(p.serie), I18N.iso(serie.length))
+    : I18N.iso(p.nom);
+  const g = $('comparerGrille'); g.innerHTML = '';
+  for (const x of serie) {
+    const c = document.createElement('div');
+    c.className = 'carte' + (x.meilleure ? ' meilleure' : '');
+    const img = document.createElement('img'); img.alt = ''; img.src = urlPhoto(x.nom, true, x.ecartee);
+    const pied = document.createElement('div'); pied.className = 'carte-pied';
+    const badges = document.createElement('div'); badges.className = 'badges'; badgesDe(x, badges);
+    const nom = document.createElement('small');
+    nom.textContent = I18N.iso(x.nom) + (x.nettete != null ? ' · ' + remplir('netteté {}', I18N.iso(Math.round(x.nettete))) : '');
+    const actions = document.createElement('div'); actions.className = 'carte-actions';
+    const bouton = (libelle, action, cls) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-small ' + (cls || '');
+      b.innerHTML = '<span></span>'; b.querySelector('span').textContent = tr(libelle);
+      b.onclick = async () => {
+        if (action === 'ouvrir') {
+          api('/api/seances/ouvrir', jsonPost({ seance: state.seance, nom: x.nom, ecartee: !!x.ecartee })).catch((e) => toast(e.message, true));
+          return;
+        }
+        if (await agir(action, [x.nom], b)) { c.remove(); if (!g.children.length) $('comparer').hidden = true; }
+      };
+      actions.appendChild(b);
+    };
+    if (x.ecartee) { bouton('Remettre', 'remettre'); }
+    else {
+      if (!x.garde && (x.a_trier || x.doublon)) bouton('Garder', 'garder');
+      bouton('Écarter', 'ecarter');
+    }
+    bouton('Corbeille', 'corbeille', 'btn-danger');
+    bouton('Ouvrir dans Aperçu', 'ouvrir');
+    pied.append(badges, nom, actions);
+    c.append(img, pied);
+    g.appendChild(c);
+  }
+  $('comparer').hidden = false;
+}
+$('comparerFermer').onclick = () => { $('comparer').hidden = true; };
+$('comparer').onclick = (ev) => { if (ev.target === $('comparer')) $('comparer').hidden = true; };
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('comparer').hidden = true; });
 
 for (const b of document.querySelectorAll('#filtresTri button')) {
   b.onclick = () => {
     state.filtreTri = b.dataset.filtre;
+    state.selTri.clear();
     for (const x of document.querySelectorAll('#filtresTri button')) x.classList.toggle('is-active', x === b);
     afficherSeance();
   };

@@ -92,3 +92,28 @@
 .badge.yeux { background: rgba(229, 123, 123, .9); color: #1a0d0d; }
 .badge.serie { background: rgba(0,0,0,.6); }
 .badge.meilleure { background: rgba(232, 180, 106, .95); color: var(--accent-ink); }
+
+/* vue Séances : sélection et actions du photographe */
+.barre-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 11px; background: var(--panel); border: 1px solid var(--accent); }
+.barre-actions > span { margin-inline-end: auto; font-weight: 600; }
+.btn-danger:hover:not(:disabled) { color: var(--err); border-color: var(--err); }
+.btn-danger.is-confirm { color: #1a0d0d; background: var(--err); border-color: var(--err); }
+.tuile .agrandir {
+  position: absolute; top: 6px; inset-inline-end: 6px; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  background: rgba(15, 16, 18, .7); border: 1px solid rgba(255,255,255,.2); color: #fff; cursor: zoom-in; opacity: .85;
+}
+.tuile .agrandir svg { width: 15px; height: 15px; }
+.tuile .agrandir:hover { opacity: 1; border-color: var(--accent); }
+.badge.garde { background: rgba(124, 196, 154, .85); color: #0b1a10; }
+
+/* comparaison d'une série */
+.comparer-box { width: min(1500px, 100%); max-height: calc(100vh - 32px); }
+.comparer-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.comparer-grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.carte { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.carte.meilleure { border-color: var(--accent); }
+.carte img { width: 100%; height: min(62vh, 620px); object-fit: contain; background: #0b0b0d; display: block; }
+.carte-pied { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.carte-pied .badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.carte-pied small { color: var(--muted); }
+.carte-actions { display: flex; gap: 6px; flex-wrap: wrap; }

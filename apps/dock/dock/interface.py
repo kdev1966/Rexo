@@ -51,7 +51,7 @@ def _erreurs(fn):
     def enveloppe(*a, **k):
         try:
             return fn(*a, **k)
-        except (ErreurAppareil, PlaceInsuffisante, config.ReglageError, OSError) as e:
+        except (ErreurAppareil, PlaceInsuffisante, config.ReglageError, seances.ActionImpossible, OSError) as e:
             return jsonify(error=str(e)), 400
     return enveloppe
 
@@ -323,24 +323,59 @@ def api_seances():
 @app.get('/api/seances/photos')
 def api_seance_photos():
     d = _dossier(request.args.get('seance'))
-    return jsonify([{k: p.get(k) for k in ('nom', 'date', 'analysee', 'nettete', 'visages', 'yeux_fermes',
-                                            'floue', 'doublon', 'meilleure', 'serie', 'a_trier', 'erreur')}
-                    for p in seances.photos(d)])
+    return jsonify(photos=[{k: p.get(k) for k in ('nom', 'date', 'analysee', 'nettete', 'visages', 'yeux_fermes',
+                                                   'floue', 'doublon', 'meilleure', 'serie', 'a_trier', 'garde',
+                                                   'erreur')}
+                           for p in seances.photos(d)],
+                   ecartees=seances.ecartees(d))
+
+
+def _photo_seance():
+    d = _dossier(request.args.get('seance'))
+    base = d / seances.ECARTEES if request.args.get('ecartee') == '1' else d
+    p = (base / str(request.args.get('nom', ''))).resolve()
+    if p.parent != base.resolve() or not seances.est_photo(p):
+        abort(404)
+    return p
 
 
 @app.get('/seance/vignette')
 def seance_vignette():
-    d = _dossier(request.args.get('seance'))
-    p = (d / str(request.args.get('nom', ''))).resolve()
-    if p.parent != d or not seances.est_photo(p):
-        abort(404)
+    """Vignette ; avec grand=1, grande image pour la comparaison."""
+    p = _photo_seance()
     try:
-        v = seances.vignette(p, VIGNETTES)
+        v = seances.apercu(p, VIGNETTES) if request.args.get('grand') == '1' else seances.vignette(p, VIGNETTES)
     except Exception:
         abort(404)
     r = send_file(v, mimetype='image/jpeg')
     r.headers['Cache-Control'] = 'private, max-age=86400'
     return r
+
+
+@app.post('/api/seances/action')
+@_erreurs
+def api_seance_action():
+    """Actions du photographe sur des photos de séance : garder, ne_plus_garder, ecarter,
+    remettre (depuis « Écartées »), corbeille (ecartees: true pour une photo écartée)."""
+    corps = request.get_json(force=True, silent=True) or {}
+    d = _dossier(corps.get('seance'))
+    noms = [str(n) for n in corps.get('noms') or []]
+    if not noms:
+        return jsonify(error='Aucune photo choisie.'), 400
+    action = corps.get('action')
+    if action == 'garder':
+        n = seances.garder(d, noms)
+    elif action == 'ne_plus_garder':
+        n = seances.garder(d, noms, False)
+    elif action == 'ecarter':
+        n = seances.ecarter(d, noms)
+    elif action == 'remettre':
+        n = seances.remettre(d, noms)
+    elif action == 'corbeille':
+        n = seances.corbeille(d, noms, ecartees=bool(corps.get('ecartees')))
+    else:
+        return jsonify(error='Action inconnue.'), 400
+    return jsonify(ok=True, n=n)
 
 
 @app.post('/api/seances/analyser')
@@ -359,8 +394,9 @@ def api_seance_ouvrir():
     """Ouvre une photo de séance dans l'application du système (Aperçu, Photos de Windows)."""
     corps = request.get_json(force=True, silent=True) or {}
     d = _dossier(corps.get('seance'))
-    p = (d / str(corps.get('nom', ''))).resolve()
-    if p.parent != d or not p.is_file():
+    base = d / seances.ECARTEES if corps.get('ecartee') else d
+    p = (base / str(corps.get('nom', ''))).resolve()
+    if p.parent != base.resolve() or not p.is_file():
         return jsonify(error='Photo introuvable.'), 404
     systeme.ouvrir(p)
     return jsonify(ok=True)

@@ -171,3 +171,59 @@ class TestSeances(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestActions(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.d = self.tmp / '2026-11-20'
+        self.d.mkdir()
+        self.corbeille = self.tmp / 'Corbeille'
+        self._yeux = mock.patch.object(tri, 'yeux', return_value=(0, []))
+        self._yeux.start()
+        for i, img in enumerate((image_nette(0), cv2.GaussianBlur(image_nette(3), (0, 0), 8)), 1):
+            cv2.imwrite(str(self.d / ('IMG_%d.JPG' % i)), img)
+        (self.d / 'IMG_2.AAE').write_text('retouche')
+        seances.analyser_dossier(self.d, self.tmp / 'v')
+
+    def tearDown(self):
+        self._yeux.stop()
+        self._tmp.cleanup()
+
+    def noms(self):
+        return {p['nom']: p for p in seances.photos(self.d)}
+
+    def test_garder(self):
+        self.assertTrue(self.noms()['IMG_2.JPG']['a_trier'])
+        seances.garder(self.d, ['IMG_2.JPG'])
+        p = self.noms()['IMG_2.JPG']
+        self.assertTrue(p['garde'] and not p['a_trier'])
+        seances.garder(self.d, ['IMG_2.JPG'], False)
+        self.assertTrue(self.noms()['IMG_2.JPG']['a_trier'])
+
+    def test_ecarter_puis_remettre(self):
+        seances.ecarter(self.d, ['IMG_2.JPG'])
+        self.assertEqual(set(self.noms()), {'IMG_1.JPG'})
+        e = self.d / seances.ECARTEES
+        self.assertTrue((e / 'IMG_2.JPG').is_file() and (e / 'IMG_2.AAE').is_file())
+        self.assertEqual(seances.ecartees(self.d)[0]['origine'], 'IMG_2.JPG')
+        self.assertEqual(seances.a_analyser(self.d), [])            # les écartées ne sont pas analysées
+        # un fichier du même nom est apparu entre-temps : rien n'est écrasé
+        (self.d / 'IMG_2.JPG').write_bytes(b'autre')
+        seances.remettre(self.d, ['IMG_2.JPG'])
+        self.assertEqual((self.d / 'IMG_2.JPG').read_bytes(), b'autre')
+        self.assertTrue((self.d / 'IMG_2_2.JPG').is_file() and (self.d / 'IMG_2.AAE').is_file())
+        self.assertIn('nettete', seances.lire(self.d)['photos']['IMG_2_2.JPG'])   # l'analyse a suivi
+
+    def test_corbeille(self):
+        seances.corbeille(self.d, ['IMG_2.JPG'], dossier_corbeille=self.corbeille)
+        self.assertFalse((self.d / 'IMG_2.JPG').exists() or (self.d / 'IMG_2.AAE').exists())
+        self.assertEqual({p.name for p in self.corbeille.iterdir()}, {'IMG_2.JPG', 'IMG_2.AAE'})
+        self.assertNotIn('IMG_2.JPG', seances.lire(self.d)['photos'])
+
+    def test_nom_hors_de_la_seance_refuse(self):
+        with self.assertRaises(seances.ActionImpossible):
+            seances.ecarter(self.d, ['../2026-11-20/IMG_1.JPG/..'])
+        with self.assertRaises(seances.ActionImpossible):
+            seances.corbeille(self.d, ['../../etc/hosts'], dossier_corbeille=self.corbeille)

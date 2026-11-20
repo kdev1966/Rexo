@@ -110,11 +110,21 @@
         <button data-filtre="toutes" class="is-active">Toutes <b id="nbToutes">0</b></button>
         <button data-filtre="a_trier">À trier <b id="nbATrier">0</b></button>
         <button data-filtre="meilleures">Meilleures <b id="nbMeilleures">0</b></button>
+        <button data-filtre="ecartees">Écartées <b id="nbEcartees">0</b></button>
       </div>
       <div class="toolbar-right">
+        <button class="btn btn-small" id="triTout" type="button"><span>Tout sélectionner</span></button>
         <button class="btn btn-small" id="seanceOuvrir" type="button" disabled><span>Ouvrir le dossier</span></button>
         <button class="btn btn-small" id="seanceAnalyser" type="button" disabled title="Analyser de nouveau les photos ajoutées ou modifiées"><span>Analyser</span></button>
       </div>
+    </div>
+    <div class="barre-actions" id="actionsTri" hidden>
+      <span id="triSelTexte"></span>
+      <button class="btn btn-small" data-action="garder" type="button" title="Bonne malgré le signalement : elle sort de « À trier »"><span>Garder</span></button>
+      <button class="btn btn-small" data-action="ecarter" type="button" title="Dans le sous-dossier « Écartées » de la séance ; « Remettre » la ramène"><span>Écarter</span></button>
+      <button class="btn btn-small" data-action="remettre" type="button"><span>Remettre</span></button>
+      <button class="btn btn-small btn-danger" data-action="corbeille" type="button" title="Dans la Corbeille du système (récupérable tant qu'elle n'est pas vidée)"><span>Corbeille</span></button>
+      <button class="btn btn-small" id="triAucune" type="button"><span>Aucune</span></button>
     </div>
     <div class="empty" id="videSeance">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -124,6 +134,16 @@
     <div class="tuiles tuiles-seance" id="grilleSeance"></div>
   </section>
 </main>
+
+<div class="modal" id="comparer" hidden>
+  <div class="modal-box comparer-box">
+    <div class="comparer-tete">
+      <h2 id="comparerTitre"></h2>
+      <button class="btn btn-small" id="comparerFermer" type="button"><span>Fermer</span></button>
+    </div>
+    <div class="comparer-grille" id="comparerGrille"></div>
+  </div>
+</div>
 
 <div class="stopped" id="stopped" hidden>
   <div>
