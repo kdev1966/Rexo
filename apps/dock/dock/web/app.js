@@ -115,8 +115,33 @@ const observateur = new IntersectionObserver((vues) => {
     observateur.unobserve(img);
     img.onload = () => img.classList.add('charge');
     img.src = '/vignette?cle=' + encodeURIComponent(img.dataset.cle);
+    if (img.dataset.photo) nettes.observe(img);
   }
 }, { rootMargin: '600px' });
+
+// Vignette nette, tirée de l'original par le serveur : demandée seulement pour les photos
+// visibles, une à la fois ; la petite vignette du téléphone reste en attendant.
+const nettes = new IntersectionObserver((vues) => {
+  for (const v of vues) {
+    const img = v.target;
+    img._visible = v.isIntersecting;
+    if (v.isIntersecting) fileNettes.push(img);
+  }
+  suivanteNette();
+}, { rootMargin: '200px' });
+const fileNettes = [];
+let netteEnCours = false;
+function suivanteNette() {
+  if (netteEnCours) return;
+  let img;
+  while ((img = fileNettes.shift()) && (!img.isConnected || !img._visible || img._nette)) { /* plus visible ou déjà nette */ }
+  if (!img) return;
+  netteEnCours = true;
+  const grande = new Image();
+  grande.onload = () => { img.src = grande.src; img._nette = true; nettes.unobserve(img); netteEnCours = false; suivanteNette(); };
+  grande.onerror = () => { netteEnCours = false; if (!state.importEnCours) suivanteNette(); else fileNettes.unshift(img); };
+  grande.src = '/vignette?nette=1&cle=' + encodeURIComponent(img.dataset.cle);
+}
 
 function afficher() {
   const tous = state.catalogue, nouveaux = tous.filter((x) => !x.importe);
@@ -126,6 +151,7 @@ function afficher() {
   const grille = $('grille');
   grille.innerHTML = '';
   observateur.disconnect();
+  nettes.disconnect(); fileNettes.length = 0;
   const pret = state.etat && state.etat.appareil.etat === 'pret';
   $('vide').hidden = pret && liste.length > 0;
   if (pret && !liste.length) {
@@ -171,6 +197,7 @@ function tuile(x) {
   b.title = x.nom;
   const img = document.createElement('img');
   img.alt = ''; img.dataset.cle = x.cle;
+  if (x.genre === 'photo' || x.genre === 'raw') img.dataset.photo = '1';
   observateur.observe(img);
   const coche = document.createElement('span'); coche.className = 'coche';
   const badges = document.createElement('div'); badges.className = 'badges';
@@ -285,7 +312,7 @@ function suivreImport(imp) {
       ? remplir('Seconde copie… {}', I18N.iso(imp.courant || ''))
       : remplir('{} sur {} · {}', I18N.iso(Math.min(imp.fait + 1, imp.total)), I18N.iso(imp.total), I18N.iso(imp.courant || ''));
   }
-  if (avant && !imp.en_cours) afficherResultat(imp);
+  if (avant && !imp.en_cours) { afficherResultat(imp); suivanteNette(); }
   if (avant !== imp.en_cours) resume();
 }
 

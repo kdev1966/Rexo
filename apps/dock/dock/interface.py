@@ -27,6 +27,7 @@ from .importer import ErreurAppareil, PlaceInsuffisante, importer
 WEB = Path(__file__).resolve().parent / 'web'
 HOST, PORT = '127.0.0.1', 8767
 MAX_VIGNETTES = 20000            # vignettes gardées en mémoire (environ 10 Ko chacune)
+COTE_NETTE = 400                 # vignettes nettes du téléphone, tirées de l'original
 
 app = Flask(__name__, static_folder=None)
 ajouter_quitter(app)
@@ -40,6 +41,8 @@ _vignettes = {}
 _import = {'en_cours': False, 'fait': 0, 'total': 0, 'courant': '', 'etape': '',
            'resultat': None, 'erreur': None, 'numero': 0}
 VIGNETTES = config.DONNEES / 'vignettes'      # vignettes des séances (jamais dans le dossier du photographe)
+VIGNETTES_TEL = config.DONNEES / 'vignettes-telephone'   # vignettes nettes des photos du téléphone
+_verrou_nettes = threading.Lock()             # une lecture d'original à la fois (câble USB)
 _a_trier = queue.Queue()                      # dossiers de séance à analyser, un à la fois
 _tri = {'en_cours': False, 'seance': '', 'fait': 0, 'total': 0, 'version': 0}
 
@@ -124,13 +127,58 @@ def api_catalogue():
     return jsonify(sortie)
 
 
+def _vignette_nette(f):
+    """Vignette nette d'une photo du téléphone : l'iPhone ne fournit que des vignettes de
+    120 × 160 pixels. On lit l'original dans un dossier temporaire, on le réduit, on garde la
+    vignette en cache et on efface la copie. Le téléphone n'est que lu. None si impossible."""
+    import hashlib
+    import tempfile
+
+    import cv2
+
+    from shared.images import reduire
+    cle = hashlib.sha1(('%s|%s' % (pilote.identifiant, f.cle)).encode()).hexdigest()
+    chemin = VIGNETTES_TEL / cle[:2] / (cle + '.jpg')
+    if chemin.is_file():
+        return chemin
+    with _verrou_nettes:
+        if chemin.is_file():
+            return chemin
+        with _verrou:
+            if _import['en_cours']:
+                return None                     # l'import passe d'abord
+        with tempfile.TemporaryDirectory(prefix='rexo-dock-') as d:
+            try:
+                copie = pilote.copier(f, d, 'original' + Path(f.nom).suffix.lower(), delai=120)
+                img = reduire(copie, COTE_NETTE)
+            except Exception:
+                return None
+            chemin.parent.mkdir(parents=True, exist_ok=True)
+            provisoire = chemin.with_name(chemin.name + '.partiel.jpg')
+            cv2.imwrite(str(provisoire), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            provisoire.replace(chemin)
+    return chemin
+
+
 @app.get('/vignette')
 def vignette():
+    """Vignette d'un fichier du téléphone ; nette=1 : vignette nette tirée de l'original
+    (photos seulement), 503 si elle n'est pas disponible maintenant (import en cours)."""
     cle = request.args.get('cle', '')
+    if pilote is None:
+        abort(404)
+    if request.args.get('nette') == '1':
+        f = next((x for x in pilote.fichiers() if x.cle == cle), None)
+        if f is None or coeur.genre(f.nom) not in (coeur.PHOTO, coeur.RAW):
+            abort(404)
+        chemin = _vignette_nette(f)
+        if chemin is None:
+            abort(503)
+        r = send_file(chemin, mimetype='image/jpeg')
+        r.headers['Cache-Control'] = 'private, max-age=604800'
+        return r
     donnees = _vignettes.get(cle)
     if donnees is None:
-        if pilote is None:
-            abort(404)
         f = next((x for x in pilote.fichiers() if x.cle == cle), None)
         if f is None:
             abort(404)
