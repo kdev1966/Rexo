@@ -19,9 +19,17 @@ class TestConfig(unittest.TestCase):
         self._patch.stop()
         self._tmp.cleanup()
 
-    def test_defaut_dans_images(self):
-        self.assertEqual(config.dossier_seances(), Path.home() / 'Pictures' / 'Rexo Dock')
+    def test_defaut_sur_le_bureau(self):
+        with mock.patch.object(config, 'dossier_bureau', return_value=self.tmp / 'Bureau'):
+            self.assertEqual(config.dossier_seances(), self.tmp / 'Bureau' / 'Rexo Dock')
+            self.assertFalse((self.tmp / 'Bureau' / 'Rexo Dock').exists())
+            self.assertTrue(config.dossier_seances(creer=True).is_dir())
         self.assertIsNone(config.dossier_miroir())
+
+    def test_bureau_du_mac(self):
+        from shared import systeme
+        if systeme.MACOS:
+            self.assertEqual(systeme.dossier_bureau(), Path.home() / 'Desktop')
 
     def test_choix_retenus(self):
         s = config.choisir_seances(self.tmp / 'Séances')

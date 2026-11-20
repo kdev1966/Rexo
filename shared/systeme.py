@@ -10,6 +10,8 @@ directement : elles passent par ce module, qui choisit la bonne façon de faire.
                                  sur macOS, ex. « Preview »)
     choisir_dossier(titre, depart)   fenêtre de choix d'un dossier ; None si annulée
     dossier_journaux()           ~/Library/Logs/Rexo ou %LOCALAPPDATA%\\Rexo\\Journaux
+    dossier_bureau()             Bureau de l'utilisateur (sous Windows, celui que le système
+                                 indique, même redirigé vers OneDrive)
 """
 
 import os
@@ -134,3 +136,25 @@ def dossier_journaux():
         base = Path(os.environ.get('LOCALAPPDATA') or Path.home() / 'AppData' / 'Local')
         return base / 'Rexo' / 'Journaux'
     return Path.home() / 'Library' / 'Logs' / 'Rexo'
+
+
+def _bureau_windows():
+    """SHGetFolderPathW(CSIDL_DESKTOPDIRECTORY) : suit la redirection du Bureau (OneDrive)."""
+    import ctypes
+    from ctypes import wintypes
+    tampon = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+    CSIDL_DESKTOPDIRECTORY = 0x10
+    if ctypes.windll.shell32.SHGetFolderPathW(None, CSIDL_DESKTOPDIRECTORY, None, 0, tampon) == 0 and tampon.value:
+        return Path(tampon.value)
+    return None
+
+
+def dossier_bureau():
+    if WINDOWS:
+        try:
+            bureau = _bureau_windows()
+        except (OSError, AttributeError):
+            bureau = None
+        if bureau is not None:
+            return bureau
+    return Path.home() / 'Desktop'
