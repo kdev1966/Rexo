@@ -227,3 +227,20 @@ class TestActions(unittest.TestCase):
             seances.ecarter(self.d, ['../2026-11-20/IMG_1.JPG/..'])
         with self.assertRaises(seances.ActionImpossible):
             seances.corbeille(self.d, ['../../etc/hosts'], dossier_corbeille=self.corbeille)
+
+
+class TestImageDeVideo(unittest.TestCase):
+    def test_image_a_une_seconde(self):
+        from shared.images import ConversionImpossible, image_de_video
+        with tempfile.TemporaryDirectory() as d:
+            chemin = Path(d) / 'essai.mp4'
+            w = cv2.VideoWriter(str(chemin), cv2.VideoWriter_fourcc(*'mp4v'), 10, (320, 240))
+            for i in range(30):                     # 3 s : noir pendant 1 s, puis blanc
+                w.write(np.full((240, 320, 3), 0 if i < 10 else 255, np.uint8))
+            w.release()
+            img = image_de_video(chemin, 160)
+            self.assertEqual(img.shape[:2], (120, 160))
+            self.assertGreater(img.mean(), 200)
+            (Path(d) / 'faux.mov').write_bytes(b'pas une video')
+            with self.assertRaises(ConversionImpossible):
+                image_de_video(Path(d) / 'faux.mov', 160)

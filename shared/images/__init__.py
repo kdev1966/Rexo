@@ -11,7 +11,9 @@ Chaque outil couvre des formats différents (mesuré sur macOS 12, Intel) :
 
 On essaie donc Pillow, puis PhotoCraft (photocraft-cli convert), puis sips ; le premier qui
 réussit gagne. `reduire` lit une image de n'importe lequel de ces formats en version réduite
-(analyse, vignettes), sans écrire de copie en pleine taille. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
+(analyse, vignettes), sans écrire de copie en pleine taille. `image_de_video` tire une image
+réduite d'une vidéo (H.264 et HEVC de l'iPhone, rotation appliquée), par OpenCV : identique
+sous macOS et Windows. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
 à plusieurs images, seule la première image est gardée.
 """
 
@@ -123,6 +125,33 @@ def reduire(src, cote):
             img = cv2.imread(str(dst), cv2.IMREAD_COLOR)
     if img is None:
         raise ConversionImpossible('Image illisible : %s' % src.name)
+    h, w = img.shape[:2]
+    f = cote / max(h, w)
+    if f < 1:
+        img = cv2.resize(img, (round(w * f), round(h * f)), interpolation=cv2.INTER_AREA)
+    return img
+
+
+def image_de_video(src, cote, seconde=1.0):
+    """Image BGR réduite à `cote` pixels de côté long, prise à `seconde` du début (une vidéo
+    commence souvent par une image noire), ou la première si la vidéo est plus courte."""
+    import cv2
+    cap = cv2.VideoCapture(str(src))
+    try:
+        if not cap.isOpened():
+            raise ConversionImpossible('Vidéo illisible : %s' % Path(src).name)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 0
+        n = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0
+        if fps > 0 and n > fps * seconde:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(fps * seconde))
+        ok, img = cap.read()
+        if not ok:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ok, img = cap.read()
+        if not ok or img is None:
+            raise ConversionImpossible('Aucune image lisible dans %s' % Path(src).name)
+    finally:
+        cap.release()
     h, w = img.shape[:2]
     f = cote / max(h, w)
     if f < 1:

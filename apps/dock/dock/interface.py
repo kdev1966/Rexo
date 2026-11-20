@@ -128,15 +128,16 @@ def api_catalogue():
 
 
 def _vignette_nette(f):
-    """Vignette nette d'une photo du téléphone : l'iPhone ne fournit que des vignettes de
-    120 × 160 pixels. On lit l'original dans un dossier temporaire, on le réduit, on garde la
-    vignette en cache et on efface la copie. Le téléphone n'est que lu. None si impossible."""
+    """Vignette nette d'une photo ou d'une vidéo du téléphone : l'iPhone ne fournit que des
+    vignettes de 120 × 160 pixels. On lit l'original dans un dossier temporaire, on le réduit
+    (vidéo : image à 1 s du début), on garde la vignette en cache et on efface la copie. Le
+    téléphone n'est que lu. None si impossible."""
     import hashlib
     import tempfile
 
     import cv2
 
-    from shared.images import reduire
+    from shared.images import image_de_video, reduire
     cle = hashlib.sha1(('%s|%s' % (pilote.identifiant, f.cle)).encode()).hexdigest()
     chemin = VIGNETTES_TEL / cle[:2] / (cle + '.jpg')
     if chemin.is_file():
@@ -149,8 +150,9 @@ def _vignette_nette(f):
                 return None                     # l'import passe d'abord
         with tempfile.TemporaryDirectory(prefix='rexo-dock-') as d:
             try:
-                copie = pilote.copier(f, d, 'original' + Path(f.nom).suffix.lower(), delai=120)
-                img = reduire(copie, COTE_NETTE)
+                video = coeur.genre(f.nom) == coeur.VIDEO
+                copie = pilote.copier(f, d, 'original' + Path(f.nom).suffix.lower(), delai=900 if video else 120)
+                img = image_de_video(copie, COTE_NETTE) if video else reduire(copie, COTE_NETTE)
             except Exception:
                 return None
             chemin.parent.mkdir(parents=True, exist_ok=True)
@@ -163,13 +165,13 @@ def _vignette_nette(f):
 @app.get('/vignette')
 def vignette():
     """Vignette d'un fichier du téléphone ; nette=1 : vignette nette tirée de l'original
-    (photos seulement), 503 si elle n'est pas disponible maintenant (import en cours)."""
+    (photos, RAW et vidéos), 503 si elle n'est pas disponible maintenant (import en cours)."""
     cle = request.args.get('cle', '')
     if pilote is None:
         abort(404)
     if request.args.get('nette') == '1':
         f = next((x for x in pilote.fichiers() if x.cle == cle), None)
-        if f is None or coeur.genre(f.nom) not in (coeur.PHOTO, coeur.RAW):
+        if f is None or coeur.genre(f.nom) not in (coeur.PHOTO, coeur.RAW, coeur.VIDEO):
             abort(404)
         chemin = _vignette_nette(f)
         if chemin is None:

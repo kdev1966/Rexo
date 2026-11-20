@@ -119,8 +119,8 @@ const observateur = new IntersectionObserver((vues) => {
   }
 }, { rootMargin: '600px' });
 
-// Vignette nette, tirée de l'original par le serveur : demandée seulement pour les photos
-// visibles, une à la fois ; la petite vignette du téléphone reste en attendant.
+// Vignette nette, tirée de l'original par le serveur (vidéo : image à 1 s) : demandée seulement
+// pour les éléments visibles, un à la fois ; la petite vignette du téléphone reste en attendant.
 const nettes = new IntersectionObserver((vues) => {
   for (const v of vues) {
     const img = v.target;
@@ -197,7 +197,7 @@ function tuile(x) {
   b.title = x.nom;
   const img = document.createElement('img');
   img.alt = ''; img.dataset.cle = x.cle;
-  if (x.genre === 'photo' || x.genre === 'raw') img.dataset.photo = '1';
+  img.dataset.photo = '1';                  // photos, RAW et vidéos : vignette nette demandée
   observateur.observe(img);
   const coche = document.createElement('span'); coche.className = 'coche';
   const badges = document.createElement('div'); badges.className = 'badges';
