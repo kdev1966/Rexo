@@ -7,7 +7,7 @@ ne quitte la machine.
 | Type de photo | Ce que fait Reveal, sans retouche à la main |
 |---|---|
 | **Portrait** (couleur) | Visages restaurés par IA (GFPGAN), lissage de la peau limité à la peau détectée, maquillage (lèvres, blush, paupières) placé grâce aux repères du visage |
-| **Photo ancienne** (noir et blanc, sépia) | D'abord la réparation, sur l'image d'origine : parties arrachées reconstituées, taches atténuées (tirage monochrome), rayures, fissures et déchirures détectées (modèle de Microsoft) puis effacées (LaMa). Ensuite agrandissement x2 si elle est petite (Real-ESRGAN), recadrage du tirage, gris neutre, stries, bruit, voile, contraste, netteté, visages restaurés, puis colorisation (DDColor tiny) |
+| **Photo ancienne** (noir et blanc, sépia) | D'abord la réparation, sur l'image d'origine : parties arrachées reconstituées, taches atténuées (tirage monochrome), rayures, fissures et déchirures détectées (modèle de Microsoft) puis effacées (LaMa), grain du film atténué (SCUNet) s'il est marqué. Ensuite agrandissement x2 si elle est petite (Real-ESRGAN), recadrage du tirage, gris neutre, stries, bruit, voile, contraste, netteté, visages restaurés, puis colorisation (DDColor tiny) |
 | **Studio** | Personnes détourées (MODNet, vérifié par MobileSAM guidé par les visages) : fond flou, fond uni, couleur sur fond noir et blanc, détourage (PNG transparent), recadrage 4:5, 1:1, 9:16, 16:9, 3:4, 2:3 centré sur les personnes |
 | **Effacer** | Objets ou personnes indésirables : on trace un cadre serré autour, ou on clique dessus (Alt-clic exclut une partie) ; plusieurs zones par photo. MobileSAM détoure, MI-GAN reconstitue le décor ; calque « Effacement (IA) » masqué à la seule zone reconstituée |
 | **Améliorer** | Amélioration automatique (exposition, ombres, vivacité, balance des blancs sur les blancs, relief, réglée sur celle d'Apple), puis rendu de couleur au choix : chaud, froid, vintage chaud, noir et blanc, lumineux, contrasté, doux |
@@ -17,6 +17,15 @@ un fond couleur chair n'est plus lissé.
 
 Le type est choisi automatiquement : une photo sans couleur est traitée comme ancienne.
 Chaque résultat est un **PSD à calques** (chaque étape réglable dans PhotoCraft) et un JPEG.
+
+**Grain du film** (photos anciennes) : Reveal mesure d'abord le bruit sur les zones unies de
+l'image (estimateur d'Immerkær), et ne débruite que s'il dépasse 1,2 (écart type sur 255).
+Mesuré : tirages argentiques scannés de 1,4 à 2,3 ; photos numériques de 0,05 à 1,0, laissées
+telles quelles. Le débruitage (SCUNet, Apache-2.0) travaille par tuiles de 512 pixels qui se
+chevauchent et se fondent (pas de raccord), puis remet 15 % de l'original pour ne pas donner
+un aspect lissé. Il est lent : environ 16 s par tuile sur le MacBook, soit de 16 s pour une petite
+photo à 2 min 30 pour un scan de 1000 × 1300 pixels ; le rapport indique le grain avant et après,
+et le temps.
 
 ## Installation sur Mac
 
@@ -168,7 +177,7 @@ Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_
 | `reveal/traiter.py` | chaîne de traitement, pilote PhotoCraft (`shared.photocraft`) |
 | `reveal/analyse.py` | vision en Python (OpenCV) : peau, maquillage, stries, colorisation de secours |
 | `reveal/ia.py` | modèles ONNX : Real-ESRGAN, GFPGAN, DDColor (tiny, préféré ; grand en secours) |
-| `reveal/restauration.py` | réparation des photos anciennes : manques, taches, rayures (détecteur de Microsoft), LaMa |
+| `reveal/restauration.py` | réparation des photos anciennes : manques, taches, rayures (détecteur de Microsoft), LaMa, grain (SCUNet) |
 | `reveal/effacer.py` | effacement : zones (cadres, clics), MobileSAM, MI-GAN (embedkit) |
 | `reveal/vision.py` | masque des personnes, studio, amélioration, rendus : `shared/vision` (MODNet, MobileSAM, effets en numpy), identiques sous macOS et Windows |
 | `reveal/catalogue.py` | modèles par embedkit, contrôle des licences |

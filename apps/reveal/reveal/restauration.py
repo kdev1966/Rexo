@@ -9,12 +9,14 @@ l'image est plus petite, et Real-ESRGAN affine ensuite une image propre.
     ton_d_origine     rend au tirage restauré sa teinte d'origine (sépia)
     rayures(img)      masque des rayures, fissures et déchirures : détecteur de « Bringing Old
                       Photos Back to Life » (Microsoft, MIT)
+    grain(img), debruiter(img)  grain du film : estimé (Immerkær), atténué par SCUNet (Apache-2.0)
+                      seulement s'il dépasse SEUIL_GRAIN (lent : 15 s par tuile de 512 sur le Mac)
     reconstituer(img, masque)   LaMa (Samsung, Apache-2.0) : par tuiles de 512 à la
                       résolution de l'image (lignes fines), ou sur l'image réduite à 512 pour
                       les grands trous (tout le contexte)
     reparer(img)      les quatre à la suite ; renvoie (image, lignes de journal)
 
-Modèles : rayures-anciennes, lama-512 (apps/reveal/modeles). Images BGR uint8.
+Modèles : rayures-anciennes, lama-512, scunet-512 (apps/reveal/modeles). Images BGR uint8.
 """
 
 import cv2
@@ -199,6 +201,54 @@ def teinte_marquee(teinte):
     return teinte is not None and abs(teinte[0] - 128) + abs(teinte[1] - 128) > 3
 
 
+# ---------- grain du film ----------
+
+SEUIL_GRAIN = 1.2             # écart type du bruit (sur 255) au-dessus duquel on débruite
+# Mesuré : tirages argentiques scannés 2 et plus ; photos JPEG déjà lissées 0,2 à 0,9
+GARDE_ORIGINAL = 0.15         # part de l'original remise dans le résultat (pas d'aspect lissé)
+RECOUVREMENT_GRAIN = 64
+
+
+def grain(img):
+    """Écart type du bruit (sur 255), par le filtre de Laplace sur les zones les plus unies
+    (estimateur d'Immerkær) : les détails n'y sont pas comptés comme du grain."""
+    g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    k = np.array([[1, -2, 1], [-2, 4, -2], [1, -2, 1]], np.float32)
+    r = cv2.filter2D(g, -1, k)
+    grad = cv2.magnitude(cv2.Sobel(g, cv2.CV_32F, 1, 0), cv2.Sobel(g, cv2.CV_32F, 0, 1))
+    uni = grad <= np.percentile(grad, 40)          # <= : un fond parfaitement uni a un gradient nul
+    if not uni.any():
+        return 0.0
+    return float(np.sqrt(np.pi / 2) * np.abs(r[uni]).mean() / 6)
+
+
+def debruiter(img):
+    """SCUNet par tuiles de 512 qui se chevauchent, fondues entre elles (pas de raccord),
+    puis une part de l'original remise."""
+    s = ia._session('scunet-512')
+    nom = s.get_inputs()[0].name
+    h, w = img.shape[:2]
+    H, W = max(h, TUILE), max(w, TUILE)
+    src = cv2.copyMakeBorder(img, 0, H - h, 0, W - w, cv2.BORDER_REFLECT)
+    acc = np.zeros((H, W, 3), np.float32)
+    poids = np.zeros((H, W, 1), np.float32)
+    rampe = np.minimum(np.arange(TUILE) + 1, TUILE - np.arange(TUILE)).astype(np.float32)
+    fen = np.minimum(rampe / RECOUVREMENT_GRAIN, 1.0)
+    fen = (fen[:, None] * fen[None, :])[..., None]
+    pas = TUILE - RECOUVREMENT_GRAIN
+    ys = [0] if H <= TUILE else list(range(0, H - TUILE, pas)) + [H - TUILE]
+    xs = [0] if W <= TUILE else list(range(0, W - TUILE, pas)) + [W - TUILE]
+    for y in ys:
+        for x in xs:
+            t = cv2.cvtColor(src[y:y + TUILE, x:x + TUILE], cv2.COLOR_BGR2RGB).astype(np.float32)
+            r = s.run(None, {nom: (t.transpose(2, 0, 1)[None] / 255)})[0][0].transpose(1, 2, 0)
+            acc[y:y + TUILE, x:x + TUILE] += cv2.cvtColor(np.clip(r, 0, 1), cv2.COLOR_RGB2BGR) * 255 * fen
+            poids[y:y + TUILE, x:x + TUILE] += fen
+    out = (acc / np.maximum(poids, 1e-6))[:h, :w]
+    out = out * (1 - GARDE_ORIGINAL) + img.astype(np.float32) * GARDE_ORIGINAL
+    return np.clip(out, 0, 255).round().astype(np.uint8)
+
+
 # ---------- fond de studio uni (option) ----------
 
 FOND_PART = (0.1, 0.9)        # part du fond pour laquelle l'option a un sens
@@ -276,4 +326,13 @@ def reparer(img, monochrome=None):
         journal.append('rayures, fissures et déchirures effacées (LaMa) : %.1f %% de l\'image' % (m.mean() * 100))
     else:
         journal.append('aucune rayure ni fissure trouvée')
+    if ia.available('scunet-512'):
+        bruit = grain(img)
+        if bruit > SEUIL_GRAIN:
+            import time
+            t = time.time()
+            img = debruiter(img)
+            journal.append('grain atténué (SCUNet) : bruit %.1f -> %.1f, %.0f s' % (bruit, grain(img), time.time() - t))
+        else:
+            journal.append('grain faible (%.1f) : débruitage inutile' % bruit)
     return img, journal, teinte
