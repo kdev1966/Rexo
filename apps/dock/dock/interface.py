@@ -21,7 +21,7 @@ from flask import Flask, Response, abort, jsonify, request, send_file, send_from
 from shared import systeme
 from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, lancer
 
-from . import coeur, config, seances
+from . import coeur, config, personnes, seances
 from .importer import ErreurAppareil, PlaceInsuffisante, importer
 
 WEB = Path(__file__).resolve().parent / 'web'
@@ -44,7 +44,7 @@ VIGNETTES = config.DONNEES / 'vignettes'      # vignettes des séances (jamais d
 VIGNETTES_TEL = config.DONNEES / 'vignettes-telephone'   # vignettes nettes des photos du téléphone
 _verrou_nettes = threading.Lock()             # une lecture d'original à la fois (câble USB)
 _a_trier = queue.Queue()                      # dossiers de séance à analyser, un à la fois
-_tri = {'en_cours': False, 'seance': '', 'fait': 0, 'total': 0, 'version': 0}
+_tri = {'en_cours': False, 'seance': '', 'etape': '', 'fait': 0, 'total': 0, 'version': 0}
 
 
 def _erreurs(fn):
@@ -354,10 +354,14 @@ def _trieur():
                 _tri.update(fait=fait, total=total)
         try:
             seances.analyser_dossier(dossier, VIGNETTES, progression=progression)
+            if personnes.actif(dossier):            # seulement si le photographe l'a demandé
+                with _verrou:
+                    _tri.update(etape='personnes', fait=0, total=0)
+                personnes.calculer(dossier, progression=progression)
         except Exception as e:                       # une séance en échec n'arrête pas les autres
             print('Aide au tri : %s : %s' % (dossier.name, e), flush=True)
         with _verrou:
-            _tri.update(en_cours=_a_trier.qsize() > 0, seance='', fait=0, total=0, version=_tri['version'] + 1)
+            _tri.update(en_cours=_a_trier.qsize() > 0, seance='', etape='', fait=0, total=0, version=_tri['version'] + 1)
 
 
 @app.get('/api/seances')
@@ -428,6 +432,59 @@ def api_seance_action():
     return jsonify(ok=True, n=n)
 
 
+# ---------- regroupement par personne (données biométriques : voir dock/personnes.py) ----------
+
+@app.get('/api/seances/personnes')
+def api_seance_personnes():
+    d = _dossier(request.args.get('seance'))
+    if not personnes.actif(d):
+        return jsonify(actif=False, a_calculer=0, personnes=[])
+    return jsonify(actif=True, a_calculer=len(personnes.a_calculer(d)),
+                   personnes=[{'numero': x['numero'], 'photos': x['photos']} for x in personnes.personnes(d)])
+
+
+@app.get('/seance/visage')
+def seance_visage():
+    """Vignette du visage le plus représentatif d'une personne (calculée à la demande, gardée
+    seulement par le navigateur)."""
+    d = _dossier(request.args.get('seance'))
+    try:
+        numero = int(request.args.get('personne', ''))
+    except ValueError:
+        abort(404)
+    x = next((p for p in personnes.personnes(d) if p['numero'] == numero), None)
+    if x is None:
+        abort(404)
+    try:
+        jpeg = personnes.visage_vignette(d, x['visage']['nom'], x['visage']['cadre'])
+    except Exception:
+        abort(404)
+    r = Response(jpeg, mimetype='image/jpeg')
+    r.headers['Cache-Control'] = 'private, no-store'
+    return r
+
+
+@app.post('/api/seances/personnes/activer')
+@_erreurs
+def api_seance_personnes_activer():
+    d = _dossier((request.get_json(force=True, silent=True) or {}).get('seance'))
+    personnes.activer(d)
+    _a_trier.put(d)
+    with _verrou:
+        _tri.update(en_cours=True)
+    return jsonify(ok=True)
+
+
+@app.post('/api/seances/personnes/effacer')
+@_erreurs
+def api_seance_personnes_effacer():
+    d = _dossier((request.get_json(force=True, silent=True) or {}).get('seance'))
+    personnes.effacer(d)
+    with _verrou:
+        _tri.update(version=_tri['version'] + 1)
+    return jsonify(ok=True)
+
+
 @app.post('/api/seances/analyser')
 @_erreurs
 def api_seance_analyser():
@@ -459,7 +516,7 @@ def principal():
     racine = config.dossier_seances(creer=True)  # visible sur le Bureau dès le lancement
     threading.Thread(target=_trieur, daemon=True).start()
     for d in seances.lister(racine):            # séances pas encore (entièrement) analysées
-        if seances.a_analyser(d):
+        if seances.a_analyser(d) or personnes.a_calculer(d):
             _a_trier.put(d)
     if systeme.MACOS:
         from .appareil_mac import AppareilsMac

@@ -3,6 +3,8 @@
 Remplace Apple Vision (rexo-segment) :
     visages(img)        YuNet : cadres et 5 repères de chaque visage, du plus grand au plus petit
     reperes(img, v)     MediaPipe Face Mesh V2 : 478 points du visage `v` (iris compris)
+    empreinte_visage(img, v)   SFace : empreinte d'identité du visage `v` (128 valeurs, norme 1) ;
+                        deux visages de la même personne : cosinus >= MEME_PERSONNE
     detourer(img)       MODNet : masque des personnes de 0 à 1, cheveux compris (portraits)
     personnes(img)      masque des personnes sur toute photo : MODNet, vérifié et au besoin
                         remplacé par MobileSAM guidé par les visages (groupes, scènes chargées)
@@ -12,6 +14,7 @@ Modèles décrits dans shared/vision/modeles/*.yaml (embedkit), fichiers dans le
 ~/.local/share/kdev-models/embedkit (KDEV_MODELS_DIR pour un autre dossier) :
     python -m shared.embedkit.cli --models-path shared/vision/modeles models pull \\
         --allow-noncommercial yunet-2023mar facemesh-v2 modnet
+(empreinte_visage() utilise sface-2021dec : données biométriques, voir l'ADR 0005.)
 (personnes() utilise aussi mobilesam, manifeste livré avec embedkit.)
 Images en BGR uint8 (OpenCV), coordonnées en pixels, origine en haut à gauche.
 """
@@ -33,7 +36,7 @@ from shared.embedkit.registry import Registry  # noqa: E402
 
 MANIFESTES = Path(__file__).resolve().parent / 'modeles'
 # YuNet : poids sous licence MIT, mais entraînés sur WIDER Face (base réservée à la recherche).
-A_VERIFIER = {'yunet-2023mar'}
+A_VERIFIER = {'yunet-2023mar', 'sface-2021dec'}
 
 # Indices MediaPipe Face Mesh (478 points). « Gauche » et « droite » : côtés de l'image.
 MACHOIRE = [454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152,
@@ -104,6 +107,29 @@ def visages(img, seuil=0.8):
         out.append({'cadre': tuple(float(v) / f for v in r[:4]), 'points': pts, 'score': float(r[14])})
     out.sort(key=lambda v: v['cadre'][2], reverse=True)
     return out
+
+
+# ---------- reconnaissance (SFace) ----------
+
+MEME_PERSONNE = 0.363          # seuil de cosinus d'OpenCV pour SFace (même identité au-dessus)
+_reconnaisseur = None
+
+
+def empreinte_visage(img, visage):
+    """Empreinte d'identité (128 valeurs float32, norme 1) du visage détecté `visage` :
+    visage aligné sur 112 × 112 par ses 5 repères (YuNet), puis SFace. Donnée biométrique :
+    à ne calculer qu'avec l'accord du photographe, et à garder au plus près de la photo."""
+    global _reconnaisseur
+    x, y, l, h = visage['cadre']
+    ligne = np.array([x, y, l, h, *np.asarray(visage['points'], np.float32).ravel(), visage['score']],
+                     np.float32).reshape(1, 15)
+    with _verrou:
+        if _reconnaisseur is None:
+            _reconnaisseur = cv2.FaceRecognizerSF.create(str(_chemin('sface-2021dec')), '')
+        aligne = _reconnaisseur.alignCrop(img, ligne)
+        e = _reconnaisseur.feature(aligne).ravel().astype(np.float32)
+    n = float(np.linalg.norm(e))
+    return e / n if n > 0 else e
 
 
 # ---------- repères denses (Face Mesh V2) ----------

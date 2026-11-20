@@ -7,7 +7,7 @@ const state = {
   signature: '', importNumero: 0, importEnCours: false, etat: null,
   nomsSeances: {},                         // nom tapé pour chaque séance proposée (clé : 1re photo)
   vue: 'telephone', seances: [], seance: null, photosSeance: [], ecartees: [], filtreTri: 'toutes', triVersion: -1,
-  selTri: new Set(), dernierTri: null,
+  selTri: new Set(), dernierTri: null, personnes: null, personne: null,
 };
 const ECART_SEANCE = 3 * 3600 * 1000;      // comme coeur.ECART_SEANCE
 
@@ -415,7 +415,8 @@ for (const b of document.querySelectorAll('#tabs button')) b.onclick = () => mon
 function suivreTri(t) {
   if (!t) return;
   $('trierEtat').textContent = t.en_cours
-    ? (t.seance ? remplir('Analyse de « {} » : {} sur {}…', I18N.iso(t.seance), I18N.iso(Math.min(t.fait + 1, t.total || 1)), I18N.iso(t.total || 1)) : tr('Analyse en attente…'))
+    ? (t.seance ? remplir(t.etape === 'personnes' ? 'Visages de « {} » : {} sur {}…' : 'Analyse de « {} » : {} sur {}…',
+      I18N.iso(t.seance), I18N.iso(Math.min(t.fait + 1, t.total || 1)), I18N.iso(t.total || 1)) : tr('Analyse en attente…'))
     : '';
   if (t.version !== state.triVersion) {
     state.triVersion = t.version;
@@ -443,7 +444,7 @@ async function chargerSeances() {
     if (s.analysees < s.photos) info.textContent += ' · ' + remplir('{} à analyser', I18N.iso(s.photos - s.analysees));
     if (s.a_trier) { const bb = document.createElement('b'); bb.textContent = ' · ' + remplir('{} à trier', I18N.iso(s.a_trier)); info.appendChild(bb); }
     b.append(nom, info);
-    b.onclick = () => { state.seance = s.nom; state.selTri.clear(); chargerSeances(); };
+    b.onclick = () => { state.seance = s.nom; state.selTri.clear(); state.personne = null; chargerSeances(); };
     li.appendChild(b); ul.appendChild(li);
   }
   $('seanceOuvrir').disabled = $('seanceAnalyser').disabled = !state.seance;
@@ -451,11 +452,13 @@ async function chargerSeances() {
 }
 
 async function chargerPhotos() {
-  if (!state.seance) { state.photosSeance = []; state.ecartees = []; afficherSeance(); return; }
+  if (!state.seance) { state.photosSeance = []; state.ecartees = []; state.personnes = null; afficherPersonnes(); afficherSeance(); return; }
   try {
     const r = await api('/api/seances/photos?seance=' + encodeURIComponent(state.seance));
     state.photosSeance = r.photos; state.ecartees = r.ecartees;
-  } catch (e) { state.photosSeance = []; state.ecartees = []; }
+    state.personnes = await api('/api/seances/personnes?seance=' + encodeURIComponent(state.seance));
+  } catch (e) { state.photosSeance = []; state.ecartees = []; state.personnes = null; }
+  afficherPersonnes();
   afficherSeance();
 }
 
@@ -466,7 +469,10 @@ const urlPhoto = (nom, grand, ecartee) => '/seance/vignette?seance=' + encodeURI
 function listeSeance() {
   const f = state.filtreTri;
   if (f === 'ecartees') return (state.ecartees || []).map((x) => Object.assign({ ecartee: true }, x));
-  return state.photosSeance.filter((p) => f === 'toutes' || (f === 'a_trier' && p.a_trier) || (f === 'meilleures' && p.meilleure));
+  const pers = state.personne && state.personnes ? state.personnes.personnes.find((x) => x.numero === state.personne) : null;
+  const dePers = pers ? new Set(pers.photos) : null;
+  return state.photosSeance.filter((p) => (f === 'toutes' || (f === 'a_trier' && p.a_trier) || (f === 'meilleures' && p.meilleure))
+    && (!dePers || dePers.has(p.nom)));
 }
 
 function badgesDe(p, box) {
@@ -571,6 +577,52 @@ for (const b of document.querySelectorAll('#actionsTri [data-action]')) {
 }
 $('triAucune').onclick = () => { state.selTri.clear(); majSelTri(); };
 $('triTout').onclick = () => { for (const p of listeSeance()) state.selTri.add(p.nom); majSelTri(); };
+
+// ---------- personnes de la séance (reconnaissance faciale, à la demande) ----------
+function afficherPersonnes() {
+  const p = state.personnes;
+  $('personnesActiver').disabled = !state.seance;
+  $('personnesInactif').hidden = !!(p && p.actif);
+  $('personnesActif').hidden = !(p && p.actif);
+  if (!p || !p.actif) { state.personne = null; return; }
+  if (state.personne && !p.personnes.some((x) => x.numero === state.personne)) state.personne = null;
+  $('personnesEtat').textContent = p.a_calculer
+    ? remplir('Visages en cours de lecture : {} photos restantes.', I18N.iso(p.a_calculer))
+    : p.personnes.length
+      ? remplir(p.personnes.length > 1 ? '{} personnes sur plusieurs photos. Cliquer sur un visage pour ne voir que ses photos.' : '{} personne sur plusieurs photos. Cliquer sur son visage pour ne voir que ses photos.', I18N.iso(p.personnes.length))
+      : tr('Aucune personne sur plusieurs photos.');
+  const box = $('listePersonnes'); box.innerHTML = '';
+  for (const x of p.personnes) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'personne' + (state.personne === x.numero ? ' is-active' : '');
+    b.title = remplir('Personne {} · {} photos', I18N.iso(x.numero), I18N.iso(x.photos.length));
+    const img = document.createElement('img'); img.alt = '';
+    img.src = '/seance/visage?seance=' + encodeURIComponent(state.seance) + '&personne=' + x.numero + '&n=' + x.photos.length + '&v=' + state.triVersion;
+    const n = document.createElement('b'); n.textContent = I18N.iso(x.photos.length);
+    b.append(img, n);
+    b.onclick = () => { state.personne = state.personne === x.numero ? null : x.numero; state.selTri.clear(); afficherPersonnes(); afficherSeance(); };
+    box.appendChild(b);
+  }
+}
+
+$('personnesActiver').onclick = async () => {
+  try {
+    await api('/api/seances/personnes/activer', jsonPost({ seance: state.seance }));
+    toast(tr('Regroupement demandé : les visages sont lus en arrière-plan.'));
+    chargerPhotos();
+  } catch (e) { toast(e.message, true); }
+};
+$('personnesEffacer').onclick = async () => {
+  const b = $('personnesEffacer');
+  if (!confirmer(b, 'Confirmer : effacer les empreintes ?')) return;
+  try {
+    await api('/api/seances/personnes/effacer', jsonPost({ seance: state.seance }));
+    state.personne = null;
+    toast(tr('Empreintes des visages effacées pour cette séance.'));
+    chargerPhotos();
+  } catch (e) { toast(e.message, true); }
+};
 
 // ---------- comparer une série (ou voir une photo en grand) ----------
 function comparer(p) {

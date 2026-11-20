@@ -1,0 +1,20 @@
+id: sface-2021dec
+task: classify            # empreinte d'identité (pas de tâche « embed » dans embedkit)
+tier: 0
+runtime: opencv_dnn
+source:
+  repo: opencv/face_recognition_sface     # OpenCV Zoo, compte officiel d'OpenCV
+  file: face_recognition_sface_2021dec.onnx
+  revision: 3d7082438a6e4551e840c9b2bb60b71e8da4b524
+sha256: 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
+size_mb: 38.7
+license:
+  code: Apache-2.0          # opencv_zoo/models/face_recognition_sface/LICENSE
+  weights: Apache-2.0
+  commercial: unknown       # entraîné sur des bases de visages issues de la recherche : à vérifier
+io:
+  input:
+    layout: cv2.FaceRecognizerSF   # visage aligné 112 × 112 par les 5 repères de YuNet
+  output:
+    feature: [1, 128]              # empreinte du visage ; même personne si cosinus >= 0,363 (OpenCV)
+notes: Reconnaissance faciale (MobileFaceNet, perte SFace) ; précision 99,4 % (OpenCV Zoo).

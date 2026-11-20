@@ -53,7 +53,15 @@ lentes : iMac de 2015 à disque dur) :
 | Rafales et quasi-doublons | regroupement des photos presque identiques, meilleure photo de chaque série proposée | v1 |
 | Séances automatiques | découpage selon les écarts de temps, nom de dossier proposé | v1 |
 | Recherche par contenu | modèle de type CLIP en ONNX, après vérification de la licence et de la vitesse | v2 |
-| Regroupement par personne | **non décidé** : données biométriques de clients ; cadre légal (loi tunisienne, RGPD) à étudier avant toute décision | — |
+| Regroupement par personne | reconnaissance faciale SFace (OpenCV Zoo) sur les visages de YuNet ; **décidé le 20/11/2026, cadre légal vérifié par le photographe** ; garde-fous ci-dessous | v1 |
+
+**Regroupement par personne : données biométriques.** Usage limité au regroupement des photos
+d'une séance. Rien n'est calculé sans la demande du photographe pour cette séance ; les
+empreintes restent dans la séance (fichier caché `.rexo-visages.json`), jamais dans une base
+commune ni comparées d'une séance à l'autre ; aucun nom de personne ; la seconde copie ne les
+recopie pas ; un bouton les efface, et l'empreinte d'une photo écartée ou supprimée est purgée.
+Le modèle (SFace, Apache-2.0) est entraîné sur des bases issues de la recherche : usage
+commercial à vérifier, comme YuNet.
 
 Les photos signalées reçoivent **seulement un badge** et un filtre « À trier » : rien n'est
 déplacé ni supprimé sans l'action du photographe.

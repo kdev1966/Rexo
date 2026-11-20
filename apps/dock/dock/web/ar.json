@@ -149,5 +149,18 @@
  "Action inconnue.": "إجراء غير معروف.",
  "yeux fermés ou plissés": "ذات العيون المغمضة أو شبه المغمضة",
  "Yeux fermés ou plissés": "عيون مغمضة أو شبه مغمضة",
- "Aucune photo floue, aux yeux fermés ou plissés, ou en double n'a été trouvée.": "لم يُعثر على صور ضبابية أو بعيون مغمضة أو شبه مغمضة أو مكررة."
+ "Aucune photo floue, aux yeux fermés ou plissés, ou en double n'a été trouvée.": "لم يُعثر على صور ضبابية أو بعيون مغمضة أو شبه مغمضة أو مكررة.",
+ "Personnes": "الأشخاص",
+ "Regroupe les photos de cette séance par personne (reconnaissance faciale). Les empreintes des visages restent dans la séance, ne sont pas recopiées sur le disque externe, et s'effacent d'un clic.": "يجمع صور هذه الحصة حسب الشخص (التعرف على الوجوه). تبقى بصمات الوجوه داخل الحصة، ولا تُنسخ إلى القرص الخارجي، وتُمحى بنقرة واحدة.",
+ "Regrouper par personne": "التجميع حسب الشخص",
+ "Effacer les empreintes de cette séance": "محو بصمات هذه الحصة",
+ "Confirmer : effacer les empreintes ?": "تأكيد: محو البصمات؟",
+ "Empreintes des visages effacées pour cette séance.": "مُحيت بصمات الوجوه لهذه الحصة.",
+ "Regroupement demandé : les visages sont lus en arrière-plan.": "طُلب التجميع: تُقرأ الوجوه في الخلفية.",
+ "Visages en cours de lecture : {} photos restantes.": "قراءة الوجوه جارية: بقيت {} صور.",
+ "{} personnes sur plusieurs photos. Cliquer sur un visage pour ne voir que ses photos.": "{} أشخاص في عدة صور. انقر على وجه لعرض صوره فقط.",
+ "{} personne sur plusieurs photos. Cliquer sur son visage pour ne voir que ses photos.": "شخص واحد ({}) في عدة صور. انقر على وجهه لعرض صوره فقط.",
+ "Aucune personne sur plusieurs photos.": "لا يوجد شخص في عدة صور.",
+ "Personne {} · {} photos": "الشخص {} · {} صور",
+ "Visages de « {} » : {} sur {}…": "وجوه « {} »: {} من {}…"
 }

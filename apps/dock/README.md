@@ -61,6 +61,23 @@ du photographe qui le font. Cliquer sur des photos pour les choisir, puis :
 
 Durée sur le MacBook : 0,1 à 0,9 s par photo (HEIC le plus lent).
 
+## Regroupement par personne
+
+Section **Personnes** de l'onglet Séances : « Regrouper par personne » lit les visages de la
+séance (reconnaissance faciale) et affiche une vignette par personne présente sur au moins deux
+photos, avec leur nombre ; un clic sur un visage ne montre que ses photos.
+
+Ce sont des **données biométriques** (décision et garde-fous : ADR 0005) :
+- rien n'est calculé tant que le photographe ne l'a pas demandé, séance par séance ;
+- les empreintes restent dans la séance (`.rexo-visages.json`, fichier caché), jamais dans une
+  base commune ni comparées d'une séance à l'autre ; aucun nom de personne ;
+- la seconde copie ne les recopie pas ; « Effacer les empreintes de cette séance » les supprime,
+  et l'empreinte d'une photo écartée ou mise à la Corbeille est retirée.
+
+Méthode : visages par YuNet (48 pixels de large au moins), empreinte par SFace, regroupement à
+liaison moyenne au seuil d'OpenCV (cosinus 0,363). Mesuré : même photo 0,99 ; même personne
+entre un portrait de studio et un selfie 0,39 à 0,64 ; personnes différentes 0,27 au plus.
+
 ## Vignettes du téléphone
 
 L'iPhone ne fournit que des vignettes de 120 × 160 pixels, quelle que soit la taille demandée :
@@ -80,12 +97,13 @@ commune des applications Rexo, `shared/web/rexo.css`.
 
 ## Modèles d'IA
 
-Pour l'aide au tri seulement ; l'import n'en utilise aucun.
+Pour l'aide au tri et le regroupement par personne seulement ; l'import n'en utilise aucun.
 
 | Rôle | Modèle | Taille | Licence |
 |---|---|---|---|
 | Visages | YuNet (OpenCV Zoo) | 0,2 Mo | MIT ; entraîné sur WIDER Face, base réservée à la recherche : **usage commercial à vérifier** |
 | Repères du visage (yeux) | MediaPipe Face Mesh V2, en ONNX | 4,9 Mo | Apache-2.0 |
+| Reconnaissance faciale (regroupement par personne) | SFace (OpenCV Zoo) | 36,9 Mo | Apache-2.0 ; entraîné sur des bases de visages issues de la recherche : **usage commercial à vérifier** |
 
 Les mêmes que Rexo ID, par le moteur commun `shared/vision`, dans le magasin partagé
 `~/.local/share/kdev-models/embedkit`. Netteté et séries n'utilisent aucun modèle (OpenCV).
@@ -101,7 +119,7 @@ shared/python/installer.sh          # Python 3.11.17 autonome
 apps/dock/.venv/bin/pip install --require-hashes --only-binary :all: -r apps/dock/requirements.txt
 export EMBEDKIT_CACHE=~/.local/share/kdev-models/embedkit
 apps/dock/.venv/bin/python -m shared.embedkit.cli --models-path shared/vision/modeles \
-    models pull --allow-noncommercial yunet-2023mar facemesh-v2
+    models pull --allow-noncommercial yunet-2023mar facemesh-v2 sface-2021dec
 ```
 
 Les paquets sont figés par empreinte. L'accès au téléphone passe par ImageCaptureCore, l'API
@@ -157,6 +175,7 @@ n'est pas touché).
 | `donnees/reglages.json` | dossier des séances, dossier de seconde copie |
 | `donnees/vignettes/`, `donnees/vignettes-telephone/` | vignettes en cache (effaçables : elles sont refaites) |
 | `<séance>/.rexo-tri.json` | résultats de l'aide au tri ; suit le dossier s'il est déplacé ou recopié |
+| `<séance>/.rexo-visages.json` | empreintes des visages, seulement si le photographe l'a demandé ; jamais recopié sur le disque externe |
 
 `donnees/` n'entre jamais dans le dépôt git. `DOCK_DATA=<dossier>` en utilise un autre (essais).
 
@@ -191,6 +210,7 @@ Sans téléphone ni modèle d'IA (faux appareil, visages remplacés).
 | `dock/importer.py` | import d'une sélection depuis n'importe quel appareil : place, dossier de séance, vérification, date, registre, rapport |
 | `dock/appareil_mac.py` | accès au téléphone sous macOS (ImageCaptureCore par pyobjc) : état, liste, vignettes, copie des originaux ; essai en ligne de commande |
 | `dock/tri.py` | aide au tri : netteté, yeux, empreintes, séries et meilleure photo |
+| `dock/personnes.py` | regroupement par personne (à la demande) : empreintes SFace dans la séance, liaison moyenne, effacement et purge |
 | `dock/seances.py` | dossiers de séance : analyse, résultats (`.rexo-tri.json`), vignettes, actions Garder / Écarter / Remettre / Corbeille |
 | `dock/config.py` | emplacements et réglages, calculés sur la machine (Bureau donné par `shared/systeme`) |
 | `dock/interface.py`, `dock/web/` | interface web locale (Flask, 127.0.0.1 seulement) ; le fil principal fait tourner l'accès au téléphone |
