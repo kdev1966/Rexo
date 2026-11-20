@@ -1,7 +1,11 @@
-/* Rexo : apparence commune à toutes les applications du hub (Rexo ID, Rexo Reveal, Rexo Dock…),
-   pour qu'un photographe retrouve partout la même barre du haut, les mêmes boutons et les mêmes
-   messages. Servie par shared/serveur.ajouter_langues sous /commun/rexo.css ; chaque application
-   ajoute après elle sa propre feuille, pour ce qui lui est propre seulement. */
+/* Rexo : charte graphique commune à toutes les applications du hub (Rexo ID, Rexo Reveal,
+   Rexo Dock…). Couleurs, typographie, barre du haut, panneau à étapes, boutons, dépôt de photo,
+   vignettes, visionneuse, progression, messages : un photographe retrouve partout le même
+   design. Servie par shared/serveur.ajouter_langues sous /commun/rexo.css, chargée avant la
+   feuille de l'application, qui n'ajoute que ce qui lui est propre.
+   Ne pas redéfinir ces règles dans une application : les changer ici, pour toutes. */
+
+/* ---------- couleurs et typographie ---------- */
 :root {
   --bg: #0f1012;
   --panel: #17181c;
@@ -9,8 +13,8 @@
   --line: #2a2d34;
   --text: #ecebe8;
   --muted: #9a9ba3;
-  --accent: #e8b46a;
-  --accent-2: #d98c5f;
+  --accent: #e8b46a;            /* ambre : marque, sélection, action principale */
+  --accent-2: #d98c5f;          /* cuivre : dégradé de l'action principale */
   --accent-ink: #1a1308;
   --ok: #7cc49a;
   --warn: #f0c27e;
@@ -33,17 +37,22 @@ body {
 button { font: inherit; color: inherit; }
 svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ---------- barre du haut ---------- */
+/* ---------- barre du haut : marque, (onglets ou état), note, langue, Quitter ---------- */
 .topbar {
-  display: flex; align-items: center; gap: 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 14px 24px; border-bottom: 1px solid var(--line);
   background: rgba(15, 16, 18, .7); backdrop-filter: blur(10px);
   position: sticky; top: 0; z-index: 5;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: .2px; font-size: 15px; }
 .brand svg { color: var(--accent); }
-.topbar-right { display: flex; align-items: center; gap: 14px; }
 .topbar-note { color: var(--muted); font-size: 12.5px; text-align: end; }
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+@media (max-width: 700px) { .topbar-note { display: none; } }
+.tabs { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; margin-inline-end: auto; margin-inline-start: 24px; }
+.tabs button { border: 0; background: transparent; padding: 6px 16px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 550; }
+.tabs button.is-active { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+@media (max-width: 700px) { .tabs { margin-inline-start: 8px; } }
 .lang {
   padding: 6px 12px; border-radius: 9px; cursor: pointer; background: transparent; border: 1px solid var(--line);
   color: var(--text); font-size: 13px; font-weight: 600; transition: .15s;
@@ -57,57 +66,86 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .quit svg { width: 16px; height: 16px; }
 .quit:hover { color: var(--err); border-color: var(--err); }
 .quit.is-confirm { color: #1a0d0d; background: var(--err); border-color: var(--err); }
-@media (max-width: 900px) { .topbar-note { display: none; } }
 
-/* ---------- mise en page ---------- */
-.layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; padding: 20px 24px 28px; min-height: calc(100vh - 60px); }
+/* ---------- mise en page : panneau à étapes à gauche, travail à droite ---------- */
+.layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px 28px; min-height: calc(100vh - 56px); }
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 16px; } }
 .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 18px; display: flex; flex-direction: column; gap: 22px; align-self: start;
-  position: sticky; top: 80px; max-height: calc(100vh - 100px); overflow: auto;
+  padding: 18px; display: flex; flex-direction: column; gap: 20px; align-self: start;
+  position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto;
 }
 @media (max-width: 900px) { .panel { position: static; max-height: none; } }
 h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .step { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--panel-2); color: var(--accent); font-size: 11px; border: 1px solid var(--line); }
-.hint { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; overflow-wrap: anywhere; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; line-height: 1.45; }
 .hint strong { color: var(--text); font-weight: 600; }
+.hint.is-warn { color: var(--warn); }
+.content { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+/* ---------- dépôt de photo et vignettes ---------- */
+.dropzone {
+  display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px dashed var(--line);
+  border-radius: 12px; color: var(--muted); cursor: pointer; transition: .15s;
+}
+.dropzone:hover, .dropzone.is-over { border-color: var(--accent); color: var(--text); background: rgba(232, 180, 106, .06); }
+.dropzone strong { color: var(--text); font-weight: 600; }
+.thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s; }
+.thumb:hover img { transform: scale(1.05); }
+.thumb.is-active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232, 180, 106, .18); }
+
+/* ---------- champs ---------- */
 .input {
   width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
   padding: 9px 12px; font: inherit; outline: none; transition: border-color .15s;
 }
 .input:focus { border-color: var(--accent); }
 
+/* ---------- boutons ---------- */
+.apply {                                   /* action principale de l'écran */
+  border: 0; border-radius: 12px; padding: 13px 16px; font-weight: 650; font-size: 15px; cursor: pointer;
+  color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 8px 24px rgba(217, 140, 95, .25); transition: .15s;
+}
+.apply:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(217, 140, 95, .35); }
+.apply:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
 .btn {
   border: 1px solid var(--line); background: var(--panel-2); color: var(--text); padding: 9px 14px; border-radius: 10px;
   cursor: pointer; text-decoration: none; font-weight: 550; transition: .15s;
 }
-.btn:hover:not(:disabled) { border-color: #3a3e47; }
+.btn:hover { border-color: #3a3e47; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn-primary:hover:not(:disabled) { background: #f0c27e; border-color: #f0c27e; }
-.btn-small { padding: 5px 10px; font-size: 12.5px; border-radius: 8px; }
+.btn-primary:hover { background: #f0c27e; border-color: #f0c27e; }
+.btn-small { padding: 6px 10px; font-size: 12.5px; }
 .btn-wide { width: 100%; }
 .btn-wide + .btn-wide { margin-top: 8px; }
-.btn.is-confirm { color: #1a1308; background: var(--warn); border-color: var(--warn); }
+.btn.is-confirm { color: var(--accent-ink); background: var(--warn); border-color: var(--warn); }   /* second clic pour confirmer */
 
-.progress { margin-top: 14px; }
-.bar { height: 6px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+/* ---------- progression ---------- */
+.progress { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.progress-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.elapsed { margin-inline-start: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+.spinner.done { animation: none; border-color: var(--ok); }
+.spinner.fail { animation: none; border-color: var(--err); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.bar { height: 6px; border-radius: 3px; background: var(--panel); border: 1px solid var(--line); overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
-.progress p { margin: 8px 0 0; color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
 
-/* ---------- zone principale ---------- */
-.content { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; }
-.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 550; }
-.seg button b { font-weight: 600; margin-inline-start: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.seg button.is-active { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+/* ---------- zone de travail : titre, onglets segmentés, état vide ---------- */
+.viewer { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.viewer-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.viewer-title { font-size: 17px; font-weight: 650; }
+.segmented { display: inline-flex; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; }
+.segmented button { border: 0; background: transparent; padding: 7px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.segmented button.is-active { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.segmented button:disabled { opacity: .4; cursor: not-allowed; }
+.empty { text-align: center; color: var(--muted); max-width: 320px; }
+.empty svg { width: 48px; height: 48px; color: #3a3e47; }
 
-.empty { text-align: center; color: var(--muted); max-width: 380px; margin: 12vh auto 0; }
-.empty svg { width: 52px; height: 52px; color: #3a3e47; }
-.empty h1 { color: var(--text); font-size: 19px; margin: 12px 0 6px; }
-.empty p { margin: 0; line-height: 1.6; }
-
+/* ---------- messages, arrêt, mise à jour ---------- */
 .toast {
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 10px;
   background: #26282e; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 10; max-width: calc(100% - 32px);
@@ -118,8 +156,6 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .stopped svg { width: 44px; height: 44px; color: var(--muted); }
 .stopped h1 { font-size: 20px; margin: 12px 0 8px; }
 .stopped p { color: var(--muted); line-height: 1.6; margin: 0; }
-
-/* ---------- bandeau « mis à jour : redémarrer » ---------- */
 .update {
   position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 15; max-width: calc(100% - 32px);
   display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 16px; border-radius: 12px;
@@ -130,3 +166,9 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
   color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), var(--accent-2));
 }
 .update-btn:disabled { opacity: .5; cursor: wait; }
+
+/* ---------- arabe (de droite à gauche) ---------- */
+[dir="rtl"] body { font-size: 14.5px; }
+[dir="rtl"] h2 { letter-spacing: 0; text-transform: none; }
+/* noms de fichiers sous les vignettes : toujours de gauche à droite (« 2.jpg », pas « jpg.2 ») */
+[dir="rtl"] .thumb > span { direction: ltr; text-align: right; }

@@ -1,70 +1,13 @@
-:root {
-  --bg: #0f1012;
-  --panel: #17181c;
-  --panel-2: #1e2025;
-  --line: #2a2d34;
-  --text: #ecebe8;
-  --muted: #9a9ba3;
-  --accent: #e8b46a;
-  --accent-2: #d98c5f;
-  --accent-ink: #1a1308;
-  --ok: #7cc49a;
-  --err: #e57b7b;
-  --radius: 14px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Helvetica Neue", "Geeza Pro", Tahoma, Arial, sans-serif;
-}
-
-* { box-sizing: border-box; }
-[hidden] { display: none !important; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  background: radial-gradient(1200px 600px at 80% -10%, #22201c 0%, var(--bg) 55%) fixed;
-  color: var(--text);
-  font: 14px/1.45 var(--font);
-  -webkit-font-smoothing: antialiased;
-}
-button { font: inherit; color: inherit; }
-svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-
-/* ---------- barre du haut ---------- */
-.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 24px; border-bottom: 1px solid var(--line);
-  background: rgba(15, 16, 18, .7); backdrop-filter: blur(10px);
-  position: sticky; top: 0; z-index: 5;
-}
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: .2px; font-size: 15px; }
-.brand svg { color: var(--accent); }
-.topbar-note { color: var(--muted); font-size: 12.5px; }
-
-/* ---------- mise en page ---------- */
-.layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px 28px; min-height: calc(100vh - 56px); }
-@media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 16px; } }
-
-.panel {
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 18px; display: flex; flex-direction: column; gap: 20px; align-self: start;
-  position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto;
-}
-h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.step { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--panel-2); color: var(--accent); font-size: 11px; border: 1px solid var(--line); }
+/* Rexo Reveal : ce qui lui est propre. La charte commune (couleurs, barre du haut, panneau,
+   boutons, vignettes, messages) vient de /commun/rexo.css (shared/web), chargée avant. */
 
 /* ---------- dépôt et vignettes ---------- */
-.dropzone {
-  display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px dashed var(--line);
-  border-radius: 12px; color: var(--muted); cursor: pointer; transition: .15s;
-}
-.dropzone:hover, .dropzone.is-over { border-color: var(--accent); color: var(--text); background: rgba(232, 180, 106, .06); }
-.dropzone strong { color: var(--text); font-weight: 600; }
-.thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+
 .thumb {
   position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; cursor: pointer;
   border: 2px solid transparent; background: var(--panel-2); padding: 0;
 }
-.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s; }
-.thumb:hover img { transform: scale(1.05); }
-.thumb.is-active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232, 180, 106, .18); }
+
 .thumb span { position: absolute; inset-inline: 0; bottom: 0; padding: 3px 6px; font-size: 10.5px; background: linear-gradient(transparent, rgba(0,0,0,.75)); text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- filtres ---------- */
@@ -79,14 +22,6 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .f-text { display: flex; flex-direction: column; gap: 2px; }
 .f-text small { color: var(--muted); font-size: 12px; line-height: 1.35; }
 
-.apply {
-  border: 0; border-radius: 12px; padding: 13px 16px; font-weight: 650; font-size: 15px; cursor: pointer;
-  color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 8px 24px rgba(217, 140, 95, .25); transition: .15s;
-}
-.apply:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(217, 140, 95, .35); }
-.apply:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
-
 .option { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; color: var(--muted); font-size: 13px; }
 .option-case { justify-content: flex-start; align-items: flex-start; cursor: pointer; }
 .option-case input { margin-top: 2px; accent-color: var(--accent, currentColor); }
@@ -96,10 +31,10 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .option select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font: inherit; }
 
 .hint { color: var(--muted); font-size: 12.5px; margin: 10px 0 8px; line-height: 1.45; }
-.hint strong { color: var(--text); font-weight: 600; }
+
 .erase-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .erase-bar span { margin-inline-end: auto; font-size: 13px; }
-.btn-small { padding: 6px 10px; font-size: 12.5px; }
+
 .zones { position: absolute; inset: 0; cursor: crosshair; z-index: 3; }
 .zone-box { position: absolute; border: 2px dashed #ff6b5b; background: rgba(255, 107, 91, .18); border-radius: 4px; }
 .zone-pt { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #fff; background: #ff6b5b; box-shadow: 0 0 6px rgba(0,0,0,.6); }
@@ -107,24 +42,12 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .zone-num { position: absolute; transform: translate(-50%, -130%); font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px #000; }
 
 /* ---------- progression ---------- */
-.progress { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
-.progress-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-.elapsed { margin-inline-start: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
-.spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
-.spinner.done { animation: none; border-color: var(--ok); }
-.spinner.fail { animation: none; border-color: var(--err); }
-@keyframes spin { to { transform: rotate(360deg); } }
+
 .log { margin: 10px 0 0; padding: 0 0 0 18px; max-height: 190px; overflow: auto; color: var(--muted); font-size: 12px; }
 .log li { margin: 2px 0; }
 .log li.err { color: var(--err); }
 
 /* ---------- visionneuse ---------- */
-.viewer { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.viewer-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.viewer-title { font-size: 17px; font-weight: 650; }
-.segmented { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; }
-.segmented button { border: 0; background: transparent; padding: 7px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); }
-.segmented button.is-active { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
 
 .stage {
   position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
@@ -133,8 +56,6 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
                     linear-gradient(45deg, transparent 75%, #15161a 75%), linear-gradient(-45deg, transparent 75%, #15161a 75%);
   background-size: 22px 22px; background-position: 0 0, 0 11px, 11px -11px, -11px 0;
 }
-.empty { text-align: center; color: var(--muted); max-width: 320px; }
-.empty svg { width: 48px; height: 48px; color: #3a3e47; }
 
 .compare {
   position: relative; max-width: 100%; max-height: 72vh; user-select: none; touch-action: none;
@@ -168,13 +89,6 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 
 .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .meta { color: var(--muted); font-size: 12.5px; margin-inline-end: auto; }
-.btn {
-  border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 9px 14px; border-radius: 10px;
-  cursor: pointer; text-decoration: none; font-weight: 550; transition: .15s;
-}
-.btn:hover { border-color: #3a3e47; background: var(--panel-2); }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn-primary:hover { background: #f0c27e; border-color: #f0c27e; }
 
 /* ---------- historique ---------- */
 .history h3 { margin: 6px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
@@ -188,53 +102,13 @@ h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacin
 .hist span { display: block; padding: 5px 7px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .muted { color: var(--muted); }
 
-.toast {
-  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 10px;
-  background: #26282e; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 10;
-}
-.toast.err { border-color: var(--err); }
-
-/* ---------- quitter ---------- */
-.topbar-right { display: flex; align-items: center; gap: 14px; }
-.quit {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9px; cursor: pointer;
-  background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: 13px; transition: .15s;
-}
-.quit svg { width: 16px; height: 16px; }
-.quit:hover { color: var(--err); border-color: var(--err); }
-.quit.is-confirm { color: #1a0d0d; background: var(--err); border-color: var(--err); }
-.stopped { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; text-align: center; padding: 24px;
-  background: rgba(15, 16, 18, .96); backdrop-filter: blur(6px); }
-.stopped svg { width: 44px; height: 44px; color: var(--muted); }
-.stopped h1 { font-size: 20px; margin: 12px 0 8px; }
-.stopped p { color: var(--muted); line-height: 1.6; margin: 0; }
-@media (max-width: 700px) { .topbar-note { display: none; } }
-
-/* ---------- mise à jour du serveur ---------- */
-.update {
-  position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 15; max-width: calc(100% - 32px);
-  display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 16px; border-radius: 12px;
-  background: #2b2418; border: 1px solid var(--accent); box-shadow: 0 12px 32px rgba(0,0,0,.45); color: var(--text);
-}
-.update-btn {
-  border: 0; border-radius: 9px; padding: 7px 14px; font-weight: 650; cursor: pointer; white-space: nowrap;
-  color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), var(--accent-2));
-}
-.update-btn:disabled { opacity: .5; cursor: wait; }
-
 /* ---------- langue ---------- */
-.lang {
-  padding: 6px 12px; border-radius: 9px; cursor: pointer; background: transparent; border: 1px solid var(--line);
-  color: var(--text); font-size: 13px; font-weight: 600; transition: .15s;
-}
-.lang:hover { border-color: var(--accent); color: var(--accent); }
-.lang:lang(ar) { font-size: 14.5px; font-family: "Geeza Pro", var(--font); }
+
 /* De droite à gauche (arabe). La zone d'image (curseur avant / après, zones à effacer,
    côte à côte) travaille en coordonnées d'image : elle reste de gauche à droite ; ses
    étiquettes (Avant, Après) sont traduites. */
-[dir="rtl"] body { font-size: 14.5px; }
+
 [dir="rtl"] .stage, [dir="rtl"] .side, [dir="rtl"] code { direction: ltr; }
 [dir="rtl"] .option select { direction: rtl; }
 [dir="rtl"] h2, [dir="rtl"] .history h3 { letter-spacing: 0; text-transform: none; }
 /* noms de fichiers sous les vignettes : toujours de gauche à droite (« 2.jpg », pas « jpg.2 ») */
-[dir="rtl"] .thumb > span { direction: ltr; text-align: right; }

@@ -1,4 +1,5 @@
-/* Rexo Dock : ce qui lui est propre. Le reste vient de /commun/rexo.css (shared/web). */
+/* Rexo Dock : ce qui lui est propre. La charte commune (couleurs, barre du haut, panneau,
+   boutons, vignettes, messages) vient de /commun/rexo.css (shared/web), chargée avant. */
 .device { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 13px; margin-inline-end: auto; }
 .device i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .device.pret i { background: var(--ok); box-shadow: 0 0 0 3px rgba(124, 196, 154, .18); }
@@ -48,3 +49,16 @@
 .badge.ok { background: rgba(124, 196, 154, .85); color: #0b1a10; }
 .badge.video { background: rgba(143, 180, 232, .85); color: #0b1220; }
 .badge.rafale { background: rgba(232, 180, 106, .85); color: var(--accent-ink); }
+
+/* filtres « Nouveaux / Tous » : onglets segmentés de la charte, avec leur nombre */
+.segmented button b { font-weight: 600; margin-inline-start: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* import : progression sous les boutons */
+#progress { margin-top: 14px; }
+.progress p { margin: 8px 0 0; color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+
+/* écran sans téléphone */
+.empty { margin: 12vh auto 0; max-width: 380px; }
+.empty svg { width: 52px; height: 52px; }
+.empty h1 { color: var(--text); font-size: 19px; margin: 12px 0 6px; }
+.empty p { margin: 0; line-height: 1.6; }
