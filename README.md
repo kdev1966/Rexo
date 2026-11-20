@@ -1,7 +1,7 @@
 # Rexo
 
 **Rexo** est une famille d'outils pour studio photo : **Rexo Studio**, **Rexo Reveal**,
-**Rexo ID**. Ce dépôt est le hub de la famille : un dépôt unique (monorepo) pour une suite de
+**Rexo ID**, **Rexo Dock**. Ce dépôt est le hub de la famille : un dépôt unique (monorepo) pour une suite de
 petits outils de retouche photo et vidéo,
 pensés pour un studio photo, qui tournent **entièrement en local**, **sous macOS et sous
 Windows**, avec le même résultat sur les deux : aucune photo ne quitte la machine.
@@ -15,6 +15,7 @@ applications (pilote PhotoCraft, catalogue des modèles IA) est dans `shared/`.
 |---|---|---|
 | **Rexo Reveal** | Retouche de portraits (visages, peau, maquillage) et restauration puis colorisation de photos anciennes, avec PhotoCraft et des modèles IA locaux | [`apps/reveal`](apps/reveal) |
 | **Rexo ID** | Photos d'identité aux normes françaises (35 × 45 mm, fond gris clair, balance des blancs) et planches 10 × 15 cm avec traits de coupe | [`apps/identite`](apps/identite) |
+| **Rexo Dock** | Import vérifié des photos et vidéos d'un iPhone (rien n'est supprimé du téléphone), séances proposées, seconde copie sur disque externe, puis aide au tri par IA : photos floues, yeux fermés ou plissés, séries avec la meilleure photo. macOS pour l'instant | [`apps/dock`](apps/dock) |
 
 ## Organisation
 
