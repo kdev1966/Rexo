@@ -21,8 +21,8 @@ class TestConfig(unittest.TestCase):
 
     def test_defaut_sur_le_bureau(self):
         with mock.patch.object(config, 'dossier_bureau', return_value=self.tmp / 'Bureau'):
-            self.assertEqual(config.dossier_seances(), self.tmp / 'Bureau' / 'Rexo Dock')
-            self.assertFalse((self.tmp / 'Bureau' / 'Rexo Dock').exists())
+            self.assertEqual(config.dossier_seances(), self.tmp / 'Bureau' / 'Rexo Dock - Séances')
+            self.assertFalse((self.tmp / 'Bureau' / 'Rexo Dock - Séances').exists())
             self.assertTrue(config.dossier_seances(creer=True).is_dir())
         self.assertIsNone(config.dossier_miroir())
 

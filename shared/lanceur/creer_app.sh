@@ -3,6 +3,7 @@
 # Crée une application macOS (double-clic) pour une application web du hub :
 #   shared/lanceur/creer_app.sh identite      -> ~/Applications/Rexo ID.app
 #   shared/lanceur/creer_app.sh reveal        -> ~/Applications/Rexo Reveal.app
+#   shared/lanceur/creer_app.sh dock          -> ~/Applications/Rexo Dock.app
 #   ... --bureau                              -> et un raccourci sur le Bureau
 #
 # L'application démarre le serveur local (127.0.0.1 seulement), ouvre la page dans le
@@ -18,7 +19,8 @@ HUB="$(cd "$(dirname "$0")/../.." && pwd)"
 case "${1:-}" in
   identite) NOM="Rexo ID"; MODULE="identite.interface"; PORT=8766 ;;
   reveal)   NOM="Rexo Reveal";   MODULE="reveal.interface";   PORT=8765 ;;
-  *) echo "usage : $0 identite|reveal" >&2; exit 1 ;;
+  dock)     NOM="Rexo Dock";     MODULE="dock.interface";     PORT=8767 ;;
+  *) echo "usage : $0 identite|reveal|dock" >&2; exit 1 ;;
 esac
 APP_DIR="$HUB/apps/$1"
 [ -x "$APP_DIR/.venv/bin/python" ] || { echo "environnement absent : $APP_DIR/.venv (voir le README de l'application)" >&2; exit 1; }
@@ -101,6 +103,9 @@ touch "$DEST"
 echo "$DEST créée : double-cliquer pour lancer $NOM, Cmd+Q pour l'arrêter."
 
 if [ "${2:-}" = "--bureau" ]; then
+  if [ -e "$HOME/Desktop/$NOM" ] && [ ! -L "$HOME/Desktop/$NOM" ]; then
+    echo "« $HOME/Desktop/$NOM » existe déjà et n'est pas un raccourci : rien n'est remplacé." >&2; exit 1
+  fi
   ln -sfn "$DEST" "$HOME/Desktop/$NOM"
   echo "Raccourci sur le Bureau : $HOME/Desktop/$NOM"
 fi

@@ -1,10 +1,11 @@
 """Dessine l'icône d'une application du hub (PNG 1024 × 1024), avec Pillow.
 
-    python icone.py identite|reveal <sortie.png>
-    python icone.py identite|reveal <sortie.ico>      (Windows : 16 à 256 pixels)
+    python icone.py identite|reveal|dock <sortie.png>
+    python icone.py identite|reveal|dock <sortie.ico>      (Windows : 16 à 256 pixels)
 
 Carré arrondi sombre, pictogramme ambré : une photo d'identité (visage dans un cadre)
-pour Rexo ID, un diaphragme pour Rexo Reveal.
+pour Rexo ID, un diaphragme pour Rexo Reveal, un téléphone qui verse ses photos dans un bac
+pour Rexo Dock.
 """
 
 import math
@@ -68,9 +69,26 @@ def reveal(img):
     return img
 
 
+def dock(img):
+    d = ImageDraw.Draw(img)
+    # téléphone : contour ambré, écran avec une petite photo (soleil et montagne)
+    x0, y0, x1, y1 = 392, 170, 632, 590
+    d.rounded_rectangle((x0, y0, x1, y1), 46, outline=AMBRE, width=34)
+    d.rounded_rectangle((470, 520, 554, 538), 9, fill=AMBRE)                  # bouton
+    d.ellipse((450, 250, 500, 300), fill=CUIVRE)                              # soleil
+    d.polygon([(436, 470), (500, 360), (540, 420), (566, 385), (590, 470)], fill=CUIVRE)
+    # flèche vers le bac
+    c = N // 2
+    d.line([(c, 625), (c, 735)], fill=AMBRE, width=34)
+    d.polygon([(c - 62, 705), (c + 62, 705), (c, 778)], fill=AMBRE)
+    # bac
+    d.line([(262, 700), (262, 830), (762, 830), (762, 700)], fill=CUIVRE, width=38, joint='curve')
+    return img
+
+
 def main():
     nom, sortie = sys.argv[1], sys.argv[2]
-    dessins = {'identite': identite, 'reveal': reveal}
+    dessins = {'identite': identite, 'reveal': reveal, 'dock': dock}
     if nom not in dessins:
         sys.exit('application inconnue : %s' % nom)
     img = dessins[nom](fond())

@@ -1,7 +1,7 @@
 """Emplacements et réglages de Rexo Dock, calculés sur la machine où l'application tourne.
 
 Rien n'est écrit en dur pour une machine : par défaut, les séances vont dans un dossier
-« Rexo Dock » créé sur le Bureau de la machine où l'application tourne, pour que le
+« Rexo Dock - Séances » créé sur le Bureau de la machine où l'application tourne, pour que le
 photographe le trouve tout de suite (Bureau donné par le système : sous Windows, il peut être
 redirigé vers OneDrive). Un autre dossier et le disque de seconde copie se choisissent dans
 l'application ; ces choix sont retenus dans donnees/reglages.json, propre à chaque machine.
@@ -17,7 +17,7 @@ APP = Path(__file__).resolve().parent.parent          # apps/dock
 DONNEES = Path(os.environ.get('DOCK_DATA', str(APP / 'donnees'))).expanduser()
 REGLAGES = DONNEES / 'reglages.json'
 REGISTRE = DONNEES / 'registre.json'                  # fichiers déjà importés, par appareil
-NOM_DOSSIER = 'Rexo Dock'
+NOM_DOSSIER = 'Rexo Dock - Séances'      # « Rexo Dock » seul est le nom de l'icône du Bureau
 
 
 class ReglageError(ValueError):
