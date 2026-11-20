@@ -14,7 +14,8 @@ réussit gagne. `lire` lit une image de n'importe lequel de ces formats en plein
 comme OpenCV la lirait (orientation EXIF appliquée), pour toutes les applications. `reduire` lit une image de n'importe lequel de ces formats en version réduite
 (analyse, vignettes), sans écrire de copie en pleine taille. `image_de_video` tire une image
 réduite d'une vidéo (H.264 et HEVC de l'iPhone, rotation appliquée), par OpenCV : identique
-sous macOS et Windows. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
+sous macOS et Windows. `ecrire_jpeg`, `vignette` et `apercu` fabriquent les JPEG en cache des
+interfaces (vignettes, aperçus des formats que le navigateur n'affiche pas), pour toutes. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
 à plusieurs images, seule la première image est gardée.
 """
 
@@ -189,3 +190,49 @@ def image_de_video(src, cote, seconde=1.0):
     if f < 1:
         img = cv2.resize(img, (round(w * f), round(h * f)), interpolation=cv2.INTER_AREA)
     return img
+
+
+# ---------- JPEG en cache (interfaces) ----------
+
+def ecrire_jpeg(img, chemin, qualite=85):
+    """Écrit `img` (BGR) en JPEG sans jamais laisser de fichier à moitié écrit (copie provisoire
+    puis remplacement)."""
+    import os
+
+    import cv2
+    chemin = Path(chemin)
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    provisoire = chemin.with_name(chemin.name + '.partiel.jpg')
+    if not cv2.imwrite(str(provisoire), img, [cv2.IMWRITE_JPEG_QUALITY, int(qualite)]):
+        raise ConversionImpossible('Écriture impossible : %s' % chemin.name)
+    os.replace(provisoire, chemin)
+    return chemin
+
+
+def chemin_vignette(src, cache, cote):
+    """Emplacement de la vignette de `src` dans `cache` : la clé change avec le fichier (chemin,
+    taille, date) et la taille demandée, une photo modifiée a donc une nouvelle vignette."""
+    import hashlib
+    src = Path(src)
+    st = src.stat()
+    cle = hashlib.sha1(('%s|%d|%s|%d' % (src.resolve(), st.st_size, st.st_mtime, cote)).encode()).hexdigest()
+    return Path(cache) / cle[:2] / (cle + '.jpg')
+
+
+def vignette(src, cache, cote, qualite=85):
+    """Vignette JPEG de `src` (tout format), réduite à `cote` pixels, créée au besoin dans
+    `cache` (dossier de l'application, jamais celui de la photo) ; son chemin."""
+    v = chemin_vignette(src, cache, cote)
+    if not v.is_file():
+        ecrire_jpeg(reduire(src, cote), v, qualite)
+    return v
+
+
+def apercu(src, cache):
+    """Aperçu JPEG en pleine taille d'une image que le navigateur ne sait pas afficher (HEIC,
+    TIFF, PSD…), gardé dans `cache` sous « nom.jpg » et refait si l'image est plus récente."""
+    src = Path(src)
+    sortie = Path(cache) / (src.name + '.jpg')
+    if not sortie.exists() or sortie.stat().st_mtime < src.stat().st_mtime:
+        convertir(src, sortie)
+    return sortie

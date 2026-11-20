@@ -122,7 +122,8 @@ class TestSeances(unittest.TestCase):
         self.assertTrue(ps['IMG_1.JPG']['meilleure'] and ps['IMG_2.JPG']['doublon'])
         self.assertTrue(ps['IMG_3.JPG']['floue'] and ps['IMG_3.JPG']['a_trier'])
         self.assertEqual(ps['IMG_2.JPG']['rafale'], 'R')
-        self.assertTrue(seances.chemin_vignette(self.dossier / 'IMG_1.JPG', self.vignettes).is_file())
+        from shared.images import chemin_vignette
+        self.assertTrue(chemin_vignette(self.dossier / 'IMG_1.JPG', self.vignettes, seances.COTE_VIGNETTE).is_file())
         # rien n'est déplacé ni supprimé dans la séance
         self.assertEqual(len(list(self.dossier.iterdir())), 6)
         donnees = json.loads((self.dossier / seances.FICHIER).read_text(encoding='utf-8'))

@@ -19,6 +19,7 @@ from pathlib import Path
 from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
 
 from shared import systeme
+from shared.images import vignette
 from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, lancer
 
 from . import coeur, config, personnes, seances
@@ -135,9 +136,7 @@ def _vignette_nette(f):
     import hashlib
     import tempfile
 
-    import cv2
-
-    from shared.images import image_de_video, reduire
+    from shared.images import ecrire_jpeg, image_de_video, reduire
     cle = hashlib.sha1(('%s|%s' % (pilote.identifiant, f.cle)).encode()).hexdigest()
     chemin = VIGNETTES_TEL / cle[:2] / (cle + '.jpg')
     if chemin.is_file():
@@ -155,10 +154,7 @@ def _vignette_nette(f):
                 img = image_de_video(copie, COTE_NETTE) if video else reduire(copie, COTE_NETTE)
             except Exception:
                 return None
-            chemin.parent.mkdir(parents=True, exist_ok=True)
-            provisoire = chemin.with_name(chemin.name + '.partiel.jpg')
-            cv2.imwrite(str(provisoire), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            provisoire.replace(chemin)
+            ecrire_jpeg(img, chemin)
     return chemin
 
 
@@ -398,7 +394,7 @@ def seance_vignette():
     """Vignette ; avec grand=1, grande image pour la comparaison."""
     p = _photo_seance()
     try:
-        v = seances.apercu(p, VIGNETTES) if request.args.get('grand') == '1' else seances.vignette(p, VIGNETTES)
+        v = vignette(p, VIGNETTES, 1600, 88) if request.args.get('grand') == '1' else vignette(p, VIGNETTES, seances.COTE_VIGNETTE)
     except Exception:
         abort(404)
     r = send_file(v, mimetype='image/jpeg')

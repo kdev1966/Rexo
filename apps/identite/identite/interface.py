@@ -16,7 +16,7 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
 from shared import systeme
-from shared.images import FORMATS, ConversionImpossible, convertir
+from shared.images import ConversionImpossible, FORMATS, apercu
 from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, lancer
 
 from . import archive, couleurs
@@ -74,13 +74,11 @@ def _resultat(photo):
 
 
 def _apercu(path):
-    cache = APERCUS / (path.name + '.jpg')
-    if not cache.exists() or cache.stat().st_mtime < path.stat().st_mtime:
-        try:
-            convertir(path, cache)
-        except ConversionImpossible:
-            abort(415)
-    return cache
+    """Aperçu JPEG (mis en cache) d'une image que le navigateur ne sait pas afficher (commun : shared.images)."""
+    try:
+        return apercu(path, APERCUS)
+    except ConversionImpossible:
+        abort(415)
 
 
 @app.get('/')

@@ -17,13 +17,13 @@ actions du photographe le font :
     corbeille(dossier, noms)   dans la Corbeille du système (récupérable tant qu'elle n'est pas vidée)
 """
 
-import hashlib
 import json
 import os
 import threading
 from pathlib import Path
 
-import cv2
+
+from shared.images import vignette  # vignettes en cache, communes au hub
 
 from . import coeur, tri
 
@@ -118,7 +118,7 @@ def analyser_dossier(dossier, vignettes, progression=None, arreter=None):
                         visages=a.visages, ouvertures=a.ouvertures, yeux_fermes=a.yeux_fermes, erreur=a.erreur)
             ecrire(dossier, d)
         try:
-            vignette(p, vignettes)
+            vignette(p, vignettes, COTE_VIGNETTE)          # prête pour la vue Séances
         except Exception:
             pass
     return len(restent)
@@ -147,26 +147,6 @@ def photos(dossier):
             x['a_trier'] = False                # jugée bonne par le photographe
     liste.sort(key=lambda x: (x.get('date') or 0, x['nom']))
     return liste
-
-
-def chemin_vignette(photo, vignettes):
-    st = photo.stat()
-    cle = hashlib.sha1(('%s|%d|%s' % (photo.resolve(), st.st_size, st.st_mtime)).encode()).hexdigest()
-    return Path(vignettes) / cle[:2] / (cle + '.jpg')
-
-
-def vignette(photo, vignettes):
-    """Vignette JPEG d'une photo de séance (créée au besoin), chemin renvoyé."""
-    photo = Path(photo)
-    v = chemin_vignette(photo, vignettes)
-    if not v.is_file():
-        from shared.images import reduire
-        img = reduire(photo, COTE_VIGNETTE)
-        v.parent.mkdir(parents=True, exist_ok=True)
-        provisoire = v.with_name(v.name + '.partiel.jpg')
-        cv2.imwrite(str(provisoire), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        os.replace(provisoire, v)
-    return v
 
 
 # ---------- actions du photographe ----------
@@ -269,17 +249,3 @@ def ecartees(dossier):
             info = d['ecartees'].get(p.name, {})
             sortie.append({'nom': p.name, 'origine': info.get('origine', p.name), 'date': info.get('date')})
     return sortie
-
-
-def apercu(photo, vignettes, cote=1600):
-    """Grande image JPEG pour la comparaison dans la page (créée au besoin, hors de la séance)."""
-    photo = Path(photo)
-    v = chemin_vignette(photo, vignettes).with_name(chemin_vignette(photo, vignettes).stem + '_%d.jpg' % cote)
-    if not v.is_file():
-        from shared.images import reduire
-        img = reduire(photo, cote)
-        v.parent.mkdir(parents=True, exist_ok=True)
-        provisoire = v.with_name(v.name + '.partiel.jpg')
-        cv2.imwrite(str(provisoire), img, [cv2.IMWRITE_JPEG_QUALITY, 88])
-        os.replace(provisoire, v)
-    return v

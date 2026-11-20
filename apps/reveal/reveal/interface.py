@@ -23,7 +23,7 @@ from pathlib import Path
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
-from shared.images import ConversionImpossible, convertir
+from shared.images import ConversionImpossible, apercu
 from shared import photocraft
 from shared.serveur import a_l_arret, ajouter_langues, ajouter_quitter, ajouter_version, lancer, oublier, suivre
 
@@ -122,14 +122,11 @@ def media(zone, name):
 
 
 def _apercu(path):
-    """Aperçu JPEG (mis en cache) d'une image que le navigateur ne sait pas afficher."""
-    cache = config.APERCUS / (path.name + '.jpg')
-    if not cache.exists() or cache.stat().st_mtime < path.stat().st_mtime:
-        try:
-            convertir(path, cache)
-        except ConversionImpossible:
-            abort(415)
-    return cache
+    """Aperçu JPEG (mis en cache) d'une image que le navigateur ne sait pas afficher (commun : shared.images)."""
+    try:
+        return apercu(path, config.APERCUS)
+    except ConversionImpossible:
+        abort(415)
 
 
 # ---------- API ----------
