@@ -1,6 +1,6 @@
-# ADR 0005 — Rexo Import : copier les photos d'un iPhone, puis aider au tri
+# ADR 0005 — Rexo Dock : copier les photos d'un iPhone, puis aider au tri
 
-Date : 20/11/2026. Statut : proposé (en attente du prototype Windows, voir « Risques »).
+Date : 20/11/2026. Statut : accepté pour macOS ; la partie Windows reste à prouver (voir « Risques »).
 
 ## Contexte
 
@@ -16,10 +16,11 @@ que Rexo Reveal et Rexo ID : local, macOS et Windows, interface web locale, lang
 
 ## Décision
 
-**Rexo Import** devient une application du hub, dans `apps/import`, qui reprend le prototype
+**Rexo Dock** (nommé d'abord « Rexo Dock », renommé le 20/11/2026) devient une
+application du hub, dans `apps/dock`, qui reprend le prototype
 dans la pile Rexo.
 
-- **Un cœur commun en Python** (`import/coeur.py`, sans dépendance au système) : registre des
+- **Un cœur commun en Python** (`apps/dock/dock/coeur.py`, sans dépendance au système) : registre des
   fichiers déjà importés (clé nom + taille + date de prise de vue, par appareil), nom du
   dossier de séance (`AAAA-MM-JJ [nom]`), noms de fichiers sans écrasement, vérification de
   la taille puis de l'empreinte SHA-256, date d'origine remise sur le fichier, seconde copie
@@ -60,13 +61,16 @@ déplacé ni supprimé sans l'action du photographe.
 ## Risques
 
 - **Windows** : l'accès WPD à un iPhone n'est pas encore prouvé (pilote Apple requis,
-  originaux HEIC ou JPEG convertis, vitesse). Un prototype sur le PC Windows passe avant tout
-  autre développement ; s'il échoue, cette ADR est revue.
+  originaux HEIC ou JPEG convertis, vitesse). Décision du 20/11/2026 : le développement se
+  fait d'abord sur le MacBook seulement ; le prototype Windows vient ensuite, avant tout
+  déploiement sur le PC. S'il échoue, la partie Windows de cette ADR est revue.
 - pyobjc doit fournir des roues pour macOS 12 Intel, figées par empreinte comme les autres
   paquets du hub.
 
 ## Conséquences
 
-- Import Studio reste en service sur l'iMac jusqu'à ce que Rexo Import y soit testé.
+- Le registre des imports garde le format de celui d'Import Studio (JSON : appareil →
+  clés « nom|taille|date »), pour reprendre son historique sur l'iMac.
+- Import Studio reste en service sur l'iMac jusqu'à ce que Rexo Dock y soit testé.
 - Aucun nom de studio ni de photographe dans le dépôt (public).
-- Une fonction ne compte comme faite qu'après un essai sur le Mac **et** sur le PC Windows.
+- Une fonction ne compte comme faite pour Windows qu'après un essai sur le PC Windows.
