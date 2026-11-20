@@ -8,6 +8,7 @@ Repris de `Core.swift` (prototype Import Studio) :
     nom_dossier_seance()      « AAAA-MM-JJ » ou « AAAA-MM-JJ Nom de la séance »
     nom_libre()               IMG_1.HEIC, sinon IMG_1_2.HEIC, IMG_1_3.HEIC… (jamais d'écrasement)
     genre(), noms_retouche()  photo, RAW, vidéo ou fichier de retouche (.AAE) de l'iPhone
+    Entree, catalogue()       photos et vidéos de l'appareil, chacune avec ses fichiers de retouche
     sha256(), appliquer_date(), espace_libre()
     miroir()                  seconde copie vérifiée d'un dossier sur un disque externe
 
@@ -18,7 +19,7 @@ import hashlib
 import json
 import os
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -37,6 +38,8 @@ class FichierAppareil:
     nom: str
     taille: int
     date: datetime | None = None      # date de prise de vue (avec fuseau, ou heure locale)
+    duree: float | None = field(default=None, compare=False)    # vidéos, en secondes
+    rafale: str | None = field(default=None, compare=False)     # identifiant de rafale de l'iPhone
 
     @property
     def cle(self):
@@ -123,6 +126,52 @@ def noms_retouche(nom):
     else:
         return ['%s.AAE' % base]
     return ['IMG_%s.AAE' % numero, 'IMG_O%s.AAE' % numero]
+
+
+@dataclass(frozen=True)
+class Entree:
+    """Une photo ou une vidéo de l'appareil, avec ses fichiers de retouche (.AAE)."""
+    fichier: FichierAppareil
+    genre: str
+    retouches: tuple = ()
+    importe: bool = False
+
+    @property
+    def cle(self):
+        return self.fichier.cle
+
+    @property
+    def a_copier(self):
+        """Fichiers à copier pour cette entrée : la photo ou la vidéo, puis ses retouches."""
+        return [self.fichier, *self.retouches]
+
+
+def catalogue(fichiers, registre=None, appareil=''):
+    """Entrées du catalogue, les plus récentes d'abord. Les fichiers de retouche sont rattachés
+    à leur photo et n'ont pas d'entrée à eux."""
+    retouches = {f.nom.upper(): f for f in fichiers if genre(f.nom) == RETOUCHE}
+    entrees = []
+    for f in fichiers:
+        g = genre(f.nom)
+        if g == RETOUCHE:
+            continue
+        liees = tuple(retouches[n] for n in noms_retouche(f.nom) if n in retouches)
+        importe = bool(registre and registre.contient(f, appareil))
+        entrees.append(Entree(f, g, liees, importe))
+    entrees.sort(key=lambda e: e.fichier.date.timestamp() if e.fichier.date else float('-inf'), reverse=True)
+    return entrees
+
+
+def fichiers_a_copier(entrees):
+    """Fichiers à copier pour une sélection, sans doublon, du plus ancien au plus récent."""
+    vus, sortie = set(), []
+    for e in entrees:
+        for f in e.a_copier:
+            if f.cle not in vus:
+                vus.add(f.cle)
+                sortie.append(f)
+    sortie.sort(key=lambda f: f.date.timestamp() if f.date else float('-inf'))
+    return sortie
 
 
 def sha256(chemin):
