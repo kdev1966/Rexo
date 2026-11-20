@@ -94,7 +94,6 @@
  "Rexo Dock signale les photos": "يشير Rexo Dock إلى الصور",
  "floues": "الضبابية",
  ", les": "، و",
- "yeux fermés": "ذات العيون المغمضة",
  "séries": "السلاسل",
  "Toutes": "الكل",
  "À trier": "للفرز",
@@ -104,13 +103,11 @@
  "Aucune séance importée": "لا توجد حصص منقولة",
  "Importez des photos depuis l'onglet « Téléphone ».": "انقل صورًا من تبويب « الهاتف ».",
  "Rien à trier": "لا شيء للفرز",
- "Aucune photo floue, aux yeux fermés ou en double n'a été trouvée.": "لم يُعثر على صور ضبابية أو بعيون مغمضة أو مكررة.",
  "Aucune photo": "لا توجد صور",
  "pas encore analysée": "لم تُحلل بعد",
  "Meilleure": "الأفضل",
  "Série {}": "سلسلة {}",
  "Floue": "ضبابية",
- "Yeux fermés": "عيون مغمضة",
  "Analyse demandée.": "طُلب التحليل.",
  "Analyse de « {} » : {} sur {}…": "تحليل « {} »: {} من {}…",
  "Analyse en attente…": "التحليل في الانتظار…",
@@ -149,5 +146,8 @@
  "Fermer": "إغلاق",
  "Aucune photo écartée": "لا توجد صور مستبعدة",
  "Les photos écartées restent ici, dans le sous-dossier « Écartées » de la séance, jusqu'à ce que vous les remettiez ou les mettiez à la Corbeille.": "تبقى الصور المستبعدة هنا، في المجلد الفرعي « المستبعدة » للحصة، حتى تُرجعها أو تضعها في سلة المهملات.",
- "Action inconnue.": "إجراء غير معروف."
+ "Action inconnue.": "إجراء غير معروف.",
+ "yeux fermés ou plissés": "ذات العيون المغمضة أو شبه المغمضة",
+ "Yeux fermés ou plissés": "عيون مغمضة أو شبه مغمضة",
+ "Aucune photo floue, aux yeux fermés ou plissés, ou en double n'a été trouvée.": "لم يُعثر على صور ضبابية أو بعيون مغمضة أو شبه مغمضة أو مكررة."
 }

@@ -448,7 +448,7 @@ function badgesDe(p, box) {
   if (p.meilleure) badge('★ ' + tr('Meilleure'), 'meilleure');
   if (p.doublon) badge(remplir('Série {}', I18N.iso(p.serie)), 'serie');
   if (p.floue) badge(tr('Floue'), 'floue');
-  if (p.yeux_fermes) badge(tr('Yeux fermés'), 'yeux');
+  if (p.yeux_fermes) badge(tr('Yeux fermés ou plissés'), 'yeux');
   if (p.garde) badge(tr('Gardée'), 'garde');
   if (!p.analysee) badge('…', '');
 }
@@ -467,7 +467,7 @@ function afficherSeance() {
   $('videSeance').hidden = liste.length > 0;
   if (!liste.length) {
     const vide = !state.seances.length ? ['Aucune séance importée', 'Importez des photos depuis l\'onglet « Téléphone ».']
-      : f === 'a_trier' ? ['Rien à trier', 'Aucune photo floue, aux yeux fermés ou en double n\'a été trouvée.']
+      : f === 'a_trier' ? ['Rien à trier', 'Aucune photo floue, aux yeux fermés ou plissés, ou en double n\'a été trouvée.']
       : f === 'ecartees' ? ['Aucune photo écartée', 'Les photos écartées restent ici, dans le sous-dossier « Écartées » de la séance, jusqu\'à ce que vous les remettiez ou les mettiez à la Corbeille.']
       : ['Aucune photo', ''];
     $('videSeanceTitre').textContent = tr(vide[0]); $('videSeanceTexte').textContent = tr(vide[1]);
