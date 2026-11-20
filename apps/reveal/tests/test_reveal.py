@@ -211,8 +211,9 @@ class Effacement(unittest.TestCase):
                 effacer.valider(bad)
 
     def test_a_dark_square_disappears(self):
-        from reveal import catalogue, effacer
-        if not (catalogue.present('mobilesam') and catalogue.present('migan-512')):
+        from reveal import effacer
+        from shared import ia
+        if not (ia.present('mobilesam') and ia.present('migan-512')):
             self.skipTest('MobileSAM ou MI-GAN absent')
         img = gradient(360, 480)
         clean = img.copy()
@@ -222,36 +223,6 @@ class Effacement(unittest.TestCase):
         zone = (slice(150, 190), slice(210, 250))
         self.assertLess(np.abs(result[zone].astype(int) - clean[zone].astype(int)).mean(), 25)
         self.assertEqual(np.abs(result[:100].astype(int) - img[:100].astype(int)).max(), 0)  # hors zone : intact
-
-
-class Catalogue(unittest.TestCase):
-    """Modèles déclarés pour embedkit (apps/reveal/modeles) et contrôle des licences."""
-
-    def test_reveal_models_are_declared(self):
-        from reveal import catalogue
-        for mid in ('real-esrgan-x2', 'gfpgan-1.4', 'ddcolor', 'zhang-colorization',
-                    'mobilesam', 'migan-512', 'depth-anything-v2-small'):
-            m = catalogue.manifeste(mid)
-            self.assertEqual(len(m.sha256), 64)
-
-    def test_unverified_licences_are_flagged(self):
-        from reveal import catalogue
-        self.assertIs(catalogue.manifeste('real-esrgan-x2').license.commercial, True)
-        for mid in catalogue.A_VERIFIER:
-            self.assertIsNone(catalogue.manifeste(mid).license.commercial)
-
-    def test_unknown_licence_is_refused_without_explicit_permission(self):
-        from reveal import catalogue
-        from shared.embedkit import licenses
-        with self.assertRaises(licenses.LicenseError):
-            licenses.check(catalogue.manifeste('gfpgan-1.4'), allow_noncommercial=False)
-
-    def test_models_live_in_the_shared_store(self):
-        from reveal import catalogue
-        from shared.embedkit import store
-        path = store.model_path(catalogue.manifeste('ddcolor'))
-        self.assertTrue(str(path).startswith(os.environ['EMBEDKIT_CACHE']))
-        self.assertEqual(path.name, 'ddcolor.onnx')
 
 
 class Interface(unittest.TestCase):

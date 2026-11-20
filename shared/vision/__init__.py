@@ -10,9 +10,8 @@ Remplace Apple Vision (rexo-segment) :
                         remplacé par MobileSAM guidé par les visages (groupes, scènes chargées)
     analyser_visage(img)   les trois à la suite : visage principal (dict) et masque
 
-Modèles décrits dans shared/vision/modeles/*.yaml (embedkit), fichiers dans le magasin partagé
-~/.local/share/kdev-models/embedkit (KDEV_MODELS_DIR pour un autre dossier) :
-    python -m shared.embedkit.cli --models-path shared/vision/modeles models pull \\
+Modèles chargés par le catalogue commun du hub (shared/ia : manifestes, licences, sessions) :
+    python -m shared.embedkit.cli --models-path shared/ia/modeles models pull \\
         --allow-noncommercial yunet-2023mar facemesh-v2 modnet
 (empreinte_visage() utilise sface-2021dec : données biométriques, voir l'ADR 0005.)
 (personnes() utilise aussi mobilesam, manifeste livré avec embedkit.)
@@ -22,21 +21,11 @@ Images en BGR uint8 (OpenCV), coordonnées en pixels, origine en haut à gauche.
 import math
 import os
 import threading
-import warnings
-from pathlib import Path
 
 import cv2
 import numpy as np
 
-os.environ.setdefault('EMBEDKIT_CACHE', str(
-    Path(os.environ.get('KDEV_MODELS_DIR', '~/.local/share/kdev-models')).expanduser() / 'embedkit'))
-
-from shared.embedkit import licenses, store  # noqa: E402
-from shared.embedkit.registry import Registry  # noqa: E402
-
-MANIFESTES = Path(__file__).resolve().parent / 'modeles'
-# YuNet : poids sous licence MIT, mais entraînés sur WIDER Face (base réservée à la recherche).
-A_VERIFIER = {'yunet-2023mar', 'sface-2021dec'}
+from shared import ia as _ia  # noqa: E402
 
 # Indices MediaPipe Face Mesh (478 points). « Gauche » et « droite » : côtés de l'image.
 MACHOIRE = [454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152,
@@ -52,36 +41,21 @@ class VisionError(RuntimeError):
 
 
 _verrou = threading.Lock()
-_registre = None
-_sessions = {}
 
 
 def _chemin(model_id):
-    global _registre
-    if _registre is None:
-        _registre = Registry(extra_dirs=[MANIFESTES])
-    m = _registre.get(model_id)
-    if m.id in A_VERIFIER:
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            licenses.check(m, allow_noncommercial=True)
-    else:
-        licenses.check(m)
-    p = store.model_path(m)
-    if not p.exists():
-        raise VisionError('modèle %s absent : voir shared/vision/__init__.py pour l\'installer' % model_id)
-    return p
+    """Fichier du modèle, par le catalogue commun (shared/ia)."""
+    try:
+        return _ia.chemin(model_id)
+    except _ia.ModeleAbsent as e:
+        raise VisionError(str(e)) from None
 
 
 def _session(model_id):
-    with _verrou:
-        if model_id not in _sessions:
-            import onnxruntime as ort
-            opts = ort.SessionOptions()
-            opts.log_severity_level = 3
-            _sessions[model_id] = ort.InferenceSession(str(_chemin(model_id)), opts,
-                                                       providers=['CPUExecutionProvider'])
-        return _sessions[model_id]
+    try:
+        return _ia.session(model_id)
+    except _ia.ModeleAbsent as e:
+        raise VisionError(str(e)) from None
 
 
 # ---------- visages (YuNet) ----------
@@ -250,12 +224,9 @@ def personnes(img):
 def _sam_visages(img, trouves):
     os.environ.setdefault('EMBEDKIT_OFFLINE', '1')        # jamais de réseau pendant un traitement
     from shared.embedkit.tasks.segment import Segmenter
-    global _registre
-    if _registre is None:
-        _chemin('modnet')                                   # crée le registre
     h, w = img.shape[:2]
     total = np.zeros((h, w), np.uint8)
-    with Segmenter.load(model='mobilesam', registry=_registre) as seg:
+    with Segmenter.load(model='mobilesam', registry=_ia.registre()) as seg:
         if seg.tier == 0:
             raise VisionError('modèle MobileSAM absent')
         emb = seg.embed(img)

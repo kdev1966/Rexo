@@ -16,7 +16,7 @@ l'image est plus petite, et Real-ESRGAN affine ensuite une image propre.
                       les grands trous (tout le contexte)
     reparer(img)      les quatre à la suite ; renvoie (image, lignes de journal)
 
-Modèles : rayures-anciennes, lama-512, scunet-512 (apps/reveal/modeles). Images BGR uint8.
+Modèles : rayures-anciennes, lama-512, scunet-512 (catalogue commun shared/ia). Images BGR uint8.
 """
 
 import cv2

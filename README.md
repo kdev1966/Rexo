@@ -46,10 +46,11 @@ Les modèles ne sont **pas** dans le dépôt. embedkit les range une seule fois 
 `~/.local/share/kdev-models/embedkit` (sous Windows : `%USERPROFILE%\.local\share\kdev-models\embedkit` ;
 `KDEV_MODELS_DIR` pour un autre dossier), partagé par toutes les applications Rexo : un modèle
 servant à deux applications n'est stocké qu'une fois. Chaque modèle a un manifeste YAML
-(adresse, empreinte SHA-256, licence) : ceux d'embedkit dans `shared/embedkit/models/`, ceux de
-la vision commune dans `shared/vision/modeles/`, ceux d'une application dans `apps/<app>/modeles/`.
-Un modèle dont l'usage commercial n'est pas établi est refusé par défaut, sauf autorisation
-explicite de l'application.
+(adresse, empreinte SHA-256, licence) : ceux livrés avec embedkit dans `shared/embedkit/models/`,
+tous les autres dans le **catalogue commun** `shared/ia/modeles/`. Aucune application ne déclare
+ni ne charge de modèle elle-même : un outil d'image, avec ou sans IA, va dans `shared/` et sert à
+toutes. Un modèle dont l'usage commercial n'est pas établi est refusé par défaut, sauf s'il est
+inscrit dans `shared/ia` (`A_VERIFIER`) en attendant la vérification.
 
 ## Déploiement
 

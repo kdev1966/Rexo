@@ -1,11 +1,11 @@
 """Modèles d'image IA locaux (ONNX, processeur seul) : agrandissement, visages, colorisation.
 
 Modèles du projet libre FaceFusion (github.com/facefusion/facefusion-assets, models-3.0.0),
-déclarés pour embedkit dans apps/reveal/modeles/ (voir reveal/catalogue.py) :
+déclarés dans le catalogue commun shared/ia/modeles/ :
     real-esrgan-x2  agrandissement x2 (Real-ESRGAN)
     gfpgan-1.4      restauration des visages (GFPGAN 1.4)
     ddcolor         colorisation (DDColor, grand modèle : secours)
-et, depuis Hugging Face (apps/reveal/modeles/) :
+et, depuis Hugging Face (shared/ia/modeles/) :
     ddcolor-tiny    colorisation (DDColor tiny, 7 fois plus léger ; préféré)
 Les pré/post-traitements reprennent ceux de FaceFusion et des auteurs de DDColor.
 """
@@ -13,28 +13,11 @@ Les pré/post-traitements reprennent ceux de FaceFusion et des auteurs de DDColo
 import cv2
 import numpy as np
 
-from . import catalogue
+from shared import ia as _ia
 
-_sessions = {}
-
-
-def available(name):
-    return catalogue.present(name)
-
-
-def _session(name):
-    if name not in _sessions:
-        import onnxruntime as ort
-        opts = ort.SessionOptions()
-        opts.log_severity_level = 3
-        _sessions[name] = ort.InferenceSession(str(catalogue.chemin(name)), opts,
-                                               providers=['CPUExecutionProvider'])
-    return _sessions[name]
-
-
-def _run(name, x):
-    s = _session(name)
-    return s.run(None, {s.get_inputs()[0].name: x})[0]
+available = _ia.present
+_session = _ia.session
+_run = _ia.executer
 
 
 # ---------- agrandissement ----------

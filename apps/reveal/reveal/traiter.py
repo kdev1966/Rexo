@@ -10,7 +10,7 @@ Photos anciennes (N&B/sépia) : agrandissement x2 si petite (Real-ESRGAN), puis
                                stries, rayures, bruit, voile, contraste, netteté ; fichier
                                visages par IA (GFPGAN) ; fichier NOM_photocraft_restauree.jpg),
                                puis colorisation (DDColor) en calque séparé au-dessus.
-Les modèles IA (embedkit, manifestes dans apps/reveal/modeles) tournent sur le processeur, sans connexion.
+Les modèles IA (catalogue commun shared/ia) tournent sur le processeur, sans connexion.
 
 Résultat : retouche/NOM_photocraft.psd (calques modifiables), NOM_photocraft.jpg, et
 NOM_photocraft_avant.jpg (l'original à la même géométrie, pour comparer avant / après).

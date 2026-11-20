@@ -73,7 +73,7 @@ l'ordre). Un texte absent reste en français. Le moteur est commun au hub : `sha
 | Repères du visage (478 points, iris compris) | MediaPipe Face Mesh V2, en ONNX | 4,9 Mo | Apache-2.0 |
 | Détourage (cheveux compris) | MODNet | 25,9 Mo | Apache-2.0 |
 
-Moteur commun au hub : `shared/vision` (manifestes dans `shared/vision/modeles/`). Les fichiers
+Moteur commun au hub : `shared/vision`, modèles chargés par le catalogue commun `shared/ia` (manifestes dans `shared/ia/modeles/`). Les fichiers
 vont dans le magasin partagé `~/.local/share/kdev-models/embedkit` (sous Windows :
 `%USERPROFILE%\.local\share\kdev-models\embedkit`), ou `$KDEV_MODELS_DIR/embedkit`.
 
@@ -86,7 +86,7 @@ shared/python/installer.sh          # Python 3.11.17 autonome
 .outils/python/bin/python3 -m venv apps/identite/.venv
 apps/identite/.venv/bin/pip install --require-hashes --only-binary :all: -r apps/identite/requirements.txt
 export EMBEDKIT_CACHE=~/.local/share/kdev-models/embedkit
-apps/identite/.venv/bin/python -m shared.embedkit.cli --models-path shared/vision/modeles \
+apps/identite/.venv/bin/python -m shared.embedkit.cli --models-path shared/ia/modeles \
     models pull --allow-noncommercial yunet-2023mar facemesh-v2 modnet
 ```
 
@@ -99,7 +99,7 @@ powershell -ExecutionPolicy Bypass -File shared\python\installer.ps1     # Pytho
 .outils\python\python.exe -m venv apps\identite\.venv
 apps\identite\.venv\Scripts\pip install --require-hashes --only-binary :all: -r apps\identite\requirements.txt
 $env:EMBEDKIT_CACHE = "$env:USERPROFILE\.local\share\kdev-models\embedkit"
-apps\identite\.venv\Scripts\python -m shared.embedkit.cli --models-path shared\vision\modeles `
+apps\identite\.venv\Scripts\python -m shared.embedkit.cli --models-path shared\ia\modeles `
     models pull --allow-noncommercial yunet-2023mar facemesh-v2 modnet
 powershell -ExecutionPolicy Bypass -File shared\lanceur\creer_raccourci.ps1 identite
 ```

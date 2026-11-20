@@ -40,12 +40,12 @@ apps/reveal/.venv/bin/pip install --require-hashes --only-binary :all: -r apps/r
 
 # Modèles d'IA (environ 1,6 Go), dans le magasin partagé par les applications Rexo
 export EMBEDKIT_CACHE=~/.local/share/kdev-models/embedkit
-apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path apps/reveal/modeles \
+apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path shared/ia/modeles \
     models pull --allow-noncommercial gfpgan-1.4 ddcolor zhang-colorization real-esrgan-x2 mobilesam migan-512 \
     rayures-anciennes lama-512 scunet-512 ddcolor-tiny
-apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path shared/vision/modeles \
+apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path shared/ia/modeles \
     models pull --allow-noncommercial yunet-2023mar modnet
-apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path apps/reveal/modeles models verify
+apps/reveal/.venv/bin/python -m shared.embedkit.cli --models-path shared/ia/modeles models verify
 ```
 
 ## Installation sous Windows
@@ -59,10 +59,10 @@ powershell -ExecutionPolicy Bypass -File shared\python\installer.ps1     # Pytho
 .outils\python\python.exe -m venv apps\reveal\.venv
 apps\reveal\.venv\Scripts\pip install --require-hashes --only-binary :all: -r apps\reveal\requirements.txt
 $env:EMBEDKIT_CACHE = "$env:USERPROFILE\.local\share\kdev-models\embedkit"
-apps\reveal\.venv\Scripts\python -m shared.embedkit.cli --models-path apps\reveal\modeles `
+apps\reveal\.venv\Scripts\python -m shared.embedkit.cli --models-path shared\ia\modeles `
     models pull --allow-noncommercial gfpgan-1.4 ddcolor zhang-colorization real-esrgan-x2 mobilesam migan-512 `
     rayures-anciennes lama-512 scunet-512 ddcolor-tiny
-apps\reveal\.venv\Scripts\python -m shared.embedkit.cli --models-path shared\vision\modeles `
+apps\reveal\.venv\Scripts\python -m shared.embedkit.cli --models-path shared\ia\modeles `
     models pull --allow-noncommercial yunet-2023mar modnet
 powershell -ExecutionPolicy Bypass -File shared\lanceur\creer_raccourci.ps1 reveal
 ```
@@ -82,8 +82,8 @@ Les modèles déjà présents et intacts ne sont pas retéléchargés ; `models 
 leur empreinte SHA-256, et `models list` indique ce qui est installé.
 
 Licences : GFPGAN, DDColor et la colorisation de Zhang ont un usage commercial **non vérifié**
-(`commercial: unknown` dans `modeles/*.yaml`). Reveal les autorise explicitement
-(`reveal/catalogue.py`, `A_VERIFIER`) et affiche un avertissement à chaque chargement.
+(`commercial: unknown` dans `shared/ia/modeles/*.yaml`). Le catalogue commun des modèles les
+autorise explicitement en attendant (`shared/ia`, `A_VERIFIER`).
 
 ## Application à ouvrir d'un double-clic (Mac)
 
@@ -180,7 +180,6 @@ Un fichier existant n'est jamais remplacé : les résultats suivants prennent `_
 | `reveal/restauration.py` | réparation des photos anciennes : manques, taches, rayures (détecteur de Microsoft), LaMa, grain (SCUNet) |
 | `reveal/effacer.py` | effacement : zones (cadres, clics), MobileSAM, MI-GAN (embedkit) |
 | `reveal/vision.py` | masque des personnes, studio, amélioration, rendus : `shared/vision` (MODNet, MobileSAM, effets en numpy), identiques sous macOS et Windows |
-| `reveal/catalogue.py` | modèles par embedkit, contrôle des licences |
 | `modeles/*.yaml` | manifestes embedkit des modèles propres à Reveal |
 | `reveal/interface.py`, `reveal/web/` | interface web locale (Flask, 127.0.0.1 seulement) |
 | `reveal/config.py` | emplacements des données, formats acceptés |

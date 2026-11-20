@@ -322,10 +322,10 @@ _net = None
 def _colorizer():
     global _net
     if _net is None:
-        from . import catalogue
-        net = cv2.dnn.readNetFromCaffe(str(catalogue.annexe('zhang-colorization', 'prototxt')),
-                                       str(catalogue.chemin('zhang-colorization')))
-        pts = np.load(str(catalogue.annexe('zhang-colorization', 'points'))).transpose().reshape(2, 313, 1, 1).astype(np.float32)
+        from shared import ia
+        net = cv2.dnn.readNetFromCaffe(str(ia.annexe('zhang-colorization', 'prototxt')),
+                                       str(ia.chemin('zhang-colorization')))
+        pts = np.load(str(ia.annexe('zhang-colorization', 'points'))).transpose().reshape(2, 313, 1, 1).astype(np.float32)
         net.getLayer(net.getLayerId('class8_ab')).blobs = [pts]
         net.getLayer(net.getLayerId('conv8_313_rh')).blobs = [np.full([1, 313], 2.606, np.float32)]
         _net = net

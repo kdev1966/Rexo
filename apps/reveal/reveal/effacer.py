@@ -14,7 +14,7 @@ import os
 import cv2
 import numpy as np
 
-from . import catalogue
+from shared import ia
 
 MAX_ZONES = 20
 MAX_PART_ZONE = 0.6      # au-delà, MobileSAM a pris le fond : on prend sa proposition suivante
@@ -76,7 +76,7 @@ def effacer(image, zones):
     h, w = image.shape[:2]
     total = np.zeros((h, w), np.uint8)
     details = []
-    with Segmenter.load(model='mobilesam', registry=catalogue.registre()) as seg:
+    with Segmenter.load(model='mobilesam', registry=ia.registre()) as seg:
         if seg.tier == 0:
             raise EffacementError('modèle MobileSAM absent')
         emb = seg.embed(image)
@@ -107,7 +107,7 @@ def effacer(image, zones):
     if not total.any():
         raise EffacementError('rien trouvé à effacer dans les zones désignées')
     hole = _elargir(total, max(7, int(round(max(w, h) * 0.006))))
-    with Inpainter.load(model='migan-512', registry=catalogue.registre()) as inp:
+    with Inpainter.load(model='migan-512', registry=ia.registre()) as inp:
         if inp.tier == 0:
             raise EffacementError('modèle MI-GAN absent')
         result = inp(image, hole)

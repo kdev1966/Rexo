@@ -118,7 +118,7 @@ shared/python/installer.sh          # Python 3.11.17 autonome
 .outils/python/bin/python3 -m venv apps/dock/.venv
 apps/dock/.venv/bin/pip install --require-hashes --only-binary :all: -r apps/dock/requirements.txt
 export EMBEDKIT_CACHE=~/.local/share/kdev-models/embedkit
-apps/dock/.venv/bin/python -m shared.embedkit.cli --models-path shared/vision/modeles \
+apps/dock/.venv/bin/python -m shared.embedkit.cli --models-path shared/ia/modeles \
     models pull --allow-noncommercial yunet-2023mar facemesh-v2 sface-2021dec
 ```
 
