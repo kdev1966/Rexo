@@ -44,6 +44,7 @@ class ResultatImport:
     importes: int = 0
     echecs: list = field(default_factory=list)       # (nom, raison)
     rapport: Path | None = None
+    copies: list = field(default_factory=list)       # (FichierAppareil, Path) des fichiers vérifiés
 
 
 def taille_lisible(octets):
@@ -55,7 +56,8 @@ def taille_lisible(octets):
 
 def importer(appareil, entrees, racine, registre, nom_seance='', date=None, progression=None, marge=MARGE):
     """Copie les entrées choisies (et leurs fichiers de retouche) dans un dossier de séance
-    sous `racine`. `progression(fait, total, nom)` est appelée avant chaque fichier."""
+    sous `racine`. Le dossier porte la date `date`, à défaut celle de la première photo.
+    `progression(fait, total, nom)` est appelée avant chaque fichier."""
     fichiers = coeur.fichiers_a_copier(entrees)
     racine = Path(racine)
     racine.mkdir(parents=True, exist_ok=True)
@@ -64,8 +66,10 @@ def importer(appareil, entrees, racine, registre, nom_seance='', date=None, prog
     if libre < besoin + marge:
         raise PlaceInsuffisante(besoin, libre)
 
-    debut = date or datetime.now()
-    dossier = racine / coeur.nom_dossier_seance(debut, nom_seance)
+    debut = datetime.now()
+    # Dossier daté du jour de la prise de vue (la première photo), sinon du jour de l'import
+    jour = date or min((f.date for f in fichiers if f.date), default=None) or debut
+    dossier = racine / coeur.nom_dossier_seance(jour, nom_seance)
     dossier.mkdir(exist_ok=True)
     resultat = ResultatImport(dossier, total=len(fichiers))
 
@@ -92,6 +96,7 @@ def importer(appareil, entrees, racine, registre, nom_seance='', date=None, prog
             resultat.echecs.append((f.nom, 'registre non enregistré : %s' % e))
             continue
         resultat.importes += 1
+        resultat.copies.append((f, chemin))
 
     if progression:
         progression(len(fichiers), len(fichiers), '')

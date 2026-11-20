@@ -9,6 +9,7 @@ Repris de `Core.swift` (prototype Import Studio) :
     nom_libre()               IMG_1.HEIC, sinon IMG_1_2.HEIC, IMG_1_3.HEIC… (jamais d'écrasement)
     genre(), noms_retouche()  photo, RAW, vidéo ou fichier de retouche (.AAE) de l'iPhone
     Entree, catalogue()       photos et vidéos de l'appareil, chacune avec ses fichiers de retouche
+    decouper_seances()        séances proposées : nouvelle séance après un long écart de temps
     sha256(), appliquer_date(), espace_libre()
     miroir()                  seconde copie vérifiée d'un dossier sur un disque externe
 
@@ -172,6 +173,30 @@ def fichiers_a_copier(entrees):
                 sortie.append(f)
     sortie.sort(key=lambda f: f.date.timestamp() if f.date else float('-inf'))
     return sortie
+
+
+ECART_SEANCE = 3 * 3600          # secondes : au-delà, nouvelle séance proposée
+
+
+def decouper_seances(entrees, ecart=ECART_SEANCE):
+    """Regroupe les entrées en séances, de la plus ancienne à la plus récente : une nouvelle
+    séance commence après plus de `ecart` secondes sans photo. Les entrées sans date vont avec
+    la séance la plus récente."""
+    datees = sorted((e for e in entrees if e.fichier.date), key=lambda e: e.fichier.date.timestamp())
+    sans_date = [e for e in entrees if not e.fichier.date]
+    seances = []
+    for e in datees:
+        t = e.fichier.date.timestamp()
+        if seances and t - seances[-1][-1].fichier.date.timestamp() <= ecart:
+            seances[-1].append(e)
+        else:
+            seances.append([e])
+    if sans_date:
+        if seances:
+            seances[-1].extend(sans_date)
+        else:
+            seances.append(sans_date)
+    return seances
 
 
 def sha256(chemin):

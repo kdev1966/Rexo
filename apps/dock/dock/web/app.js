@@ -5,7 +5,10 @@ const tr = (t) => I18N.tr(t);
 const state = {
   catalogue: [], filtre: 'nouveaux', sel: new Set(), dernier: null,
   signature: '', importNumero: 0, importEnCours: false, etat: null,
+  nomsSeances: {},                         // nom tapé pour chaque séance proposée (clé : 1re photo)
+  vue: 'telephone', seances: [], seance: null, photosSeance: [], filtreTri: 'toutes', triVersion: -1,
 };
+const ECART_SEANCE = 3 * 3600 * 1000;      // comme coeur.ECART_SEANCE
 
 // ---------- utilitaires ----------
 async function api(url, opts) {
@@ -36,8 +39,8 @@ function nomJour(j) {
   return d.toLocaleDateString(I18N.locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 // Même règle que coeur.nom_dossier_seance
-function nomDossier(nom) {
-  const d = new Date();
+function nomDossier(nom, d) {
+  d = d || new Date();
   const jour = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const propre = nom.replace(/[\/:\\?%*|"<>]/g, '-').trim();
   return propre ? jour + ' ' + propre : jour;
@@ -89,6 +92,7 @@ async function rafraichir() {
     await chargerCatalogue(a.etat === 'pret');
   }
   suivreImport(e.import_);
+  suivreTri(e.tri);
 }
 
 async function chargerCatalogue(pret) {
@@ -209,9 +213,63 @@ function resume() {
     $('selResume').textContent = remplir('{} choisies · {}', I18N.iso(n), taille(octets))
       + (deja ? ' · ' + remplir('dont {} déjà importées', I18N.iso(deja)) : '');
   }
+  propositions(choisis);
   $('importBtn').disabled = !n || !pret || state.importEnCours;
   $('marquerBtn').disabled = !n || !pret || state.importEnCours;
   $('importBtn').querySelector('span').textContent = n ? remplir('Importer {} éléments', I18N.iso(n)) : tr('Importer la sélection');
+}
+
+// ---------- séances proposées (comme coeur.decouper_seances) ----------
+function decouper(choisis) {
+  const datees = choisis.filter((x) => x.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const groupes = [];
+  for (const x of datees) {
+    const g = groupes[groupes.length - 1];
+    if (g && new Date(x.date) - new Date(g[g.length - 1].date) <= ECART_SEANCE) g.push(x); else groupes.push([x]);
+  }
+  const sansDate = choisis.filter((x) => !x.date);
+  if (sansDate.length) groupes.length ? groupes[groupes.length - 1].push(...sansDate) : groupes.push(sansDate);
+  return groupes;
+}
+
+function propositions(choisis) {
+  const box = $('propositions');
+  let groupes = decouper(choisis);
+  if (state.uneSeule && groupes.length > 1) groupes = [groupes.flat()];
+  if (!choisis.length) state.uneSeule = false;
+  state.groupes = groupes;
+  $('seancesVide').hidden = groupes.length > 0;
+  box.innerHTML = '';
+  for (const g of groupes) {
+    const cle = g[0].cle;
+    const debut = g[0].date ? new Date(g[0].date) : new Date();
+    const fin = g[g.length - 1].date ? new Date(g[g.length - 1].date) : debut;
+    const div = document.createElement('div');
+    div.className = 'proposition';
+    const heures = (d) => d.toLocaleTimeString(I18N.locale, { hour: '2-digit', minute: '2-digit' });
+    const titre = document.createElement('small');
+    titre.textContent = nomJour(jourDe(g[0].date)) + ' · ' + I18N.iso(heures(debut) + (fin - debut > 60000 ? ' – ' + heures(fin) : ''))
+      + ' · ' + remplir(g.length > 1 ? '{} éléments' : '{} élément', I18N.iso(g.length));
+    const input = document.createElement('input');
+    input.className = 'input'; input.maxLength = 80; input.autocomplete = 'off';
+    input.placeholder = tr('Nom de la séance (facultatif)');
+    input.value = state.nomsSeances[cle] || '';
+    const dossier = document.createElement('div');
+    dossier.className = 'dossier';
+    const maj = () => { dossier.innerHTML = ''; dossier.append(tr('Dossier :') + ' '); const s = document.createElement('strong'); s.textContent = I18N.iso(nomDossier(input.value, debut)); dossier.append(s); };
+    input.oninput = () => { state.nomsSeances[cle] = input.value; maj(); };
+    maj();
+    div.append(titre, input, dossier);
+    box.appendChild(div);
+  }
+  if (groupes.length > 1) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'lien';
+    b.textContent = remplir('Tout mettre dans une seule séance ({} séances proposées)', I18N.iso(groupes.length));
+    b.onclick = () => { state.uneSeule = true; resume(); };
+    const actions = document.createElement('div'); actions.className = 'proposition-actions'; actions.appendChild(b);
+    box.appendChild(actions);
+  }
 }
 
 // ---------- import ----------
@@ -240,24 +298,28 @@ function afficherResultat(imp) {
   const r = imp.resultat;
   if (!r) return;
   p(remplir('{} sur {} fichiers importés et vérifiés.', I18N.iso(r.importes), I18N.iso(r.total)));
-  p(remplir('Dossier : {}', I18N.iso(r.nom_dossier)));
-  if (r.echecs.length) {
-    box.classList.add('has-errors');
-    p(tr('Restés sur le téléphone, à refaire :'));
-    const ul = document.createElement('ul');
-    for (const x of r.echecs) { const li = document.createElement('li'); li.textContent = I18N.iso(x.nom) + ' : ' + x.raison; ul.appendChild(li); }
-    box.appendChild(ul);
+  for (const s of r.seances) {
+    const ligne = p(remplir('Dossier : {}', I18N.iso(s.nom_dossier)) + (r.seances.length > 1 ? ' (' + I18N.iso(s.importes) + ')' : ''));
+    const b = document.createElement('button');
+    b.className = 'lien'; b.type = 'button'; b.textContent = tr('Ouvrir');
+    b.style.marginInlineStart = '8px';
+    b.onclick = () => api('/api/montrer', jsonPost({ seance: s.nom_dossier })).catch((e) => toast(e.message, true));
+    ligne.appendChild(b);
+    if (s.echecs.length) {
+      box.classList.add('has-errors');
+      p(tr('Restés sur le téléphone, à refaire :'));
+      const ul = document.createElement('ul');
+      for (const x of s.echecs) { const li = document.createElement('li'); li.textContent = I18N.iso(x.nom) + ' : ' + x.raison; ul.appendChild(li); }
+      box.appendChild(ul);
+    }
   }
   if (r.miroir) {
     if (r.miroir.absent) { box.classList.add('has-errors'); p(tr('Seconde copie non faite : disque débranché.')); }
     else if (r.miroir.echecs.length) { box.classList.add('has-errors'); p(remplir('Seconde copie : {} fichiers en échec.', I18N.iso(r.miroir.echecs.length))); }
     else p(remplir('Seconde copie faite ({} nouveaux fichiers).', I18N.iso(r.miroir.copies)));
   }
-  const b = document.createElement('button');
-  b.className = 'btn btn-small'; b.type = 'button'; b.innerHTML = '<span></span>';
-  b.querySelector('span').textContent = tr('Ouvrir le dossier');
-  b.onclick = () => api('/api/montrer', jsonPost({ seance: r.nom_dossier })).catch((e) => toast(e.message, true));
-  box.appendChild(b);
+  if (r.importes) p(tr('L\'aide au tri analyse ces photos en arrière-plan : onglet « Séances ».'));
+  state.nomsSeances = {}; state.uneSeule = false;
   state.sel.clear();
   state.signature = '';                 // relit le catalogue : les photos importées passent en « déjà importé »
 }
@@ -265,7 +327,8 @@ function afficherResultat(imp) {
 $('importBtn').onclick = async () => {
   try {
     $('result').hidden = true;
-    await api('/api/importer', jsonPost({ cles: [...state.sel], seance: $('seance').value }));
+    const seances = (state.groupes || []).map((g) => ({ nom: state.nomsSeances[g[0].cle] || '', cles: g.map((x) => x.cle) }));
+    await api('/api/importer', jsonPost({ seances }));
     state.importEnCours = true; resume();
     $('progress').hidden = false; $('progressBar').style.width = '0';
     $('progressText').textContent = tr('Préparation…');
@@ -284,9 +347,6 @@ $('marquerBtn').onclick = async () => {
 };
 
 // ---------- séance et dossiers ----------
-function apercu() { $('seanceApercu').textContent = I18N.iso(nomDossier($('seance').value)); }
-$('seance').addEventListener('input', apercu);
-apercu();
 
 $('seancesOuvrir').onclick = () => api('/api/montrer', jsonPost({})).catch((e) => toast(e.message, true));
 $('seancesChoisir').onclick = async () => {
@@ -311,6 +371,110 @@ for (const b of document.querySelectorAll('#filtres button')) {
 $('toutBtn').onclick = () => { for (const x of visibles()) state.sel.add(x.cle); majSelection(); };
 $('rienBtn').onclick = () => { state.sel.clear(); majSelection(); };
 $('actualiserBtn').onclick = () => api('/api/actualiser', jsonPost({})).then(() => { state.signature = ''; }).catch((e) => toast(e.message, true));
+
+// ---------- vues : Téléphone / Séances ----------
+function montrerVue(v) {
+  state.vue = v;
+  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('is-active', b.dataset.vue === v);
+  $('vueTelephone').hidden = v !== 'telephone';
+  $('vueSeances').hidden = v !== 'seances';
+  if (v === 'seances') chargerSeances();
+  try { history.replaceState(null, '', '#vue=' + v); } catch (e) { /* adresse inchangée */ }
+}
+for (const b of document.querySelectorAll('#tabs button')) b.onclick = () => montrerVue(b.dataset.vue);
+
+// ---------- aide au tri : séances importées ----------
+function suivreTri(t) {
+  if (!t) return;
+  $('trierEtat').textContent = t.en_cours
+    ? (t.seance ? remplir('Analyse de « {} » : {} sur {}…', I18N.iso(t.seance), I18N.iso(Math.min(t.fait + 1, t.total || 1)), I18N.iso(t.total || 1)) : tr('Analyse en attente…'))
+    : '';
+  if (t.version !== state.triVersion) {
+    state.triVersion = t.version;
+    chargerSeances();
+  } else if (t.en_cours && state.vue === 'seances' && t.seance === state.seance && !(state._dernierTri > Date.now() - 4000)) {
+    state._dernierTri = Date.now();
+    chargerPhotos();                   // résultats de la séance affichée, au fil de l'analyse
+  }
+}
+
+async function chargerSeances() {
+  try { state.seances = await api('/api/seances'); } catch (e) { return; }
+  const total = state.seances.reduce((s, x) => s + x.a_trier, 0);
+  $('nbATrierTotal').hidden = !total; $('nbATrierTotal').textContent = I18N.iso(total);
+  const ul = $('listeSeances'); ul.innerHTML = '';
+  if (state.seance && !state.seances.some((s) => s.nom === state.seance)) state.seance = null;
+  if (!state.seance && state.seances.length) state.seance = state.seances[0].nom;
+  for (const s of state.seances) {
+    const li = document.createElement('li');
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = s.nom === state.seance ? 'is-active' : '';
+    const nom = document.createElement('strong'); nom.textContent = I18N.iso(s.nom);
+    const info = document.createElement('small');
+    info.textContent = remplir(s.photos > 1 ? '{} photos' : '{} photo', I18N.iso(s.photos));
+    if (s.analysees < s.photos) info.textContent += ' · ' + remplir('{} à analyser', I18N.iso(s.photos - s.analysees));
+    if (s.a_trier) { const bb = document.createElement('b'); bb.textContent = ' · ' + remplir('{} à trier', I18N.iso(s.a_trier)); info.appendChild(bb); }
+    b.append(nom, info);
+    b.onclick = () => { state.seance = s.nom; chargerSeances(); };
+    li.appendChild(b); ul.appendChild(li);
+  }
+  $('seanceOuvrir').disabled = $('seanceAnalyser').disabled = !state.seance;
+  await chargerPhotos();
+}
+
+async function chargerPhotos() {
+  if (!state.seance) { state.photosSeance = []; afficherSeance(); return; }
+  try { state.photosSeance = await api('/api/seances/photos?seance=' + encodeURIComponent(state.seance)); }
+  catch (e) { state.photosSeance = []; }
+  afficherSeance();
+}
+
+function afficherSeance() {
+  const ps = state.photosSeance;
+  $('nbToutes').textContent = I18N.iso(ps.length);
+  $('nbATrier').textContent = I18N.iso(ps.filter((p) => p.a_trier).length);
+  $('nbMeilleures').textContent = I18N.iso(ps.filter((p) => p.meilleure).length);
+  const f = state.filtreTri;
+  const liste = ps.filter((p) => f === 'toutes' || (f === 'a_trier' && p.a_trier) || (f === 'meilleures' && p.meilleure));
+  const grille = $('grilleSeance'); grille.innerHTML = '';
+  $('videSeance').hidden = liste.length > 0;
+  if (!liste.length) {
+    $('videSeanceTitre').textContent = tr(!state.seances.length ? 'Aucune séance importée' : f === 'a_trier' ? 'Rien à trier' : 'Aucune photo');
+    $('videSeanceTexte').textContent = tr(!state.seances.length ? 'Importez des photos depuis l\'onglet « Téléphone ».'
+      : f === 'a_trier' ? 'Aucune photo floue, aux yeux fermés ou en double n\'a été trouvée.' : '');
+  }
+  for (const p of liste) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tuile' + (p.a_trier ? ' a-trier' : '');
+    b.title = p.nom + (p.analysee ? '' : ' · ' + tr('pas encore analysée'));
+    const img = document.createElement('img'); img.alt = '';
+    img.onload = () => img.classList.add('charge');
+    img.loading = 'lazy';
+    img.src = '/seance/vignette?seance=' + encodeURIComponent(state.seance) + '&nom=' + encodeURIComponent(p.nom);
+    const badges = document.createElement('div'); badges.className = 'badges';
+    const badge = (txt, cls) => { const s = document.createElement('span'); s.className = 'badge ' + cls; s.textContent = txt; badges.appendChild(s); };
+    if (p.meilleure) badge('★ ' + tr('Meilleure'), 'meilleure');
+    if (p.doublon) badge(remplir('Série {}', I18N.iso(p.serie)), 'serie');
+    if (p.floue) badge(tr('Floue'), 'floue');
+    if (p.yeux_fermes) badge(tr('Yeux fermés'), 'yeux');
+    if (!p.analysee) badge('…', '');
+    b.append(img, badges);
+    b.onclick = () => api('/api/seances/ouvrir', jsonPost({ seance: state.seance, nom: p.nom })).catch((e) => toast(e.message, true));
+    grille.appendChild(b);
+  }
+}
+
+for (const b of document.querySelectorAll('#filtresTri button')) {
+  b.onclick = () => {
+    state.filtreTri = b.dataset.filtre;
+    for (const x of document.querySelectorAll('#filtresTri button')) x.classList.toggle('is-active', x === b);
+    afficherSeance();
+  };
+}
+$('seanceOuvrir').onclick = () => api('/api/montrer', jsonPost({ seance: state.seance })).catch((e) => toast(e.message, true));
+$('seanceAnalyser').onclick = () => api('/api/seances/analyser', jsonPost({ seance: state.seance }))
+  .then(() => toast(tr('Analyse demandée.'))).catch((e) => toast(e.message, true));
 
 // ---------- quitter ----------
 (function quitter() {
@@ -358,6 +522,7 @@ $('actualiserBtn').onclick = () => api('/api/actualiser', jsonPost({})).then(() 
 })();
 
 I18N.bouton($('langBtn'));
+if (location.hash.includes('vue=seances')) montrerVue('seances');
 (async function boucle() {
   await rafraichir();
   setTimeout(boucle, state.importEnCours ? 500 : 1500);

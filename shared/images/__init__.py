@@ -10,7 +10,8 @@ Chaque outil couvre des formats différents (mesuré sur macOS 12, Intel) :
     PSD           aplati        oui               oui
 
 On essaie donc Pillow, puis PhotoCraft (photocraft-cli convert), puis sips ; le premier qui
-réussit gagne. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
+réussit gagne. `reduire` lit une image de n'importe lequel de ces formats en version réduite
+(analyse, vignettes), sans écrire de copie en pleine taille. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
 à plusieurs images, seule la première image est gardée.
 """
 
@@ -94,3 +95,36 @@ def convertir(src, dst):
         if outil(src, dst):
             return nom
     raise ConversionImpossible('Aucun outil ne sait lire %s (essayés : Pillow, PhotoCraft, sips)' % src.name)
+
+
+def reduire(src, cote):
+    """Image BGR (OpenCV) réduite à `cote` pixels de côté long, orientation EXIF appliquée ;
+    jamais agrandie. HEIC sous macOS : sips réduit directement (rapide) ; sinon conversion."""
+    import tempfile
+
+    import cv2
+    src = Path(src)
+    img = None
+    if src.suffix.lower() not in ('.heic', '.heif', '.avif'):
+        img = cv2.imread(str(src), cv2.IMREAD_COLOR)            # applique l'orientation EXIF
+    if img is None:
+        with tempfile.TemporaryDirectory() as d:
+            dst = Path(d) / 'reduite.jpg'
+            ok = False
+            if sys.platform == 'darwin':
+                try:
+                    r = subprocess.run(['sips', '-s', 'format', 'jpeg', '-Z', str(int(cote)), str(src),
+                                        '--out', str(dst)], capture_output=True, timeout=120)
+                    ok = r.returncode == 0 and dst.is_file()
+                except (OSError, subprocess.TimeoutExpired):
+                    ok = False
+            if not ok:
+                convertir(src, dst)
+            img = cv2.imread(str(dst), cv2.IMREAD_COLOR)
+    if img is None:
+        raise ConversionImpossible('Image illisible : %s' % src.name)
+    h, w = img.shape[:2]
+    f = cote / max(h, w)
+    if f < 1:
+        img = cv2.resize(img, (round(w * f), round(h * f)), interpolation=cv2.INTER_AREA)
+    return img

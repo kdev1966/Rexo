@@ -13,6 +13,10 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="16" rx="2"/><path d="M11 15.5h2"/><path d="M4 21.5h16"/><path d="M12 18.5v3"/></svg>
     <span>Rexo Dock</span>
   </div>
+  <nav class="tabs" id="tabs">
+    <button data-vue="telephone" class="is-active">Téléphone</button>
+    <button data-vue="seances">Séances <b class="pastille" id="nbATrierTotal" hidden></b></button>
+  </nav>
   <div class="device" id="device"><i></i><span id="deviceText">Recherche d'un appareil…</span></div>
   <div class="topbar-right">
     <div class="topbar-note">Rien n'est supprimé du téléphone · rien ne quitte cet ordinateur</div>
@@ -24,12 +28,12 @@
   </div>
 </header>
 
-<main class="layout">
+<main class="layout" id="vueTelephone">
   <aside class="panel">
     <section>
-      <h2><span class="step">1</span> Séance</h2>
-      <input class="input" id="seance" placeholder="Nom de la séance (facultatif)" autocomplete="off" maxlength="80">
-      <p class="hint">Dossier créé : <strong id="seanceApercu"></strong></p>
+      <h2><span class="step">1</span> Séances</h2>
+      <p class="hint" id="seancesVide">Choisissez des photos : Rexo Dock propose une séance par moment de prise de vue.</p>
+      <div class="propositions" id="propositions"></div>
     </section>
 
     <section>
@@ -83,6 +87,41 @@
       <p id="videTexte">Avec son câble USB, sur cet ordinateur.</p>
     </div>
     <div class="grille" id="grille"></div>
+  </section>
+</main>
+
+<main class="layout" id="vueSeances" hidden>
+  <aside class="panel">
+    <section>
+      <h2><span class="step">1</span> Séances importées</h2>
+      <ul class="liste-seances" id="listeSeances"></ul>
+      <p class="hint" id="trierEtat"></p>
+    </section>
+    <section>
+      <h2><span class="step">2</span> Aide au tri</h2>
+      <p class="hint">Rexo Dock signale les photos <strong>floues</strong>, les <strong>yeux fermés</strong> et
+        les <strong>séries</strong> de photos presque identiques, dont il propose la meilleure.
+        Rien n'est déplacé ni supprimé : c'est vous qui décidez.</p>
+    </section>
+  </aside>
+  <section class="content">
+    <div class="toolbar">
+      <div class="segmented" id="filtresTri">
+        <button data-filtre="toutes" class="is-active">Toutes <b id="nbToutes">0</b></button>
+        <button data-filtre="a_trier">À trier <b id="nbATrier">0</b></button>
+        <button data-filtre="meilleures">Meilleures <b id="nbMeilleures">0</b></button>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-small" id="seanceOuvrir" type="button" disabled><span>Ouvrir le dossier</span></button>
+        <button class="btn btn-small" id="seanceAnalyser" type="button" disabled title="Analyser de nouveau les photos ajoutées ou modifiées"><span>Analyser</span></button>
+      </div>
+    </div>
+    <div class="empty" id="videSeance">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <h1 id="videSeanceTitre">Aucune séance importée</h1>
+      <p id="videSeanceTexte">Importez des photos depuis l'onglet « Téléphone ».</p>
+    </div>
+    <div class="tuiles tuiles-seance" id="grilleSeance"></div>
   </section>
 </main>
 

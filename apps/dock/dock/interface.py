@@ -11,16 +11,17 @@ web tourne dans un autre fil, et l'import dans un troisième, pour que la page s
 progression. Rien n'est jamais supprimé de l'appareil.
 """
 
+import queue
 import threading
 import time
 from pathlib import Path
 
-from flask import Flask, Response, abort, jsonify, request, send_from_directory
+from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
 
 from shared import systeme
 from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, lancer
 
-from . import coeur, config
+from . import coeur, config, seances
 from .importer import ErreurAppareil, PlaceInsuffisante, importer
 
 WEB = Path(__file__).resolve().parent / 'web'
@@ -38,6 +39,9 @@ _verrou = threading.Lock()       # registre et état de l'import
 _vignettes = {}
 _import = {'en_cours': False, 'fait': 0, 'total': 0, 'courant': '', 'etape': '',
            'resultat': None, 'erreur': None, 'numero': 0}
+VIGNETTES = config.DONNEES / 'vignettes'      # vignettes des séances (jamais dans le dossier du photographe)
+_a_trier = queue.Queue()                      # dossiers de séance à analyser, un à la fois
+_tri = {'en_cours': False, 'seance': '', 'fait': 0, 'total': 0, 'version': 0}
 
 
 def _erreurs(fn):
@@ -97,7 +101,10 @@ def api_etat():
         imp = dict(_import)
         importes = len(registre.entrees.get(appareil['identifiant'], ()))
     m = config.dossier_miroir()
+    with _verrou:
+        tri_etat = dict(_tri)
     return jsonify(appareil={'etat': appareil['etat'], 'nom': appareil['nom']},
+                   tri=tri_etat,
                    signature='%s|%s|%d|%d' % (appareil['etat'], appareil['identifiant'], nb, importes),
                    import_=imp,
                    seances=str(config.dossier_seances()),
@@ -153,49 +160,66 @@ def _choix(cles):
     return [e for e in _entrees() if e.cle in voulues]
 
 
-def _travail(entrees, nom_seance):
-    def progression(fait, total, nom):
-        with _verrou:
-            _import.update(fait=fait, total=total, courant=nom)
+def _travail(groupes):
+    """Importe chaque séance proposée (nom, entrées) dans son dossier, puis la seconde copie,
+    puis met les séances en file pour l'aide au tri."""
+    total = sum(len(coeur.fichiers_a_copier(e)) for _, e in groupes)
+    fait_avant = [0]
 
-    resultat, erreur = None, None
+    def progression(fait, _total, nom):
+        with _verrou:
+            _import.update(fait=fait_avant[0] + fait, total=total, courant=nom)
+
+    resultats, erreur, dossiers = [], None, []
     try:
-        r = importer(pilote, entrees, config.dossier_seances(creer=True), registre, nom_seance,
-                     progression=progression)
-        resultat = {'dossier': str(r.dossier), 'nom_dossier': r.dossier.name, 'importes': r.importes,
-                    'total': r.total, 'echecs': [{'nom': n, 'raison': x} for n, x in r.echecs],
-                    'miroir': None}
+        racine = config.dossier_seances(creer=True)
+        for nom_seance, entrees in groupes:
+            r = importer(pilote, entrees, racine, registre, nom_seance, progression=progression)
+            fait_avant[0] += r.total
+            resultats.append({'dossier': str(r.dossier), 'nom_dossier': r.dossier.name, 'importes': r.importes,
+                              'total': r.total, 'echecs': [{'nom': n, 'raison': x} for n, x in r.echecs]})
+            dossiers += seances.noter_import(r.copies)
+            if r.dossier not in dossiers:
+                dossiers.append(r.dossier)
+        miroir = None
         m = config.dossier_miroir()
-        if r.importes and m is not None:
+        if any(x['importes'] for x in resultats) and m is not None:
             with _verrou:
                 _import.update(etape='miroir', courant='')
             if _miroir_present(m):
-                mr = coeur.miroir(config.dossier_seances(), m,
-                                  progression=lambda rel: _import.update(courant=rel))
-                resultat['miroir'] = {'copies': mr.copies, 'deja_la': mr.deja_la, 'echecs': mr.echecs}
+                mr = coeur.miroir(racine, m, progression=lambda rel: _import.update(courant=rel))
+                miroir = {'copies': mr.copies, 'deja_la': mr.deja_la, 'echecs': mr.echecs}
             else:
-                resultat['miroir'] = {'absent': True}
+                miroir = {'absent': True}
+        resultat = {'seances': resultats, 'miroir': miroir,
+                    'importes': sum(x['importes'] for x in resultats), 'total': total}
     except (PlaceInsuffisante, ErreurAppareil, OSError) as e:
-        erreur = str(e)
+        erreur, resultat = str(e), None
     with _verrou:
         _import.update(en_cours=False, etape='', courant='', resultat=resultat, erreur=erreur)
+    for d in dossiers:
+        _a_trier.put(Path(d))
 
 
 @app.post('/api/importer')
 @_erreurs
 def api_importer():
+    """Corps : {seances: [{nom, cles}]} (séances proposées, validées par le photographe),
+    ou {cles, seance} (une seule séance)."""
     d = request.get_json(force=True, silent=True) or {}
     if _etat_appareil()['etat'] != 'pret':
         return jsonify(error='Aucun appareil prêt.'), 409
-    entrees = _choix(d.get('cles'))
-    if not entrees:
+    demandes = d.get('seances') or [{'nom': d.get('seance') or '', 'cles': d.get('cles')}]
+    groupes = [(str(s.get('nom') or ''), _choix(s.get('cles'))) for s in demandes]
+    groupes = [(n, e) for n, e in groupes if e]
+    if not groupes:
         return jsonify(error='Aucune photo choisie.'), 400
     with _verrou:
         if _import['en_cours']:
             return jsonify(error='Un import est déjà en cours.'), 409
-        _import.update(en_cours=True, fait=0, total=len(coeur.fichiers_a_copier(entrees)), courant='',
-                       etape='copie', resultat=None, erreur=None, numero=_import['numero'] + 1)
-    threading.Thread(target=_travail, args=(entrees, str(d.get('seance') or '')), daemon=True).start()
+        _import.update(en_cours=True, fait=0, total=sum(len(coeur.fichiers_a_copier(e)) for _, e in groupes),
+                       courant='', etape='copie', resultat=None, erreur=None, numero=_import['numero'] + 1)
+    threading.Thread(target=_travail, args=(groupes,), daemon=True).start()
     return jsonify(ok=True)
 
 
@@ -255,11 +279,102 @@ def api_montrer():
     return jsonify(ok=True)
 
 
+# ---------- aide au tri : séances importées ----------
+
+def _dossier(nom):
+    """Dossier de séance désigné par son nom, sans possibilité de sortir du dossier des séances."""
+    racine = config.dossier_seances().resolve()
+    d = (racine / str(nom or '')).resolve()
+    if d.parent != racine or not d.is_dir():
+        abort(404)
+    return d
+
+
+def _trieur():
+    """Fil de l'aide au tri : analyse les séances mises en file, une à la fois."""
+    while True:
+        dossier = _a_trier.get()
+        if not dossier.is_dir():
+            continue
+        with _verrou:
+            _tri.update(en_cours=True, seance=dossier.name, fait=0, total=0)
+
+        def progression(fait, total, nom):
+            with _verrou:
+                _tri.update(fait=fait, total=total)
+        try:
+            seances.analyser_dossier(dossier, VIGNETTES, progression=progression)
+        except Exception as e:                       # une séance en échec n'arrête pas les autres
+            print('Aide au tri : %s : %s' % (dossier.name, e), flush=True)
+        with _verrou:
+            _tri.update(en_cours=_a_trier.qsize() > 0, seance='', fait=0, total=0, version=_tri['version'] + 1)
+
+
+@app.get('/api/seances')
+def api_seances():
+    sortie = []
+    for d in seances.lister(config.dossier_seances()):
+        ps = seances.photos(d)
+        sortie.append({'nom': d.name, 'photos': len(ps), 'analysees': sum(p['analysee'] for p in ps),
+                       'a_trier': sum(p['a_trier'] for p in ps)})
+    return jsonify(sortie)
+
+
+@app.get('/api/seances/photos')
+def api_seance_photos():
+    d = _dossier(request.args.get('seance'))
+    return jsonify([{k: p.get(k) for k in ('nom', 'date', 'analysee', 'nettete', 'visages', 'yeux_fermes',
+                                            'floue', 'doublon', 'meilleure', 'serie', 'a_trier', 'erreur')}
+                    for p in seances.photos(d)])
+
+
+@app.get('/seance/vignette')
+def seance_vignette():
+    d = _dossier(request.args.get('seance'))
+    p = (d / str(request.args.get('nom', ''))).resolve()
+    if p.parent != d or not seances.est_photo(p):
+        abort(404)
+    try:
+        v = seances.vignette(p, VIGNETTES)
+    except Exception:
+        abort(404)
+    r = send_file(v, mimetype='image/jpeg')
+    r.headers['Cache-Control'] = 'private, max-age=86400'
+    return r
+
+
+@app.post('/api/seances/analyser')
+@_erreurs
+def api_seance_analyser():
+    d = _dossier((request.get_json(force=True, silent=True) or {}).get('seance'))
+    _a_trier.put(d)
+    with _verrou:
+        _tri.update(en_cours=True)
+    return jsonify(ok=True)
+
+
+@app.post('/api/seances/ouvrir')
+@_erreurs
+def api_seance_ouvrir():
+    """Ouvre une photo de séance dans l'application du système (Aperçu, Photos de Windows)."""
+    corps = request.get_json(force=True, silent=True) or {}
+    d = _dossier(corps.get('seance'))
+    p = (d / str(corps.get('nom', ''))).resolve()
+    if p.parent != d or not p.is_file():
+        return jsonify(error='Photo introuvable.'), 404
+    systeme.ouvrir(p)
+    return jsonify(ok=True)
+
+
 # ---------- démarrage ----------
 
 def principal():
     global pilote
-    config.dossier_seances(creer=True)          # visible sur le Bureau dès le lancement
+    racine = config.dossier_seances(creer=True)  # visible sur le Bureau dès le lancement
+    threading.Thread(target=_trieur, daemon=True).start()
+    for d in seances.lister(racine):            # séances pas encore (entièrement) analysées
+        if seances.a_analyser(d):
+            _a_trier.put(d)
     if systeme.MACOS:
         from .appareil_mac import AppareilsMac
         pilote = AppareilsMac().demarrer()
