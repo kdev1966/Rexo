@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 
 from shared import vision as _vision
+from shared.images import ConversionImpossible, lire
 from shared.vision import effets as _effets
 
 
@@ -52,12 +53,10 @@ def disponible():
 
 
 def _lire(src, alpha=False):
-    img = cv2.imread(str(src), cv2.IMREAD_UNCHANGED if alpha else cv2.IMREAD_COLOR)
-    if img is None:
-        raise VisionError('image illisible : %s' % src)
-    if alpha and img.ndim == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    return img
+    try:
+        return lire(src, alpha=alpha)[0]                  # lecture commune au hub
+    except ConversionImpossible as e:
+        raise VisionError(str(e)) from None
 
 
 def _ecrire(img, dst):

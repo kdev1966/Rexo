@@ -10,7 +10,8 @@ Chaque outil couvre des formats différents (mesuré sur macOS 12, Intel) :
     PSD           aplati        oui               oui
 
 On essaie donc Pillow, puis PhotoCraft (photocraft-cli convert), puis sips ; le premier qui
-réussit gagne. `reduire` lit une image de n'importe lequel de ces formats en version réduite
+réussit gagne. `lire` lit une image de n'importe lequel de ces formats en pleine taille,
+comme OpenCV la lirait (orientation EXIF appliquée), pour toutes les applications. `reduire` lit une image de n'importe lequel de ces formats en version réduite
 (analyse, vignettes), sans écrire de copie en pleine taille. `image_de_video` tire une image
 réduite d'une vidéo (H.264 et HEVC de l'iPhone, rotation appliquée), par OpenCV : identique
 sous macOS et Windows. Les pixels transparents sont posés sur du blanc. Pour un GIF animé ou un fichier
@@ -97,6 +98,37 @@ def convertir(src, dst):
         if outil(src, dst):
             return nom
     raise ConversionImpossible('Aucun outil ne sait lire %s (essayés : Pillow, PhotoCraft, sips)' % src.name)
+
+
+def lire(src, travail=None, alpha=False):
+    """(image BGR uint8, outil de conversion ou None si OpenCV l'a lue directement). OpenCV
+    d'abord ; sinon conversion sans perte en PNG (Pillow, PhotoCraft ou sips) dans `travail`
+    (un dossier temporaire effacé ensuite s'il n'est pas donné). `alpha` : garder la
+    transparence (BGRA ; une image en niveaux de gris devient BGR). Lève ConversionImpossible."""
+    import tempfile
+
+    import cv2
+    drapeau = cv2.IMREAD_UNCHANGED if alpha else cv2.IMREAD_COLOR
+
+    def ouvrir(chemin):
+        img = cv2.imread(str(chemin), drapeau)
+        if img is not None and alpha and img.ndim == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        return img
+
+    src = Path(src)
+    img = ouvrir(src)
+    if img is not None:
+        return img, None
+    with tempfile.TemporaryDirectory(prefix='rexo-lire-') as tmp:
+        dossier = Path(travail) if travail is not None else Path(tmp)
+        dossier.mkdir(parents=True, exist_ok=True)
+        png = dossier / 'converti.png'
+        outil = convertir(src, png)
+        img = ouvrir(png)
+    if img is None:
+        raise ConversionImpossible('Image illisible : %s' % src.name)
+    return img, outil
 
 
 def reduire(src, cote):

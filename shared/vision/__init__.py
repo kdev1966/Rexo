@@ -3,6 +3,9 @@
 Remplace Apple Vision (rexo-segment) :
     visages(img)        YuNet : cadres et 5 repères de chaque visage, du plus grand au plus petit
     reperes(img, v)     MediaPipe Face Mesh V2 : 478 points du visage `v` (iris compris)
+    ouverture_oeil(oeil, angle)   hauteur / largeur de l'œil (repères Face Mesh) : petit = fermé
+                        ou plissé ; commune à Rexo ID et Rexo Dock
+    rotation(angle)     matrice qui ramène la ligne des yeux à l'horizontale
     empreinte_visage(img, v)   SFace : empreinte d'identité du visage `v` (128 valeurs, norme 1) ;
                         deux visages de la même personne : cosinus >= MEME_PERSONNE
     detourer(img)       MODNet : masque des personnes de 0 à 1, cheveux compris (portraits)
@@ -38,6 +41,29 @@ JOUE_GAUCHE, JOUE_DROITE, MENTON, NEZ = 234, 454, 152, 1
 
 class VisionError(RuntimeError):
     pass
+
+
+def rotation(angle):
+    """Matrice qui ramène la ligne des yeux à l'horizontale (angle en degrés, repère image, y
+    vers le bas)."""
+    t = math.radians(angle)
+    return np.array([[math.cos(t), math.sin(t)], [-math.sin(t), math.cos(t)]])
+
+
+def ouverture_oeil(oeil, angle=None):
+    """Hauteur / largeur d'un œil (ses repères Face Mesh, en pixels), dans le repère redressé :
+    petit = œil fermé ou plissé (Rexo ID et Rexo Dock : sous 0,15). `angle` : inclinaison de la
+    ligne des yeux en degrés ; sans angle, redressé par les coins de l'œil (points 0 et 8 des
+    listes OEIL_IMAGE_*). None si l'œil n'a pas de largeur."""
+    oeil = np.asarray(oeil, np.float64)[:, :2]
+    if len(oeil) < 3:
+        return None
+    if angle is None:
+        (x0, y0), (x1, y1) = oeil[0], oeil[8]
+        angle = math.degrees(math.atan2(y1 - y0, x1 - x0))
+    p = oeil @ rotation(angle).T
+    largeur = np.ptp(p[:, 0])
+    return float(np.ptp(p[:, 1]) / largeur) if largeur > 0 else None
 
 
 _verrou = threading.Lock()

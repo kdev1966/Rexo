@@ -33,7 +33,7 @@ from pathlib import Path
 import numpy as np
 
 from shared.ia import photo as ia          # agrandissement, visages, colorisation (communs)
-from shared.images import ConversionImpossible
+from shared.images import ConversionImpossible, lire
 from shared.photocraft import PhotoCraft, PhotoCraftError
 
 from . import analyse, effacer, restauration, vision
@@ -97,7 +97,7 @@ class Job:
         info = pc.call('doc.open', path=str(path))
         self.index = info['index']
         self.width, self.height = info['width'], info['height']
-        self.img = analyse.load(path)
+        self.img, _ = lire(path)
         self.extras = []          # images complémentaires enregistrées avec le résultat (suffixe, image)
         self.extra_files = []     # fichiers complémentaires copiés tels quels (suffixe, chemin)
 
@@ -291,7 +291,7 @@ def place_python_result(job, image, name):
 def export_current(job, name):
     path = job.work / (name + '.png')
     job.pc.call('doc.save', path=str(path))
-    return analyse.load(path)
+    return lire(path)[0]
 
 
 def ancienne(job):
@@ -450,7 +450,7 @@ def main():
                 log('== %s' % src.name)
                 t = time.time()
                 try:
-                    img, outil = analyse.load_any(src, WORK / src.stem)
+                    img, outil = lire(src, WORK / src.stem)
                     if outil:
                         log('  format %s converti par %s' % (src.suffix.lower().lstrip('.').upper(), outil))
                     kind = args.type

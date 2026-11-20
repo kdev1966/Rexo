@@ -19,36 +19,18 @@ Tout reste sur la machine.
 import argparse
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 import cv2
 from PIL import Image
 
-from shared.images import FORMATS, ConversionImpossible, convertir
+from shared.images import FORMATS, ConversionImpossible, lire
 
 from . import cadrage, couleurs, fond, planche
 from .config import ORIGINAL, RESULTATS
 from .normes import (DPI, FRANCE, LACET_MAX, OUVERTURE_YEUX_MIN, PORTRAIT, ROULIS_MAX, MM_PAR_POUCE,
                      Norme)
 from .visage import VisageError, analyser
-
-OPENCV = {'.jpg', '.jpeg', '.jpe', '.png', '.tif', '.tiff', '.webp', '.bmp'}
-
-
-def lire(src, travail):
-    """Photo redressée (EXIF) en PNG de travail, quel que soit son format d'origine."""
-    src = Path(src)
-    if src.suffix.lower() not in OPENCV:
-        tmp = travail / 'converti.png'
-        convertir(src, tmp)
-        src = tmp
-    img = cv2.imread(str(src), cv2.IMREAD_COLOR)
-    if img is None:
-        raise ConversionImpossible('photo illisible : %s' % src.name)
-    png = travail / 'photo.png'
-    cv2.imwrite(str(png), img)
-    return png
 
 
 def enregistrer(img_bgr, chemin, dpi=DPI):
@@ -88,9 +70,7 @@ def fabriquer(src, dest=RESULTATS, mode_couleurs='auto', norme=FRANCE, dpi=DPI):
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
     nom = src.stem
-    with tempfile.TemporaryDirectory(prefix='identite_') as t:
-        travail = Path(t)
-        img = cv2.imread(str(lire(src, travail)), cv2.IMREAD_COLOR)
+    img, _ = lire(src)                     # lecture commune au hub (orientation EXIF appliquée)
     visage, masque = analyser(img)
     corrigee, rapport_couleurs = couleurs.corriger(img, masque, mode_couleurs, visage.pupilles)
     detouree = fond.remplacer(corrigee, masque, norme.fond)

@@ -33,13 +33,25 @@ def _u8(x):
     return np.clip(x * 255.0 + 0.5, 0, 255).astype(np.uint8)
 
 
-def _lineaire(x):
+def lineaire(x):
+    """sRGB (0 à 1) vers lumière linéaire. Commune au hub (Rexo ID : balance des blancs)."""
     return np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
 
 
-def _srgb(lin):
+def srgb(lin):
+    """Lumière linéaire vers sRGB (0 à 1)."""
     lin = np.clip(lin, 0, 1)
     return np.where(lin <= 0.0031308, lin * 12.92, 1.055 * np.power(lin, 1 / 2.4) - 0.055)
+
+
+def lineaire8(img8):
+    """Image uint8 (sRGB) vers lumière linéaire en float32."""
+    return lineaire(img8.astype(np.float32) / 255.0)
+
+
+def srgb8(lin):
+    """Lumière linéaire vers image uint8 (sRGB)."""
+    return _u8(srgb(lin))
 
 
 def _melanger(avant, fond, m):
@@ -106,7 +118,7 @@ def _blanc(kelvin):
     r = 255.0 if t <= 66 else 329.698727446 * (t - 60) ** -0.1332047592
     v = 99.4708025861 * np.log(t) - 161.1195681661 if t <= 66 else 288.1221695283 * (t - 60) ** -0.0755148492
     b = 255.0 if t >= 66 else (0.0 if t <= 19 else 138.5177312231 * np.log(t - 10) - 305.0447927307)
-    return _lineaire(np.clip(np.array([b, v, r], np.float32), 0, 255) / 255.0)
+    return lineaire(np.clip(np.array([b, v, r], np.float32), 0, 255) / 255.0)
 
 
 def temperature(x, kelvin, cible=6500):
@@ -114,7 +126,7 @@ def temperature(x, kelvin, cible=6500):
     `cible` (kelvin > cible réchauffe)."""
     g = _blanc(kelvin) / _blanc(cible)
     g = g / (g @ LUMA)
-    return _srgb(_lineaire(x) / g)
+    return srgb(lineaire(x) / g)
 
 
 def ombres_lumieres(x, ombres=0.0, lumieres=1.0):

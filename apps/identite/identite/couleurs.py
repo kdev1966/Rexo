@@ -30,7 +30,8 @@ rapprochés du blanc ; jamais plus de 14 niveaux de déplacement. Tout est calcu
 import cv2
 import numpy as np
 
-from shared.vision.effets import courbe_tons
+from shared.vision.effets import courbe_tons, srgb8
+from shared.vision.effets import lineaire8 as lineaire     # image uint8 -> lumière linéaire
 
 MODES = ('auto', 'fond', 'peau', 'aucune')
 ALIAS = {'apple': 'peau'}     # ancien nom du mode « par la peau »
@@ -44,17 +45,6 @@ GAIN_MIN, GAIN_MAX = 0.75, 1.33
 PEAU_Q = (-0.005, 0.06)     # teinte de peau plausible (Q / Y), hors de quoi on corrige
 PEAU_JUSTE = (0.01, 0.04)   # Q / Y des peaux justes mesurées : la balance ramène jusqu'au bord
 GAIN_PEAU = (0.85, 1.18)    # bornes des gains de la balance sur la peau
-
-
-def lineaire(img8):
-    x = img8.astype(np.float32) / 255.0
-    return np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
-
-
-def srgb8(lin):
-    lin = np.clip(lin, 0.0, 1.0)
-    x = np.where(lin <= 0.0031308, lin * 12.92, 1.055 * np.power(lin, 1 / 2.4) - 0.055)
-    return np.clip(x * 255.0 + 0.5, 0, 255).astype(np.uint8)
 
 
 def force_fond(chroma):

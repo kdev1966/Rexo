@@ -1,7 +1,6 @@
 """Analyse d'image en Python (OpenCV) : masques de peau et de maquillage, rayures, colorisation."""
 
 import math
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -9,28 +8,6 @@ import numpy as np
 
 
 # ---------- utilitaires ----------
-
-def load(path):
-    img = cv2.imread(str(path), cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError('Image illisible : %s' % path)
-    return img
-
-
-def load_any(path, work):
-    """Lit une photo de n'importe quel format pris en charge.
-
-    OpenCV d'abord ; sinon conversion sans perte en PNG dans `work` (Pillow, PhotoCraft ou sips).
-    Renvoie (image BGR, nom de l'outil de conversion ou None si lue directement).
-    """
-    img = cv2.imread(str(path), cv2.IMREAD_COLOR)
-    if img is not None:
-        return img, None
-    from shared.images import convertir
-    png = Path(work) / 'converti.png'
-    outil = convertir(path, png)
-    return load(png), outil
-
 
 def save_mask(mask, path):
     """Enregistre un masque 0..1 en PNG RVB (lisible comme sélection par PhotoCraft)."""

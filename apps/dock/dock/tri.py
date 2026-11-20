@@ -26,14 +26,10 @@ Méthodes, locales et sur le processeur :
 import statistics
 from dataclasses import asdict, dataclass, field
 
-import cv2
-import numpy as np
-
 from shared.images import reduire
+from shared.vision.qualite import distance, empreinte, nettete  # noqa: F401 (communes au hub)
 
 COTE_ANALYSE = 1600            # côté long de la copie réduite (visages)
-COTE_NETTETE = 1024            # côté long pour la netteté (mesure comparable d'une photo à l'autre)
-ZONES = 4
 FLOU_ABSOLU = 40.0
 FLOU_RELATIF = 0.2
 SEANCE_MIN_RELATIF = 5         # en dessous, pas de comparaison à la séance
@@ -62,38 +58,6 @@ class Analyse:
         return asdict(self)
 
 
-def nettete(img):
-    h, w = img.shape[:2]
-    f = COTE_NETTETE / max(h, w)
-    if f < 1:
-        img = cv2.resize(img, (round(w * f), round(h * f)), interpolation=cv2.INTER_AREA)
-    lap = cv2.Laplacian(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), cv2.CV_64F)
-    H, W = lap.shape
-    return float(max(lap[i * H // ZONES:(i + 1) * H // ZONES, j * W // ZONES:(j + 1) * W // ZONES].var()
-                     for i in range(ZONES) for j in range(ZONES)))
-
-
-def empreinte(img):
-    g = cv2.resize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), (9, 8), interpolation=cv2.INTER_AREA)
-    bits = (g[:, 1:] > g[:, :-1]).flatten()
-    return '%016x' % int(''.join('1' if b else '0' for b in bits), 2)
-
-
-def distance(a, b):
-    return bin(int(a, 16) ^ int(b, 16)).count('1')
-
-
-def _ouverture(points, indices):
-    """Hauteur / largeur de l'œil, dans le repère de l'œil (redressé par ses coins)."""
-    p = points[indices, :2]
-    a, b = p[0], p[8]                                    # coins de l'œil (33/133, 263/362)
-    angle = np.arctan2(b[1] - a[1], b[0] - a[0])
-    r = np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
-    q = p @ r.T
-    largeur = np.ptp(q[:, 0])
-    return float(np.ptp(q[:, 1]) / largeur) if largeur > 0 else None
-
-
 def yeux(img):
     """(nombre de visages, ouvertures des visages assez grands)."""
     from shared import vision
@@ -104,7 +68,7 @@ def yeux(img):
         points, presence = vision.reperes(img, v)
         if presence < 0.5:
             continue
-        o = [_ouverture(points, OEIL_IMAGE_GAUCHE), _ouverture(points, OEIL_IMAGE_DROITE)]
+        o = [vision.ouverture_oeil(points[OEIL_IMAGE_GAUCHE]), vision.ouverture_oeil(points[OEIL_IMAGE_DROITE])]
         o = [x for x in o if x is not None]
         if o:
             ouvertures.append(round(min(o), 3))

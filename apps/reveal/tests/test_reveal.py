@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 
 from reveal import analyse
+from shared.images import lire
 
 
 def gradient(h=300, w=400):
@@ -86,7 +87,7 @@ class Formats(unittest.TestCase):
     def test_avif_is_converted(self):
         src = self._pillow_save('a.avif', 'AVIF', quality=90)
         self.assertIsNone(cv2.imread(str(src)))                 # OpenCV ne sait pas le lire
-        img, outil = analyse.load_any(src, self.dir / 'travail')
+        img, outil = lire(src, self.dir / 'travail')
         self.assertEqual(outil, 'Pillow')
         self.assertEqual(img.shape, self.ref.shape)
         self.assertLess(np.abs(img.astype(int) - self.ref.astype(int)).mean(), 6)
@@ -99,7 +100,7 @@ class Formats(unittest.TestCase):
         im.paste(1, (0, 0, 20, 30))
         src = self.dir / 't.gif'
         im.save(src, transparency=0)
-        img, outil = analyse.load_any(src, self.dir / 'travail')
+        img, outil = lire(src, self.dir / 'travail')
         self.assertIsNotNone(outil)
         self.assertGreater(img[15, 35].min(), 200)              # partie transparente -> blanc
 
@@ -111,7 +112,7 @@ class Formats(unittest.TestCase):
         subprocess.run(['sips', '-s', 'format', 'heic', str(jpg), '--out', str(heic)], capture_output=True)
         if not heic.exists():
             self.skipTest('sips ne sait pas écrire le HEIC ici')
-        img, outil = analyse.load_any(heic, self.dir / 'travail')
+        img, outil = lire(heic, self.dir / 'travail')
         self.assertIn(outil, ('PhotoCraft', 'sips'))
         self.assertEqual(img.shape, self.ref.shape)
 
@@ -120,7 +121,7 @@ class Formats(unittest.TestCase):
         bad = self.dir / 'abime.avif'
         bad.write_bytes(b'ceci n est pas une image')
         with self.assertRaises(ConversionImpossible):
-            analyse.load_any(bad, self.dir / 'travail')
+            lire(bad, self.dir / 'travail')
 
     def test_all_accepted_formats_are_lowercase_extensions(self):
         from shared.images import FORMATS

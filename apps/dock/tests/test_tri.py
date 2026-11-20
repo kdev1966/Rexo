@@ -26,36 +26,6 @@ def image_nette(graine=0, l=1200, h=900):
     return cv2.resize(petite, (l, h), interpolation=cv2.INTER_NEAREST)
 
 
-class TestMesures(unittest.TestCase):
-    def test_flou_moins_net(self):
-        img = image_nette()
-        self.assertGreater(tri.nettete(img), 10 * tri.nettete(cv2.GaussianBlur(img, (0, 0), 4)))
-
-    def test_fond_flou_sujet_net(self):
-        """Un sujet net sur un fond flou n'est pas une photo floue : la zone la plus nette compte."""
-        img = cv2.GaussianBlur(image_nette(), (0, 0), 6)
-        img[300:600, 450:750] = image_nette(1)[300:600, 450:750]
-        self.assertGreater(tri.nettete(img), tri.FLOU_ABSOLU * 5)
-
-    def test_empreinte(self):
-        a = image_nette(0)
-        self.assertEqual(tri.distance(tri.empreinte(a), tri.empreinte(cv2.GaussianBlur(a, (0, 0), 1))), 0)
-        self.assertGreater(tri.distance(tri.empreinte(a), tri.empreinte(image_nette(5))), 16)
-
-    def test_ouverture_des_yeux(self):
-        # œil ouvert : ellipse de 40 × 14 ; fermé : 40 × 3 ; incliné de 20° (redressé par ses coins)
-        def oeil(h, angle):
-            t = np.linspace(0, 2 * np.pi, 16, endpoint=False)
-            t = np.roll(t, -8)                         # point 8 : coin opposé au point 0
-            p = np.stack([20 * np.cos(t), h / 2 * np.sin(t)], 1)
-            a = np.radians(angle)
-            r = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
-            return np.column_stack([p @ r.T + 300, np.zeros(16)])
-        idx = list(range(16))
-        self.assertAlmostEqual(tri._ouverture(oeil(14, 20), idx), 0.35, places=2)
-        self.assertLess(tri._ouverture(oeil(3, 20), idx), tri.OUVERTURE_MIN)
-
-
 def photo(nom, sec, nettete=500.0, empreinte='0' * 16, rafale=None, yeux_fermes=False):
     return {'nom': nom, 'date': T0.timestamp() + sec, 'nettete': nettete, 'empreinte': empreinte,
             'rafale': rafale, 'yeux_fermes': yeux_fermes}

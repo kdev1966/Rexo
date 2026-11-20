@@ -14,6 +14,8 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
+from shared.vision import ouverture_oeil as ouverture, rotation  # noqa: F401 (communs au hub)
+
 from .normes import DPI, MM_PAR_POUCE, px
 
 OEIL_MENTON = 0.52          # (œil -> menton) / (sommet -> menton)
@@ -23,12 +25,6 @@ def angle_yeux(pupilles):
     """Inclinaison de la ligne des yeux, en degrés (positif : œil droit de l'image plus bas)."""
     (x0, y0), (x1, y1) = pupilles
     return math.degrees(math.atan2(y1 - y0, x1 - x0))
-
-
-def rotation(angle):
-    """Matrice qui ramène la ligne des yeux à l'horizontale (repère image, y vers le bas)."""
-    t = math.radians(angle)
-    return np.array([[math.cos(t), math.sin(t)], [-math.sin(t), math.cos(t)]])
 
 
 @dataclass
@@ -155,10 +151,3 @@ def rendre(img, m, taille_mm, fond, dpi=DPI):
     return out, couverture
 
 
-def ouverture(oeil, angle):
-    """Hauteur / largeur d'un œil (repère redressé) : petit = œil fermé ou plissé."""
-    if len(oeil) < 3:
-        return None
-    p = oeil @ rotation(angle).T
-    largeur = np.ptp(p[:, 0])
-    return float(np.ptp(p[:, 1]) / largeur) if largeur > 0 else None
