@@ -15,43 +15,20 @@ import cv2
 import numpy as np
 
 from . import executer as _run, present as available, session as _session  # noqa: F401
+from .tuiles import par_tuiles
 
 
 # ---------- agrandissement ----------
 
 def upscale_x2(img, tile=192, overlap=16):
-    """Real-ESRGAN x2 par tuiles (mémoire limitée). img : BGR uint8."""
-    h, w = img.shape[:2]
+    """Real-ESRGAN x2 par tuiles de `tile` pixels qui se chevauchent de 2 × `overlap` (mémoire
+    limitée), fondues entre elles (shared/ia/tuiles). img : BGR uint8."""
     rgb = img[:, :, ::-1].astype(np.float32) / 255.0
-    out = np.zeros((h * 2, w * 2, 3), np.float32)
-    weight = np.zeros((h * 2, w * 2, 1), np.float32)
-    step = tile - overlap * 2
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            y0, x0 = max(0, y - overlap), max(0, x - overlap)
-            y1, x1 = min(h, y + step + overlap), min(w, x + step + overlap)
-            patch = rgb[y0:y1, x0:x1]
-            ph, pw = patch.shape[:2]
-            # le modèle replie l'image par blocs 2x2 : dimensions paires obligatoires
-            patch = np.pad(patch, ((0, ph % 2), (0, pw % 2), (0, 0)), mode='reflect')
-            res = _run('real-esrgan-x2', np.ascontiguousarray(patch.transpose(2, 0, 1)[None]))[0]
-            res = res.transpose(1, 2, 0)[:ph * 2, :pw * 2]
-            # on ne garde que le centre de la tuile, avec un fondu sur la marge
-            wy = np.ones((res.shape[0], 1), np.float32)
-            wx = np.ones((1, res.shape[1]), np.float32)
-            ramp = overlap * 2
-            if y0 > 0:
-                wy[:ramp, 0] = np.linspace(0, 1, ramp)
-            if y1 < h:
-                wy[-ramp:, 0] = np.linspace(1, 0, ramp)
-            if x0 > 0:
-                wx[0, :ramp] = np.linspace(0, 1, ramp)
-            if x1 < w:
-                wx[0, -ramp:] = np.linspace(1, 0, ramp)
-            wgt = (wy * wx)[:, :, None]
-            out[y0 * 2:y1 * 2, x0 * 2:x1 * 2] += res * wgt
-            weight[y0 * 2:y1 * 2, x0 * 2:x1 * 2] += wgt
-    out = out / np.maximum(weight, 1e-6)
+
+    def agrandir(t):                     # côtés pairs : le modèle replie l'image par blocs 2 × 2
+        return _run('real-esrgan-x2', np.ascontiguousarray(t.transpose(2, 0, 1)[None]))[0].transpose(1, 2, 0)
+
+    out = par_tuiles(rgb, agrandir, tile, overlap * 2, echelle=2, taille_fixe=False, multiple=2)
     return (np.clip(out, 0, 1) * 255).round().astype(np.uint8)[:, :, ::-1].copy()
 
 

@@ -17,6 +17,7 @@ import cv2
 import numpy as np
 
 from . import present, session
+from .tuiles import par_tuiles, positions
 
 COTE_DETECTION = 256          # le détecteur voit l'image au côté court de 256 (comme Microsoft)
 SEUIL_RAYURES = 0.4           # probabilité au-dessus de laquelle un pixel est une rayure
@@ -57,12 +58,6 @@ def _lama_512(img, m):
     return cv2.cvtColor((np.clip(y.transpose(1, 2, 0), 0, 1) * 255).round().astype(np.uint8), cv2.COLOR_RGB2BGR)
 
 
-def _positions(n):
-    if n <= TUILE:
-        return [0]
-    return list(range(0, n - TUILE, TUILE - RECOUVREMENT)) + [n - TUILE]
-
-
 def _reduite(img, m):
     """LaMa sur l'image réduite (ou complétée) à 512 × 512 ; résultat à la taille d'origine."""
     h, w = m.shape
@@ -90,8 +85,8 @@ def reconstituer(img, m, grand=False):
     H, W = max(h, TUILE), max(w, TUILE)
     out = cv2.copyMakeBorder(img, 0, H - h, 0, W - w, cv2.BORDER_REFLECT)
     mk = cv2.copyMakeBorder(m, 0, H - h, 0, W - w, cv2.BORDER_CONSTANT, value=0)
-    for y in _positions(H):
-        for x in _positions(W):
+    for y in positions(H, TUILE, RECOUVREMENT):
+        for x in positions(W, TUILE, RECOUVREMENT):
             t = mk[y:y + TUILE, x:x + TUILE]
             if t.any():
                 r = _lama_512(out[y:y + TUILE, x:x + TUILE], t)
@@ -126,23 +121,12 @@ def debruiter(img):
     puis une part de l'original remise."""
     s = session('scunet-512')
     nom = s.get_inputs()[0].name
-    h, w = img.shape[:2]
-    H, W = max(h, TUILE), max(w, TUILE)
-    src = cv2.copyMakeBorder(img, 0, H - h, 0, W - w, cv2.BORDER_REFLECT)
-    acc = np.zeros((H, W, 3), np.float32)
-    poids = np.zeros((H, W, 1), np.float32)
-    rampe = np.minimum(np.arange(TUILE) + 1, TUILE - np.arange(TUILE)).astype(np.float32)
-    fen = np.minimum(rampe / RECOUVREMENT_GRAIN, 1.0)
-    fen = (fen[:, None] * fen[None, :])[..., None]
-    pas = TUILE - RECOUVREMENT_GRAIN
-    ys = [0] if H <= TUILE else list(range(0, H - TUILE, pas)) + [H - TUILE]
-    xs = [0] if W <= TUILE else list(range(0, W - TUILE, pas)) + [W - TUILE]
-    for y in ys:
-        for x in xs:
-            t = cv2.cvtColor(src[y:y + TUILE, x:x + TUILE], cv2.COLOR_BGR2RGB).astype(np.float32)
-            r = s.run(None, {nom: (t.transpose(2, 0, 1)[None] / 255)})[0][0].transpose(1, 2, 0)
-            acc[y:y + TUILE, x:x + TUILE] += cv2.cvtColor(np.clip(r, 0, 1), cv2.COLOR_RGB2BGR) * 255 * fen
-            poids[y:y + TUILE, x:x + TUILE] += fen
-    out = (acc / np.maximum(poids, 1e-6))[:h, :w]
+
+    def debruiter_tuile(t):
+        t = cv2.cvtColor(t, cv2.COLOR_BGR2RGB).astype(np.float32)
+        r = s.run(None, {nom: (t.transpose(2, 0, 1)[None] / 255)})[0][0].transpose(1, 2, 0)
+        return cv2.cvtColor(np.clip(r, 0, 1), cv2.COLOR_RGB2BGR) * 255
+
+    out = par_tuiles(img, debruiter_tuile, TUILE, RECOUVREMENT_GRAIN)
     out = out * (1 - GARDE_ORIGINAL) + img.astype(np.float32) * GARDE_ORIGINAL
     return np.clip(out, 0, 255).round().astype(np.uint8)
