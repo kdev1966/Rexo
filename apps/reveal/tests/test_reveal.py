@@ -32,21 +32,6 @@ def with_streaks(img, n=10, thickness=2, delta=40):
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
-class Monochrome(unittest.TestCase):
-    def test_gray_photo_is_monochrome(self):
-        self.assertTrue(analyse.is_monochrome(gradient()))
-
-    def test_sepia_photo_is_monochrome(self):
-        sepia = gradient().astype(np.float32) * np.array([0.82, 0.95, 1.08], np.float32)
-        self.assertTrue(analyse.is_monochrome(np.clip(sepia, 0, 255).astype(np.uint8)))
-
-    def test_colour_photo_is_not_monochrome(self):
-        img = gradient()
-        img[:, :200] = (40, 60, 200)
-        img[:, 200:] = (200, 160, 40)
-        self.assertFalse(analyse.is_monochrome(img))
-
-
 class Streaks(unittest.TestCase):
     def test_clean_image_has_no_streak_series(self):
         self.assertLess(analyse.streak_lines(gradient()), 6)
@@ -339,20 +324,12 @@ class Langues(unittest.TestCase):
 
 
 class Restauration(unittest.TestCase):
-    """Réparation des photos anciennes propre à Reveal : manques, tirage monochrome, fond uni.
+    """Réparation des photos anciennes propre à Reveal : manques, fond uni.
     Les outils d'IA (rayures, LaMa, grain) sont testés dans shared/tests/test_restauration.py."""
 
     def setUp(self):
         from reveal import restauration
         self.r = restauration
-
-    def test_tirage_monochrome(self):
-        rng = np.random.default_rng(0)
-        g = rng.integers(40, 220, (120, 90), dtype=np.uint8)
-        sepia = cv2.merge([(g * 0.75).astype(np.uint8), (g * 0.9).astype(np.uint8), g])
-        self.assertTrue(self.r.tirage_monochrome(sepia))
-        couleur = rng.integers(0, 255, (120, 90, 3), dtype=np.uint8)
-        self.assertFalse(self.r.tirage_monochrome(couleur))
 
     def test_coin_arrache(self):
         img = np.full((300, 240, 3), 245, np.uint8)               # fond clair du scan

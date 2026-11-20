@@ -26,10 +26,15 @@ shared/embedkit/      couche d'IA locale (repris de Rexo Studio) : registre de m
                       épinglé et vérifié (SHA-256), audit des licences, ONNX, détourage, effacement, profondeur
 shared/ia/            catalogue commun des modèles (manifestes, licences, sessions ONNX) et outils d'IA
                       communs : photo.py (agrandissement, visages restaurés, colorisation),
-                      restauration.py (rayures, reconstitution LaMa, grain SCUNet)
+                      restauration.py (rayures, reconstitution LaMa, grain SCUNet) ; tuiles.py :
+                      traitement d'une grande image par tuiles fondues
 shared/vision/        vision locale commune, identique sous macOS et Windows (ONNX) : visages (YuNet),
                       repères du visage (Face Mesh), reconnaissance (SFace), détourage (MODNet, MobileSAM) ;
-                      effets.py : fonds, recadrage, amélioration, rendus de couleur (numpy, OpenCV)
+                      ouverture des yeux ; effets.py : fonds, recadrage, amélioration, rendus de
+                      couleur, sRGB/linéaire (numpy, OpenCV) ; qualite.py : netteté, empreinte des
+                      photos, noir et blanc (sans modèle)
+shared/images/        lecture de toute image (lire, reduire, convertir ; HEIC, AVIF…), image d'une vidéo
+shared/tests/         tests des outils communs (unittest discover -s shared/tests -t .)
 shared/systeme.py     ce qui dépend du système : Corbeille, ouvrir un fichier ou un dossier, choisir un dossier
 shared/python/        Python 3.11 autonome partagé (python-build-standalone, SHA-256 épinglé) :
                       installer.sh (Mac), installer.ps1 (Windows)

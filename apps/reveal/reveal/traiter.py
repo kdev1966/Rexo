@@ -34,6 +34,7 @@ import numpy as np
 
 from shared.ia import photo as ia          # agrandissement, visages, colorisation (communs)
 from shared.images import ConversionImpossible, lire
+from shared.vision.qualite import est_monochrome
 from shared.photocraft import PhotoCraft, PhotoCraftError
 
 from . import analyse, effacer, restauration, vision
@@ -455,7 +456,7 @@ def main():
                         log('  format %s converti par %s' % (src.suffix.lower().lstrip('.').upper(), outil))
                     kind = args.type
                     if kind == 'auto':
-                        kind = 'ancienne' if analyse.is_monochrome(img) else 'portrait'
+                        kind = 'ancienne' if est_monochrome(img) else 'portrait'
                     log('  type : %s' % kind)
                     start = img if outil else None          # photo convertie : PhotoCraft ouvre le PNG
                     repare, teinte = False, None

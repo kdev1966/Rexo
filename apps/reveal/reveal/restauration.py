@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 # Outils communs ; disponible et grain sont aussi utilisés par traiter.py et les tests
+from shared.vision.qualite import est_monochrome
 from shared.ia.restauration import SEUIL_GRAIN, debruiter, disponible, grain, present, rayures, reconstituer  # noqa: F401
 
 ECART_TACHES = 2.0            # excès de jaune (Lab, sur 255) à partir duquel une zone est tachée
@@ -159,25 +160,12 @@ def fond_uni(img):
 
 # ---------- tout ensemble ----------
 
-AXE2_MAX = 2.5                # dispersion des couleurs hors de leur axe principal (Lab) d'un tirage
-
-
-def tirage_monochrome(img):
-    """Vrai pour un tirage noir et blanc ou sépia, même jauni ou taché : ses couleurs ne
-    varient que le long d'un seul axe (du gris au brun). Mesuré : tirages anciens 1,0 à 1,9 ;
-    portraits en couleur 3,0 et plus. Une encre ou une tache isolée ne change presque rien."""
-    lab = cv2.cvtColor(cv2.resize(img, (256, 256), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2LAB)
-    ab = lab[..., 1:].reshape(-1, 2).astype(np.float64)
-    ab -= ab.mean(axis=0)
-    return float(np.sqrt(max(0.0, np.linalg.eigvalsh(np.cov(ab.T))[0]))) < AXE2_MAX
-
-
 def reparer(img, monochrome=None):
     """Répare `img` (BGR) ; renvoie (image, lignes de journal, teinte du tirage ou None).
-    monochrome : None pour le déterminer (tirage_monochrome) ; les taches et la teinte ne
+    monochrome : None pour le déterminer (shared.vision.qualite.est_monochrome) ; les taches et la teinte ne
     sont traitées que sur un tirage monochrome."""
     if monochrome is None:
-        monochrome = tirage_monochrome(img)
+        monochrome = est_monochrome(img)
     journal = []
     teinte = None
     m, part = manques(img)

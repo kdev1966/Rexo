@@ -52,5 +52,31 @@ class Mesures(unittest.TestCase):
         self.assertAlmostEqual(vision.ouverture_oeil(oeil(14, 20), 20.0), 0.35, places=2)
 
 
+
+def degrade(h=300, w=400):
+    g = np.tile(np.linspace(30, 220, w, dtype=np.float32), (h, 1))
+    return cv2.cvtColor(g.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+
+
+class NoirEtBlanc(unittest.TestCase):
+    """Un seul critère « noir et blanc » pour tout le hub (shared/vision/qualite)."""
+
+    def test_gris_et_sepia(self):
+        self.assertTrue(qualite.est_monochrome(degrade()))
+        for teinte in ([0.82, 0.95, 1.08], [0.75, 0.9, 1.0]):            # sépia léger, sépia fort
+            sepia = np.clip(degrade().astype(np.float32) * np.array(teinte, np.float32), 0, 255).astype(np.uint8)
+            self.assertTrue(qualite.est_monochrome(sepia), teinte)
+
+    def test_couleurs_franches_meme_alignees(self):
+        img = degrade()
+        img[:, :200] = (40, 60, 200)
+        img[:, 200:] = (200, 160, 40)                                  # deux couleurs alignées sur un axe
+        self.assertFalse(qualite.est_monochrome(img))
+
+    def test_couleurs_variees(self):
+        img = np.random.default_rng(0).integers(0, 255, (120, 90, 3), dtype=np.uint8)
+        self.assertFalse(qualite.est_monochrome(img))
+
+
 if __name__ == '__main__':
     unittest.main()

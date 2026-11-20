@@ -19,12 +19,6 @@ def coverage(mask):
     return float(np.clip(mask, 0, 1).mean())
 
 
-def is_monochrome(img, threshold=4.5):
-    """Vrai pour une photo noir et blanc ou sépia (peu de variété de couleur en Lab)."""
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    return max(float(lab[:, :, 1].std()), float(lab[:, :, 2].std())) < threshold
-
-
 def _soft(mask, sigma):
     sigma = max(0.5, sigma)
     k = int(sigma * 3) * 2 + 1
