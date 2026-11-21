@@ -80,14 +80,21 @@ entre un portrait de studio et un selfie 0,39 à 0,64 ; personnes différentes 0
 
 ## iPhone et Android
 
-macOS lit les deux par ImageCaptureCore, comme un appareil photo (protocole PTP) : le même
-code les importe, et un appareil photo branché en USB est lu de la même façon.
-
 | | iPhone | Android |
 |---|---|---|
-| Réglage du téléphone | aucun ; toucher « Se fier » à la première connexion | dans la notification « USB », choisir **Transfert de photos** (PTP). En « Transfert de fichiers » (MTP, le réglage habituel), macOS ne voit pas le téléphone |
-| Téléphone verrouillé | Rexo Dock le signale (« déverrouillez-le ») | aucune photo n'est montrée : Rexo Dock le rappelle, puis « Actualiser » |
-| Fichiers lus | photos (HEIC, JPEG, RAW), vidéos, retouches `.AAE`, rafales | photos et vidéos que le téléphone expose en PTP (JPEG, MP4…) ; pas de rafale marquée |
+| Accès | ImageCaptureCore, l'API d'Apple (`dock/appareil_mac.py`) | protocole MTP parlé directement sur l'USB par libusb (`dock/mtp.py`) : macOS ne lit pas le MTP |
+| Réglage du téléphone | aucun ; toucher « Se fier » à la première connexion | dans la notification « USB », choisir **Transfert de fichiers** (le réglage habituel) ; accepter l'accès aux données si la question s'affiche |
+| Téléphone verrouillé | Rexo Dock le signale (« déverrouillez-le ») | idem : Android ne montre aucun fichier tant qu'il est verrouillé |
+| Fichiers lus | photos (HEIC, JPEG, RAW), vidéos, retouches `.AAE`, rafales | photos et vidéos des dossiers `DCIM`, `Pictures` et `Movies`, sous-dossiers compris, sauf dossiers cachés ; pas de rafale marquée |
+| Vignettes | fournies par l'iPhone (120 × 160), puis nettes | fournies par le téléphone quand il en a ; sinon (vidéos, PNG, photos reçues) tirées de l'original |
+
+En « Transfert de photos » (PTP), macOS voit aussi l'Android par ImageCaptureCore, mais certains
+téléphones (Xiaomi, essayé) n'y montrent que leurs dossiers, sans photo : Rexo Dock demande
+alors de choisir « Transfert de fichiers ». Le lecteur MTP n'envoie que des opérations de
+lecture (liste fermée dans `mtp.OPERATIONS`). Avant Quitter ou Redémarrer, il annule un
+transfert en cours et ferme la session : sinon le téléphone reste bloqué et ne répond plus
+qu'après avoir été débranché (Rexo Dock affiche alors « Le téléphone ne répond plus »).
+Mesuré sur un Android : 18 fichiers listés en 1 s, copie à 30 Mo/s.
 
 ## Vignettes du téléphone
 
@@ -133,8 +140,9 @@ apps/dock/.venv/bin/python -m shared.embedkit.cli --models-path shared/ia/modele
     models pull --allow-noncommercial yunet-2023mar facemesh-v2 sface-2021dec
 ```
 
-Les paquets sont figés par empreinte. L'accès au téléphone passe par ImageCaptureCore, l'API
-d'Apple, depuis Python avec pyobjc 13.0 (licence MIT).
+Les paquets sont figés par empreinte. L'accès à l'iPhone passe par ImageCaptureCore, l'API
+d'Apple, depuis Python avec pyobjc 13.0 (licence MIT) ; celui à l'Android par libusb
+(licence LGPL 2.1), appelée par ctypes.
 
 ## Application à ouvrir d'un double-clic (Mac)
 
@@ -156,7 +164,7 @@ cd apps/dock
 ```
 
 1. Brancher le téléphone en USB et le **déverrouiller**. iPhone : toucher « Se fier » si la
-   question s'affiche. Android : choisir « Transfert de photos » (PTP) dans la notification
+   question s'affiche. Android : choisir « Transfert de fichiers » dans la notification
    USB. La barre du haut indique l'état du téléphone.
 2. Onglet **Téléphone** : choisir les photos (filtre « Nouveaux » par défaut), nommer les
    séances proposées, puis **Importer**. « Marquer comme déjà importées » sert aux photos
@@ -173,6 +181,7 @@ liste.
 cd apps/dock
 .venv/bin/python -m dock.appareil_mac                          # lit le téléphone, sans rien copier
 .venv/bin/python -m dock.appareil_mac --copier 5 --vers /tmp/essai   # copie les 5 plus récents
+.venv/bin/python -m dock.mtp                                  # idem pour un Android (Transfert de fichiers)
 ```
 
 Affiche l'état, le nombre de fichiers par genre et par extension, les rafales, le temps d'une
@@ -205,9 +214,9 @@ Restent à faire et à essayer sur un PC : l'accès au téléphone par Windows P
 - **Séances** : l'écart de 3 h convient à une journée de prises de vue ; deux séances le même
   après-midi peuvent être réunies (les renommer ou importer en deux fois).
 - Un seul téléphone à la fois.
-- Android : seulement en « Transfert de photos » (PTP) ; le mode « Transfert de fichiers »
-  (MTP) demanderait un pilote en plus sous macOS. Sous Windows, les deux modes passeront par
-  Windows Portable Devices.
+- Android sous macOS : libusb doit être présente (installée par Homebrew sur la machine de
+  développement ; à fournir avec Rexo Dock pour les autres Mac). Sous Windows, Windows
+  Portable Devices lira l'Android sans elle.
 
 ## Tests
 
@@ -223,7 +232,9 @@ Sans téléphone ni modèle d'IA (faux appareil, visages remplacés).
 |---|---|
 | `dock/coeur.py` | sans dépendance au système : registre des imports, noms de séance et de fichier, catalogue (retouches `.AAE`), séances proposées, SHA-256, seconde copie vérifiée |
 | `dock/importer.py` | import d'une sélection depuis n'importe quel appareil : place, dossier de séance, vérification, date, registre, rapport |
-| `dock/appareil_mac.py` | accès au téléphone sous macOS (ImageCaptureCore par pyobjc) : état, liste, vignettes, copie des originaux ; essai en ligne de commande |
+| `dock/appareil_mac.py` | accès à l'iPhone sous macOS (ImageCaptureCore par pyobjc) : état, liste, vignettes, copie des originaux ; essai en ligne de commande |
+| `dock/mtp.py` | accès à un Android en MTP (libusb par ctypes), en lecture seule : mêmes fonctions ; essai en ligne de commande |
+| `dock/appareils.py` | réunit les deux : l'interface et l'import ne voient qu'un pilote |
 | `dock/tri.py` | aide au tri : netteté, yeux, empreintes, séries et meilleure photo |
 | `dock/personnes.py` | regroupement par personne (à la demande) : empreintes SFace dans la séance, liaison moyenne, effacement et purge |
 | `dock/seances.py` | dossiers de séance : analyse, résultats (`.rexo-tri.json`), vignettes, actions Garder / Écarter / Remettre / Corbeille |
