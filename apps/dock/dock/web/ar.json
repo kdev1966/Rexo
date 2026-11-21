@@ -45,7 +45,6 @@
  "Lecture du téléphone…": "قراءة الهاتف…",
  "La liste des photos arrive.": "قائمة الصور في الطريق.",
  "{} : déverrouillez-le": "{}: افتح قفله",
- "Puis touchez « Se fier » sur l'écran du téléphone si la question s'affiche.": "ثم المس « وثوق » على شاشة الهاتف إن ظهر السؤال.",
  "Système non pris en charge": "النظام غير مدعوم",
  "Pas encore disponible sur ce système": "غير متوفر بعد على هذا النظام",
  "Tout est déjà importé": "كل شيء منقول سابقًا",
@@ -152,8 +151,12 @@
  "Personne {} · {} photos": "الشخص {} · {} صور",
  "Visages de « {} » : {} sur {}…": "وجوه « {} »: {} من {}…",
  "Branchez un téléphone": "صِل هاتفًا",
- "iPhone ou Android, avec son câble USB. Sur Android, choisissez ensuite « Transfert de photos » (PTP) dans la notification USB du téléphone.": "iPhone أو Android، بكابل USB الخاص به. على Android، اختر بعد ذلك « نقل الصور » (PTP) من إشعار USB على الهاتف.",
  "Déverrouillez le téléphone": "افتح قفل الهاتف",
  "Rexo Dock lit pour l'instant les téléphones sous macOS.": "يقرأ Rexo Dock حاليًا الهواتف على نظام macOS.",
- "Android ne montre ses photos qu'une fois déverrouillé, en « Transfert de photos » (PTP). Déverrouillez-le, puis cliquez sur Actualiser.": "لا يُظهر Android صوره إلا بعد فتح قفله، في وضع « نقل الصور » (PTP). افتح قفله، ثم انقر على « تحديث »."
+ "iPhone ou Android, avec son câble USB, déverrouillé. Sur Android, choisissez « Transfert de fichiers » dans la notification USB du téléphone.": "iPhone أو Android، بكابل USB الخاص به، مفتوح القفل. على Android، اختر « نقل الملفات » من إشعار USB على الهاتف.",
+ "Puis acceptez sur l'écran du téléphone si une question s'affiche (« Se fier » sur iPhone, accès aux données sur Android).": "ثم وافق على شاشة الهاتف إن ظهر سؤال (« وثوق » على iPhone، الوصول إلى البيانات على Android).",
+ "Sur Android, choisissez « Transfert de fichiers » (et non « Transfert de photos ») dans la notification USB du téléphone, déverrouillé.": "على Android، اختر « نقل الملفات » (وليس « نقل الصور ») من إشعار USB على الهاتف، وهو مفتوح القفل.",
+ "{} ne répond pas": "{} لا يستجيب",
+ "Le téléphone ne répond plus": "الهاتف لا يستجيب",
+ "Débranchez le câble, puis rebranchez-le, le téléphone déverrouillé. Sur Android, choisissez de nouveau « Transfert de fichiers ».": "افصل الكابل ثم أعد توصيله والهاتف مفتوح القفل. على Android، اختر « نقل الملفات » من جديد."
 }

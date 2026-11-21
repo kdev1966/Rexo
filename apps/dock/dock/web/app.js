@@ -32,10 +32,11 @@ function nomDossier(nom, d) {
 
 // ---------- état de l'appareil ----------
 const TEXTES = {
-  attente: ['Aucun appareil', 'Branchez un téléphone', 'iPhone ou Android, avec son câble USB. Sur Android, choisissez ensuite « Transfert de photos » (PTP) dans la notification USB du téléphone.'],
+  attente: ['Aucun appareil', 'Branchez un téléphone', 'iPhone ou Android, avec son câble USB, déverrouillé. Sur Android, choisissez « Transfert de fichiers » dans la notification USB du téléphone.'],
   lecture: ['Lecture de {}…', 'Lecture du téléphone…', 'La liste des photos arrive.'],
-  verrouille: ['{} : déverrouillez-le', 'Déverrouillez le téléphone', 'Puis touchez « Se fier » sur l\'écran du téléphone si la question s\'affiche.'],
+  verrouille: ['{} : déverrouillez-le', 'Déverrouillez le téléphone', 'Puis acceptez sur l\'écran du téléphone si une question s\'affiche (« Se fier » sur iPhone, accès aux données sur Android).'],
   pret: ['{}', '', ''],
+  bloque: ['{} ne répond pas', 'Le téléphone ne répond plus', 'Débranchez le câble, puis rebranchez-le, le téléphone déverrouillé. Sur Android, choisissez de nouveau « Transfert de fichiers ».'],
   indisponible: ['Système non pris en charge', 'Pas encore disponible sur ce système', 'Rexo Dock lit pour l\'instant les téléphones sous macOS.'],
 };
 
@@ -127,7 +128,7 @@ function afficher() {
     const android = !tous.length && state.etat.appareil.marque === 'autre';
     $('videTitre').textContent = tr(tous.length ? 'Tout est déjà importé' : 'Aucune photo sur l\'appareil');
     $('videTexte').textContent = tr(tous.length ? 'Choisissez « Tous » pour revoir les photos déjà importées.'
-      : android ? 'Android ne montre ses photos qu\'une fois déverrouillé, en « Transfert de photos » (PTP). Déverrouillez-le, puis cliquez sur Actualiser.' : '');
+      : android ? 'Sur Android, choisissez « Transfert de fichiers » (et non « Transfert de photos ») dans la notification USB du téléphone, déverrouillé.' : '');
   }
   if (!pret) { resume(); return; }
 

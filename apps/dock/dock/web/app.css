@@ -5,7 +5,7 @@
 .device.pret i { background: var(--ok); box-shadow: 0 0 0 3px rgba(124, 196, 154, .18); }
 .device.pret { color: var(--text); }
 .device.verrouille i, .device.lecture i { background: var(--warn); }
-.device.indisponible i { background: var(--err); }
+.device.indisponible i, .device.bloque i { background: var(--err); }
 
 .dest { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
 .dest + .dest { margin-top: 10px; }

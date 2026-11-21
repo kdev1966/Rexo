@@ -20,7 +20,7 @@ from flask import Response, abort, jsonify, request, send_file
 
 from shared import systeme
 from shared.images import vignette
-from shared.serveur import corps_json, creer_app, dossier_sur, erreurs_lisibles, fichier_sur, lancer
+from shared.serveur import a_la_sortie, corps_json, creer_app, dossier_sur, erreurs_lisibles, fichier_sur, lancer
 
 from . import coeur, config, personnes, seances
 from .importer import ErreurAppareil, PlaceInsuffisante, importer
@@ -32,7 +32,7 @@ COTE_NETTE = 400                 # vignettes nettes du téléphone, tirées de l
 # Application commune au hub : pages, Quitter, version, arabe (shared/serveur)
 app = creer_app('dock.interface', Path(__file__).resolve().parent)
 
-pilote = None                    # AppareilsMac sous macOS ; None si le système n'est pas encore pris en charge
+pilote = None                    # appareils.Appareils (iPhone par macOS, Android par MTP) ; None si rien n'est pris en charge
 registre = coeur.Registre(config.REGISTRE)
 _verrou = threading.Lock()       # registre et état de l'import
 _vignettes = {}
@@ -157,7 +157,12 @@ def vignette():
         try:
             donnees = pilote.vignette(f)
         except ErreurAppareil:
-            abort(404)
+            # Android ne fournit pas de vignette pour tout (vidéos, PNG, photos reçues) : on la
+            # tire de l'original, comme une vignette nette
+            chemin = _vignette_nette(f) if coeur.genre(f.nom) in (coeur.PHOTO, coeur.RAW, coeur.VIDEO) else None
+            if chemin is None:
+                abort(404)
+            donnees = chemin.read_bytes()
         if len(_vignettes) < MAX_VIGNETTES:
             _vignettes[cle] = donnees
     r = Response(donnees, mimetype='image/jpeg')
@@ -476,13 +481,20 @@ def principal():
     for d in seances.lister(racine):            # séances pas encore (entièrement) analysées
         if seances.a_analyser(d) or personnes.a_calculer(d):
             _a_trier.put(d)
+    from .appareils import Appareils
+    from .mtp import AppareilsMTP
+    mac = None
     if systeme.MACOS:
         from .appareil_mac import AppareilsMac
-        pilote = AppareilsMac().demarrer()
+        mac = AppareilsMac()
+    mtp = AppareilsMTP()
+    if mac is not None or mtp.disponible:
+        pilote = Appareils(mac, mtp if mtp.disponible else None).demarrer()
+        a_la_sortie(pilote.arreter)             # Quitter, Redémarrer : session du téléphone fermée
     threading.Thread(target=lancer, args=(app, HOST, PORT), daemon=True).start()
     try:
         if pilote is not None:
-            pilote.tourner()                    # fil principal : rappels d'ImageCaptureCore
+            pilote.tourner()                    # fil principal : rappels d'ImageCaptureCore (macOS)
         else:
             while True:
                 time.sleep(3600)

@@ -50,6 +50,23 @@ def oublier(proc):
 
 
 _a_l_arret = []
+_a_la_sortie = []
+
+
+def a_la_sortie(fn):
+    """Enregistre `fn`, appelée avant que le serveur ne s'arrête ou ne se relance (Quitter,
+    Redémarrer) : os._exit et os.execv ne laissent rien se fermer de lui-même (ex. la session
+    avec un téléphone, qui resterait bloqué)."""
+    _a_la_sortie.append(fn)
+    return fn
+
+
+def _sortie():
+    for fn in _a_la_sortie:
+        try:
+            fn()
+        except Exception:
+            pass
 
 
 def a_l_arret(fn):
@@ -101,6 +118,7 @@ def ajouter_quitter(app):
 
         def sortir():
             time.sleep(0.3)             # laisse partir la réponse
+            _sortie()
             os._exit(0)
 
         threading.Thread(target=sortir, daemon=True).start()
@@ -141,6 +159,7 @@ def ajouter_version(app, module, dossier_app):
 
         def relancer():
             time.sleep(0.3)             # laisse partir la réponse
+            _sortie()
             sys.stdout.flush()
             sys.stderr.flush()
             # Werkzeug rend son port transmissible à l'exec (pour son propre rechargement) et
