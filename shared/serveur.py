@@ -1,4 +1,15 @@
-"""Arrêt d'un serveur web local du hub depuis son interface (bouton « Quitter »).
+"""Serveur web local commun aux applications du hub (Flask, 127.0.0.1 seulement).
+
+    creer_app(module, dossier_app)   application Flask avec ce que toutes partagent : pages
+                        (/ et /static/, jamais gardées en cache), Quitter, version, arabe
+    fichier_sur(dossier, nom), dossier_sur(dossier, nom)   chemin désigné par la page, sans
+                        possibilité de sortir du dossier (sinon 404)
+    envoyer_image(chemin, apercus)   image vers le navigateur ; aperçu JPEG en cache pour les
+                        formats qu'il n'affiche pas (HEIC, AVIF, TIFF…)
+    erreurs_lisibles(*types)   décorateur : ces erreurs deviennent un 400 avec leur message
+    corps_json()        corps JSON de la requête (un objet), sinon 415
+
+Arrêt d'un serveur web local du hub depuis son interface (bouton « Quitter »).
 
 POST /api/quitter (JSON seulement : un autre site ouvert dans le navigateur ne peut pas
 l'appeler sans une requête préalable CORS, que le serveur refuse) : arrête les traitements
@@ -173,18 +184,20 @@ def lancer(app, host, port):
 
 
 def ajouter_langues(app, catalogue_ar):
-    """Langue arabe pour l'application Flask `app` : catalogue `catalogue_ar` (JSON, voir
-    shared/langues.py). Ajoute /commun/<fichier> (scripts communs de shared/web),
+    """Langue arabe pour l'application Flask `app` : catalogue commun du hub
+    (shared/web/ar.json) et catalogue de l'application `catalogue_ar` (JSON, voir
+    shared/langues.py), qui l'emporte pour un même texte. Ajoute /commun/<fichier> (scripts communs de shared/web),
     /langues/ar.js (le catalogue pour la page) et la traduction des messages du serveur
     quand la page envoie « X-Langue: ar »."""
     import json
 
     from flask import Response, send_from_directory
 
-    from shared.langues import Catalogue
+    from shared.langues import Catalogue, fusionner
 
-    catalogue = Catalogue(catalogue_ar)
     commun = HUB / 'shared' / 'web'
+    catalogues = [commun / 'ar.json', Path(catalogue_ar)]
+    catalogue = Catalogue(catalogues)
 
     @app.get('/commun/<path:nom>')
     def fichiers_communs(nom):
@@ -192,8 +205,7 @@ def ajouter_langues(app, catalogue_ar):
 
     @app.get('/langues/ar.js')
     def catalogue_js():
-        texte = Path(catalogue_ar).read_text(encoding='utf-8')
-        json.loads(texte)                         # catalogue invalide : erreur ici, pas dans la page
+        texte = json.dumps(fusionner(catalogues), ensure_ascii=False)   # catalogue invalide : erreur ici
         r = Response('window.CATALOGUE_AR = %s;\n' % texte, mimetype='application/javascript')
         r.headers['Cache-Control'] = 'no-cache'
         return r
@@ -207,3 +219,105 @@ def ajouter_langues(app, catalogue_ar):
         return r
 
     return catalogue
+
+
+# ---------- application et outils communs des interfaces ----------
+
+TAILLE_MAX = 100 * 1024 * 1024          # photos déposées depuis la page
+WEB_NATIF = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'}   # formats affichés tels quels
+
+
+def creer_app(module, dossier_app, taille_max=TAILLE_MAX):
+    """Application Flask d'une interface du hub. `module` : lancé par « python -m »
+    (ex. dock.interface) ; `dossier_app` : dossier du code, qui contient web/ (index.html,
+    app.js, app.css, ar.json). Routes communes : /, /static/, /commun/ (shared/web),
+    /langues/ar.js, /api/quitter, /api/version, /api/redemarrer."""
+    from flask import Flask, send_from_directory
+
+    dossier_app = Path(dossier_app)
+    web = dossier_app / 'web'
+    app = Flask(module, static_folder=None)
+    app.config['MAX_CONTENT_LENGTH'] = taille_max
+    ajouter_quitter(app)
+    ajouter_version(app, module, dossier_app)
+    ajouter_langues(app, web / 'ar.json')
+
+    def page(nom):
+        r = send_from_directory(web, nom)
+        r.headers['Cache-Control'] = 'no-cache'         # page relue après une mise à jour
+        return r
+
+    app.add_url_rule('/', 'index', lambda: page('index.html'))
+    app.add_url_rule('/static/<path:nom>', 'statique', page)
+    return app
+
+
+def _dans(dossier, nom):
+    from flask import abort
+    racine = Path(dossier).resolve()
+    p = (racine / str(nom or '')).resolve()
+    if p.parent != racine:
+        abort(404)
+    return p
+
+
+def fichier_sur(dossier, nom):
+    """Fichier existant `nom` directement dans `dossier`, sans possibilité d'en sortir."""
+    from flask import abort
+    p = _dans(dossier, nom)
+    if not p.is_file():
+        abort(404)
+    return p
+
+
+def dossier_sur(dossier, nom):
+    """Sous-dossier existant `nom` directement dans `dossier`, sans possibilité d'en sortir."""
+    from flask import abort
+    p = _dans(dossier, nom)
+    if not p.is_dir():
+        abort(404)
+    return p
+
+
+def envoyer_image(chemin, apercus, telecharger=False):
+    """Envoie une image au navigateur, jamais gardée en cache ; pour un format qu'il n'affiche
+    pas, un aperçu JPEG fait une fois dans `apercus` (shared/images.apercu)."""
+    from flask import abort, send_file
+
+    from shared.images import ConversionImpossible, apercu
+    chemin = Path(chemin)
+    if chemin.suffix.lower() not in WEB_NATIF:
+        try:
+            chemin = apercu(chemin, apercus)
+        except ConversionImpossible:
+            abort(415)
+    r = send_file(chemin, as_attachment=telecharger, download_name=chemin.name)
+    r.headers['Cache-Control'] = 'no-cache'
+    return r
+
+
+def erreurs_lisibles(*types):
+    """Décorateur de route : une erreur de ces types devient une réponse 400 avec son message,
+    que la page affiche (et traduit en arabe)."""
+    from functools import wraps
+
+    from flask import jsonify
+
+    def decorer(fn):
+        @wraps(fn)
+        def route(*a, **k):
+            try:
+                return fn(*a, **k)
+            except types as e:
+                return jsonify(error=str(e)), 400
+        return route
+    return decorer
+
+
+def corps_json():
+    """Corps JSON de la requête (un objet) ; sinon 415."""
+    from flask import abort
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict):
+        abort(415)
+    return d

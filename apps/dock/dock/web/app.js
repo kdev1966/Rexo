@@ -1,7 +1,5 @@
 'use strict';
 
-const $ = (id) => document.getElementById(id);
-const tr = (t) => I18N.tr(t);
 const state = {
   catalogue: [], filtre: 'nouveaux', sel: new Set(), dernier: null,
   signature: '', importNumero: 0, importEnCours: false, etat: null,
@@ -11,22 +9,7 @@ const state = {
 };
 const ECART_SEANCE = 3 * 3600 * 1000;      // comme coeur.ECART_SEANCE
 
-// ---------- utilitaires ----------
-async function api(url, opts) {
-  opts = Object.assign({}, opts);
-  opts.headers = I18N.entetes(opts.headers);
-  const r = await fetch(url, opts);
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || ('Erreur ' + r.status));
-  return data;
-}
-const jsonPost = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
-function toast(msg, isErr) {
-  const t = $('toast');
-  t.textContent = msg; t.className = 'toast' + (isErr ? ' err' : ''); t.hidden = false;
-  clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 4500);
-}
-const remplir = (modele, ...parties) => { let i = 0; return tr(modele).replace(/\{\}/g, () => parties[i++] ?? ''); };
+// ---------- utilitaires ($, tr, remplir, api, toast, confirmer, jsonPost : /commun/rexo.js) ----------
 function taille(o) {
   const u = ['octets', 'Ko', 'Mo', 'Go']; let i = 0;
   while (o >= 1000 && i < u.length - 1) { o /= 1000; i++; }
@@ -45,21 +28,6 @@ function nomDossier(nom, d) {
   const jour = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const propre = nom.replace(/[\/:\\?%*|"<>]/g, '-').trim();
   return propre ? jour + ' ' + propre : jour;
-}
-// Confirmation par second clic (pas de fenêtre bloquante), comme dans Rexo ID
-function confirmer(bouton, question) {
-  const span = bouton.querySelector('span');
-  if (bouton._arme) {
-    clearTimeout(bouton._arme); bouton._arme = null;
-    bouton.classList.remove('is-confirm'); span.textContent = bouton._libelle;
-    return true;
-  }
-  bouton._libelle = span.textContent;
-  span.textContent = tr(question); bouton.classList.add('is-confirm');
-  bouton._arme = setTimeout(() => {
-    bouton._arme = null; bouton.classList.remove('is-confirm'); span.textContent = bouton._libelle;
-  }, 4000);
-  return false;
 }
 
 // ---------- état de l'appareil ----------
@@ -681,52 +649,10 @@ $('seanceOuvrir').onclick = () => api('/api/montrer', jsonPost({ seance: state.s
 $('seanceAnalyser').onclick = () => api('/api/seances/analyser', jsonPost({ seance: state.seance }))
   .then(() => toast(tr('Analyse demandée.'))).catch((e) => toast(e.message, true));
 
-// ---------- quitter ----------
-(function quitter() {
-  const b = $('quitBtn');
-  b.onclick = async () => {
-    if (state.importEnCours && !confirmer(b, 'Arrêter l\'import ?')) return;
-    try {
-      await fetch('/api/quitter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    } catch (e) { /* serveur déjà arrêté */ }
-    $('stopped').hidden = false;
-    window.close();
-  };
-})();
+// ---------- communs : Quitter (second clic si un import tourne), mise à jour ----------
+Rexo.quitter({ occupe: () => state.importEnCours, question: 'Arrêter l\'import ?' });
+Rexo.versionServeur({ occupe: () => state.importEnCours });
 
-// ---------- serveur à jour ? (comme dans Rexo ID) ----------
-(function versionServeur() {
-  const nom = document.title;
-  const bandeau = document.createElement('div');
-  bandeau.className = 'update'; bandeau.hidden = true;
-  bandeau.innerHTML = '<span></span><button class="update-btn">Redémarrer</button>';
-  document.body.appendChild(bandeau);
-  const texte = bandeau.querySelector('span'), btn = bandeau.querySelector('button');
-  async function etat() {
-    try { return await (await fetch('/api/version', { cache: 'no-store' })).json(); } catch (e) { return null; }
-  }
-  async function verifier() {
-    const r = await etat();
-    if (!r || r.a_jour) { bandeau.hidden = true; return; }
-    texte.textContent = nom + ' a été mis à jour. Redémarrez pour utiliser la nouvelle version.';
-    bandeau.hidden = false;
-  }
-  btn.onclick = async () => {
-    if (state.importEnCours) { toast(tr('Attendez la fin de l\'import.'), true); return; }
-    btn.disabled = true; texte.textContent = 'Redémarrage…';
-    try { await fetch('/api/redemarrer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } catch (e) { /* arrêt */ }
-    for (let i = 0; i < 40; i++) {
-      await new Promise((ok) => setTimeout(ok, 500));
-      const r = await etat();
-      if (r && r.a_jour) { location.reload(); return; }
-    }
-    btn.disabled = false; texte.textContent = 'Le redémarrage n\'a pas abouti : cliquez sur Quitter, puis rouvrez ' + nom + '.';
-  };
-  verifier();
-  window.addEventListener('focus', verifier);
-})();
-
-I18N.bouton($('langBtn'));
 if (location.hash.includes('vue=seances')) montrerVue('seances');
 (async function boucle() {
   await rafraichir();

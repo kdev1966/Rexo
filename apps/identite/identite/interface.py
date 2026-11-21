@@ -12,12 +12,12 @@ import json
 import threading
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, request, send_file, send_from_directory
+from flask import abort, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 
 from shared import systeme
-from shared.images import ConversionImpossible, FORMATS, apercu
-from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, lancer
+from shared.images import ConversionImpossible, FORMATS
+from shared.serveur import corps_json, creer_app, envoyer_image, erreurs_lisibles, fichier_sur, lancer
 
 from . import archive, couleurs
 from .base import LIENS, BaseError, formater_tel
@@ -26,26 +26,13 @@ from .fabriquer import fabriquer
 from .normes import FRANCE, Norme
 from .visage import VisageError
 
-WEB = Path(__file__).resolve().parent / 'web'
 APERCUS = DONNEES / '.apercus'          # aperçus JPEG des formats que le navigateur n'affiche pas
 HOST, PORT = '127.0.0.1', 8766
-WEB_NATIF = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'}
 FICHIERS = ('identite', 'planche_8', 'planche_4_portrait')
 
-app = Flask(__name__, static_folder=None)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
-ajouter_quitter(app)        # bouton « Quitter » : arrête le serveur
-ajouter_version(app, 'identite.interface', Path(__file__).resolve().parent)   # page récente, serveur ancien : redémarrer
-ajouter_langues(app, WEB / 'ar.json')   # interface en arabe : catalogue de l'application
+# Application commune au hub : pages, Quitter, version, arabe (shared/serveur)
+app = creer_app('identite.interface', Path(__file__).resolve().parent)
 _verrou = threading.Lock()
-
-
-def _safe(folder, name):
-    """Chemin d'un fichier existant dans `folder`, sans possibilité d'en sortir."""
-    path = (folder / name).resolve()
-    if path.parent != folder.resolve() or not path.is_file():
-        abort(404)
-    return path
 
 
 def _photos():
@@ -73,36 +60,12 @@ def _resultat(photo):
     return r
 
 
-def _apercu(path):
-    """Aperçu JPEG (mis en cache) d'une image que le navigateur ne sait pas afficher (commun : shared.images)."""
-    try:
-        return apercu(path, APERCUS)
-    except ConversionImpossible:
-        abort(415)
-
-
-@app.get('/')
-def index():
-    return send_file(WEB / 'index.html')
-
-
-@app.get('/static/<path:name>')
-def static_files(name):
-    return send_from_directory(WEB, name)
-
-
 @app.get('/media/<zone>/<path:name>')
 def media(zone, name):
     folder = {'original': ORIGINAL, 'resultats': RESULTATS}.get(zone)
     if folder is None:
         abort(404)
-    path = _safe(folder, name)
-    if path.suffix.lower() not in WEB_NATIF:
-        path = _apercu(path)
-    resp = send_file(path, as_attachment=request.args.get('telecharger') == '1',
-                     download_name=path.name)
-    resp.headers['Cache-Control'] = 'no-cache'
-    return resp
+    return envoyer_image(fichier_sur(folder, name), APERCUS, telecharger=request.args.get('telecharger') == '1')
 
 
 @app.get('/api/photos')
@@ -189,7 +152,7 @@ def api_upload():
 @app.put('/api/travail/<path:name>')
 def api_travail(name):
     """Renseigne ou modifie le client d'un portrait de la liste de travail."""
-    _safe(ORIGINAL, name)
+    fichier_sur(ORIGINAL, name)
     try:
         plan = _lire_fiche(request.get_json(silent=True))
         return jsonify(fiche=_appliquer_fiche(plan, name))
@@ -200,7 +163,7 @@ def api_travail(name):
 @app.get('/api/resultat')
 def api_resultat():
     photo = request.args.get('photo', '')
-    _safe(ORIGINAL, photo)
+    fichier_sur(ORIGINAL, photo)
     return jsonify(_resultat(photo))
 
 
@@ -215,7 +178,7 @@ def api_fabriquer():
     if (not isinstance(fond, list) or len(fond) != 3
             or not all(isinstance(c, int) and 0 <= c <= 255 for c in fond)):
         return jsonify(error='Couleur de fond invalide.'), 400
-    src = _safe(ORIGINAL, photo)
+    src = fichier_sur(ORIGINAL, photo)
     if archive.base().travail(photo) is None:
         return jsonify(error='Renseigner d\'abord le client de ce portrait.'), 409
     if not _verrou.acquire(blocking=False):
@@ -233,7 +196,7 @@ def api_fabriquer():
 def api_ouvrir():
     """Ouvre un résultat dans Aperçu (macOS) ou la visionneuse de Windows."""
     name = (request.get_json(silent=True) or {}).get('fichier', '')
-    path = _safe(RESULTATS, name)
+    path = fichier_sur(RESULTATS, name)
     if path.suffix.lower() != '.jpg':
         abort(400)
     systeme.ouvrir(path, appli='Preview')
@@ -245,7 +208,7 @@ def api_ouvrir():
 @app.delete('/api/photos/<path:name>')
 def api_retirer(name):
     """Met à la Corbeille un portrait de la liste de travail, ses planches et son rapport."""
-    _safe(ORIGINAL, name)
+    fichier_sur(ORIGINAL, name)
     if not _verrou.acquire(blocking=False):
         return jsonify(error='Une photo est en cours de fabrication, patientez.'), 409
     try:
@@ -260,24 +223,8 @@ def api_retirer(name):
 
 # ---------- archive des clients ----------
 
-def _json():
-    d = request.get_json(silent=True)
-    if not isinstance(d, dict):
-        abort(415)
-    return d
-
-
-def _erreurs(f):
-    """Erreurs de saisie (BaseError) et d'archive -> 400 avec un message lisible."""
-    from functools import wraps
-
-    @wraps(f)
-    def g(*a, **k):
-        try:
-            return f(*a, **k)
-        except (BaseError, archive.ArchiveError) as e:
-            return jsonify(error=str(e)), 400
-    return g
+# Erreurs de saisie (BaseError) et d'archive : 400 avec un message lisible
+_erreurs = erreurs_lisibles(BaseError, archive.ArchiveError)
 
 
 @app.get('/api/archive')
@@ -300,7 +247,7 @@ def api_archive_choisir():
 @_erreurs
 def api_archive_ouvrir():
     """Montre dans le Finder ou l'Explorateur le dossier de l'archive, d'un client ou d'une photo."""
-    d = _json()
+    d = corps_json()
     b = archive.base()
     if d.get('photo_id'):
         p = b.photo(int(d['photo_id']))
@@ -322,7 +269,7 @@ def api_clients():
 @app.post('/api/clients')
 @_erreurs
 def api_client_creer():
-    d = _json()
+    d = corps_json()
     b = archive.base()
     cid = b.creer_client(str(d.get('nom', '')), str(d.get('prenom', '')), str(d.get('telephone', '')))
     return jsonify(b.client(cid))
@@ -342,7 +289,7 @@ def api_client(client_id):
 @app.put('/api/clients/<int:client_id>')
 @_erreurs
 def api_client_modifier(client_id):
-    d = _json()
+    d = corps_json()
     b = archive.base()
     b.modifier_client(client_id, str(d.get('nom', '')), str(d.get('prenom', '')), str(d.get('telephone', '')))
     return jsonify(b.client(client_id))
@@ -359,9 +306,9 @@ def api_client_supprimer(client_id):
 @_erreurs
 def api_enregistrer():
     """Archive la photo d'identité d'un portrait pour le client saisi au dépôt."""
-    d = _json()
+    d = corps_json()
     photo = str(d.get('photo', ''))
-    _safe(ORIGINAL, photo)
+    fichier_sur(ORIGINAL, photo)
     fiche = archive.base().travail(photo)
     if fiche is None:
         raise BaseError('renseigner d\'abord le client de ce portrait')

@@ -1,23 +1,8 @@
 'use strict';
 
-const $ = (id) => document.getElementById(id);
 const state = { photos: [], results: [], photo: null, filtre: 'auto', mode: 'slider', shown: null, job: null, zones: [] };
 
-// ---------- utilitaires ----------
-const tr = (t) => I18N.tr(t);
-async function api(url, opts) {
-  opts = Object.assign({}, opts);
-  opts.headers = I18N.entetes(opts.headers);     // le serveur traduit ses messages
-  const r = await fetch(url, opts);
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || ('Erreur ' + r.status));
-  return data;
-}
-function toast(msg, isErr) {
-  const t = $('toast');
-  t.textContent = msg; t.className = 'toast' + (isErr ? ' err' : ''); t.hidden = false;
-  clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 3500);
-}
+// ---------- utilitaires ($, tr, api, toast, confirmer… : /commun/rexo.js) ----------
 const media = (zone, name) => `/media/${zone}/${encodeURIComponent(name)}?v=${Date.now()}`;
 const FILTER_NAMES = { auto: 'Automatique', portrait: 'Portrait', ancienne: 'Photo ancienne', restauration: 'Restauration seule', ameliorer: 'Améliorer', studio: 'Studio', effacer: 'Effacer' };
 
@@ -311,64 +296,6 @@ $('openPsd').onclick = async () => {
   if (q.get('photo') && state.photos.some((p) => p.name === q.get('photo'))) selectPhoto(q.get('photo'));
 })();
 
-// ---------- quitter : arrête le serveur (et un traitement en cours) ----------
-(function quitter() {
-  const b = $('quitBtn');
-  let arme = null;
-  b.onclick = async () => {
-    const enCours = !!(state.job && state.job.etat === 'en cours');
-    if (enCours && !arme) {           // un traitement tourne : second clic pour confirmer
-      b.classList.add('is-confirm'); b.querySelector('span').textContent = 'Arrêter le traitement ?';
-      arme = setTimeout(() => { arme = null; b.classList.remove('is-confirm'); b.querySelector('span').textContent = 'Quitter'; }, 4000);
-      return;
-    }
-    clearTimeout(arme);
-    try {
-      await fetch('/api/quitter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    } catch (e) { /* serveur déjà arrêté */ }
-    $('stopped').hidden = false;
-    window.close();                    // ne ferme que les onglets ouverts par un script ; sinon l'écran reste
-  };
-})();
-
-// ---------- serveur à jour ? (page relue sur le disque, code Python lu au démarrage) ----------
-(function versionServeur() {
-  const nom = document.title;
-  const bandeau = document.createElement('div');
-  bandeau.className = 'update'; bandeau.hidden = true;
-  bandeau.innerHTML = '<span></span><button class="update-btn">Redémarrer</button>';
-  document.body.appendChild(bandeau);
-  const texte = bandeau.querySelector('span'), btn = bandeau.querySelector('button');
-  async function etat() {
-    try {
-      const r = await fetch('/api/version', { cache: 'no-store' });
-      if (r.status === 404) return { a_jour: false, ancien: true };     // serveur d'avant ce contrôle
-      return await r.json();
-    } catch (e) { return null; }
-  }
-  async function verifier() {
-    const r = await etat();
-    if (!r || r.a_jour) { bandeau.hidden = true; return; }
-    texte.textContent = r.ancien
-      ? nom + ' a été mis à jour : cliquez sur Quitter, puis rouvrez ' + nom + ' depuis le Bureau.'
-      : nom + ' a été mis à jour. Redémarrez pour utiliser la nouvelle version.';
-    btn.hidden = !!r.ancien;
-    bandeau.hidden = false;
-  }
-  btn.onclick = async () => {
-    btn.disabled = true; texte.textContent = 'Redémarrage…';
-    try {
-      await fetch('/api/redemarrer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    } catch (e) { /* le serveur s'arrête déjà */ }
-    for (let i = 0; i < 40; i++) {                                    // 20 s au plus
-      await new Promise((ok) => setTimeout(ok, 500));
-      const r = await etat();
-      if (r && r.a_jour) { location.reload(); return; }
-    }
-    btn.disabled = false; texte.textContent = 'Le redémarrage n\'a pas abouti : cliquez sur Quitter, puis rouvrez ' + nom + '.';
-  };
-  verifier();
-  window.addEventListener('focus', verifier);
-})();
-
-I18N.bouton($('langBtn'));                       // العربية / Français
+// ---------- communs : Quitter (second clic si un traitement tourne), mise à jour ----------
+Rexo.quitter({ occupe: () => !!(state.job && state.job.etat === 'en cours'), question: 'Arrêter le traitement ?' });
+Rexo.versionServeur();

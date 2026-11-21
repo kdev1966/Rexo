@@ -20,17 +20,16 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, request, send_file, send_from_directory
+from flask import abort, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 
-from shared.images import ConversionImpossible, apercu
+from shared.images import ConversionImpossible
 from shared import photocraft
-from shared.serveur import a_l_arret, ajouter_langues, ajouter_quitter, ajouter_version, lancer, oublier, suivre
+from shared.serveur import a_l_arret, creer_app, envoyer_image, fichier_sur, lancer, oublier, suivre
 
 from . import config
-from .config import APP, IMAGES, ORIGINAL, RETOUCHE, TRAVAIL, WEB_NATIF
+from .config import APP, IMAGES, ORIGINAL, RETOUCHE, TRAVAIL
 
-WEB = Path(__file__).resolve().parent / 'web'
 HOST, PORT = '127.0.0.1', 8765
 
 # filtre de l'interface -> (type passé à traiter.py, image affichée comme « après »)
@@ -47,13 +46,10 @@ from .effacer import EffacementError, valider as valider_zones  # noqa: E402
 from .vision import FORMATS_RECADRAGE, STUDIO, STYLES  # noqa: E402
 _COULEUR = re.compile(r'^\d{1,3},\d{1,3},\d{1,3}$')
 
-app = Flask(__name__, static_folder=None)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
-ajouter_quitter(app)        # bouton « Quitter » : arrête les traitements (modèles en mémoire) et le serveur
+# Application commune au hub : pages, Quitter (arrête aussi les traitements), version, arabe
+app = creer_app('reveal.interface', Path(__file__).resolve().parent)
 # un traitement arrêté de force (Windows) n'efface pas son dossier de travail : le serveur s'en charge
 a_l_arret(lambda: shutil.rmtree(TRAVAIL, ignore_errors=True))
-ajouter_version(app, 'reveal.interface', Path(__file__).resolve().parent)   # page récente, serveur ancien : redémarrer
-ajouter_langues(app, WEB / 'ar.json')   # interface en arabe : catalogue de l'application
 
 _jobs = {}
 _lock = threading.Lock()
@@ -62,14 +58,6 @@ _ansi = re.compile(r'\x1b\[[0-9;]*m')
 
 
 # ---------- utilitaires ----------
-
-def _safe(folder, name):
-    """Chemin d'un fichier existant dans `folder`, sans possibilité d'en sortir."""
-    path = (folder / name).resolve()
-    if path.parent != folder.resolve() or not path.is_file():
-        abort(404)
-    return path
-
 
 def _photos():
     return sorted((p for p in ORIGINAL.iterdir() if p.suffix.lower() in IMAGES and not p.name.startswith('.')),
@@ -98,35 +86,12 @@ def _results():
 
 # ---------- pages et fichiers ----------
 
-@app.get('/')
-def index():
-    return send_file(WEB / 'index.html')
-
-
-@app.get('/static/<path:name>')
-def static_files(name):
-    return send_from_directory(WEB, name)
-
-
 @app.get('/media/<zone>/<path:name>')
 def media(zone, name):
     folder = {'original': ORIGINAL, 'retouche': RETOUCHE}.get(zone)
     if folder is None:
         abort(404)
-    path = _safe(folder, name)
-    if path.suffix.lower() not in WEB_NATIF:
-        path = _apercu(path)                    # AVIF, HEIC, TIFF… : aperçu JPEG pour le navigateur
-    resp = send_file(path)
-    resp.headers['Cache-Control'] = 'no-cache'
-    return resp
-
-
-def _apercu(path):
-    """Aperçu JPEG (mis en cache) d'une image que le navigateur ne sait pas afficher (commun : shared.images)."""
-    try:
-        return apercu(path, config.APERCUS)
-    except ConversionImpossible:
-        abort(415)
+    return envoyer_image(fichier_sur(folder, name), config.APERCUS)   # AVIF, HEIC… : aperçu JPEG
 
 
 # ---------- API ----------
@@ -189,7 +154,7 @@ def api_traiter():
             opts['zones'] = valider_zones(data.get('zones'))
         except (EffacementError, TypeError, ValueError) as e:
             return jsonify(error='Zones à effacer invalides : %s' % e), 400
-    src = _safe(ORIGINAL, photo)
+    src = fichier_sur(ORIGINAL, photo)
     with _lock:
         if _current['id'] and _jobs[_current['id']]['etat'] == 'en cours':
             return jsonify(error='Un traitement est déjà en cours, patientez.'), 409
@@ -212,7 +177,7 @@ def api_job(job_id):
 @app.post('/api/ouvrir')
 def api_open():
     name = (request.get_json(silent=True) or {}).get('fichier', '')
-    path = _safe(RETOUCHE, name)
+    path = fichier_sur(RETOUCHE, name)
     if path.suffix.lower() != '.psd':
         abort(400)
     photocraft.ouvrir(path)

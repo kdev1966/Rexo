@@ -16,24 +16,21 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
+from flask import Response, abort, jsonify, request, send_file
 
 from shared import systeme
 from shared.images import vignette
-from shared.serveur import ajouter_langues, ajouter_quitter, ajouter_version, lancer
+from shared.serveur import corps_json, creer_app, dossier_sur, erreurs_lisibles, fichier_sur, lancer
 
 from . import coeur, config, personnes, seances
 from .importer import ErreurAppareil, PlaceInsuffisante, importer
 
-WEB = Path(__file__).resolve().parent / 'web'
 HOST, PORT = '127.0.0.1', 8767
 MAX_VIGNETTES = 20000            # vignettes gardées en mémoire (environ 10 Ko chacune)
 COTE_NETTE = 400                 # vignettes nettes du téléphone, tirées de l'original
 
-app = Flask(__name__, static_folder=None)
-ajouter_quitter(app)
-ajouter_version(app, 'dock.interface', Path(__file__).resolve().parent)
-ajouter_langues(app, WEB / 'ar.json')
+# Application commune au hub : pages, Quitter, version, arabe (shared/serveur)
+app = creer_app('dock.interface', Path(__file__).resolve().parent)
 
 pilote = None                    # AppareilsMac sous macOS ; None si le système n'est pas encore pris en charge
 registre = coeur.Registre(config.REGISTRE)
@@ -48,16 +45,8 @@ _a_trier = queue.Queue()                      # dossiers de séance à analyser,
 _tri = {'en_cours': False, 'seance': '', 'etape': '', 'fait': 0, 'total': 0, 'version': 0}
 
 
-def _erreurs(fn):
-    from functools import wraps
-
-    @wraps(fn)
-    def enveloppe(*a, **k):
-        try:
-            return fn(*a, **k)
-        except (ErreurAppareil, PlaceInsuffisante, config.ReglageError, seances.ActionImpossible, OSError) as e:
-            return jsonify(error=str(e)), 400
-    return enveloppe
+# Erreurs prévues (appareil, place, réglage, action) : 400 avec un message lisible
+_erreurs = erreurs_lisibles(ErreurAppareil, PlaceInsuffisante, config.ReglageError, seances.ActionImpossible, OSError)
 
 
 def _etat_appareil():
@@ -77,22 +66,6 @@ def _entrees():
 def _miroir_present(m):
     """Le disque de seconde copie est-il branché ? (son dossier ou, à défaut, son parent)"""
     return m is not None and (m.exists() or m.parent.exists())
-
-
-# ---------- pages ----------
-
-@app.get('/')
-def index():
-    r = send_from_directory(WEB, 'index.html')
-    r.headers['Cache-Control'] = 'no-cache'
-    return r
-
-
-@app.get('/static/<path:nom>')
-def statique(nom):
-    r = send_from_directory(WEB, nom)
-    r.headers['Cache-Control'] = 'no-cache'
-    return r
 
 
 # ---------- état et catalogue ----------
@@ -252,7 +225,7 @@ def _travail(groupes):
 def api_importer():
     """Corps : {seances: [{nom, cles}]} (séances proposées, validées par le photographe),
     ou {cles, seance} (une seule séance)."""
-    d = request.get_json(force=True, silent=True) or {}
+    d = corps_json()
     if _etat_appareil()['etat'] != 'pret':
         return jsonify(error='Aucun appareil prêt.'), 409
     demandes = d.get('seances') or [{'nom': d.get('seance') or '', 'cles': d.get('cles')}]
@@ -273,7 +246,7 @@ def api_importer():
 @_erreurs
 def api_marquer():
     """Marque la sélection comme déjà importée, sans la copier (copiée auparavant autrement)."""
-    d = request.get_json(force=True, silent=True) or {}
+    d = corps_json()
     entrees = _choix(d.get('cles'))
     if not entrees:
         return jsonify(error='Aucune photo choisie.'), 400
@@ -314,14 +287,9 @@ def api_miroir_retirer():
 @_erreurs
 def api_montrer():
     """Ouvre dans le Finder (ou l'Explorateur) le dossier d'une séance, ou celui des séances."""
-    d = request.get_json(force=True, silent=True) or {}
-    racine = config.dossier_seances(creer=True).resolve()
-    cible = racine
-    if d.get('seance'):
-        cible = (racine / str(d['seance'])).resolve()
-        if cible.parent != racine or not cible.is_dir():
-            return jsonify(error='Dossier introuvable.'), 404
-    systeme.montrer(cible)
+    d = corps_json()
+    racine = config.dossier_seances(creer=True)
+    systeme.montrer(dossier_sur(racine, d['seance']) if d.get('seance') else racine)
     return jsonify(ok=True)
 
 
@@ -329,11 +297,7 @@ def api_montrer():
 
 def _dossier(nom):
     """Dossier de séance désigné par son nom, sans possibilité de sortir du dossier des séances."""
-    racine = config.dossier_seances().resolve()
-    d = (racine / str(nom or '')).resolve()
-    if d.parent != racine or not d.is_dir():
-        abort(404)
-    return d
+    return dossier_sur(config.dossier_seances(), nom)
 
 
 def _trieur():
@@ -383,8 +347,8 @@ def api_seance_photos():
 def _photo_seance():
     d = _dossier(request.args.get('seance'))
     base = d / seances.ECARTEES if request.args.get('ecartee') == '1' else d
-    p = (base / str(request.args.get('nom', ''))).resolve()
-    if p.parent != base.resolve() or not seances.est_photo(p):
+    p = fichier_sur(base, request.args.get('nom'))
+    if not seances.est_photo(p):
         abort(404)
     return p
 
@@ -407,7 +371,7 @@ def seance_vignette():
 def api_seance_action():
     """Actions du photographe sur des photos de séance : garder, ne_plus_garder, ecarter,
     remettre (depuis « Écartées »), corbeille (ecartees: true pour une photo écartée)."""
-    corps = request.get_json(force=True, silent=True) or {}
+    corps = corps_json()
     d = _dossier(corps.get('seance'))
     noms = [str(n) for n in corps.get('noms') or []]
     if not noms:
@@ -463,7 +427,7 @@ def seance_visage():
 @app.post('/api/seances/personnes/activer')
 @_erreurs
 def api_seance_personnes_activer():
-    d = _dossier((request.get_json(force=True, silent=True) or {}).get('seance'))
+    d = _dossier(corps_json().get('seance'))
     personnes.activer(d)
     _a_trier.put(d)
     with _verrou:
@@ -474,7 +438,7 @@ def api_seance_personnes_activer():
 @app.post('/api/seances/personnes/effacer')
 @_erreurs
 def api_seance_personnes_effacer():
-    d = _dossier((request.get_json(force=True, silent=True) or {}).get('seance'))
+    d = _dossier(corps_json().get('seance'))
     personnes.effacer(d)
     with _verrou:
         _tri.update(version=_tri['version'] + 1)
@@ -484,7 +448,7 @@ def api_seance_personnes_effacer():
 @app.post('/api/seances/analyser')
 @_erreurs
 def api_seance_analyser():
-    d = _dossier((request.get_json(force=True, silent=True) or {}).get('seance'))
+    d = _dossier(corps_json().get('seance'))
     _a_trier.put(d)
     with _verrou:
         _tri.update(en_cours=True)
@@ -495,13 +459,10 @@ def api_seance_analyser():
 @_erreurs
 def api_seance_ouvrir():
     """Ouvre une photo de séance dans l'application du système (Aperçu, Photos de Windows)."""
-    corps = request.get_json(force=True, silent=True) or {}
+    corps = corps_json()
     d = _dossier(corps.get('seance'))
     base = d / seances.ECARTEES if corps.get('ecartee') else d
-    p = (base / str(corps.get('nom', ''))).resolve()
-    if p.parent != base.resolve() or not p.is_file():
-        return jsonify(error='Photo introuvable.'), 404
-    systeme.ouvrir(p)
+    systeme.ouvrir(fichier_sur(base, corps.get('nom')))
     return jsonify(ok=True)
 
 

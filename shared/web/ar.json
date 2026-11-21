@@ -1,0 +1,23 @@
+{
+ "Quitter": "خروج",
+ "Arrêter le serveur et libérer la mémoire": "إيقاف الخادم وتحرير الذاكرة",
+ "Arrêter le traitement ?": "إيقاف المعالجة؟",
+ "Redémarrer": "إعادة التشغيل",
+ "{} a été mis à jour : cliquez sur Quitter, puis rouvrez {} depuis le Bureau.": "تم تحديث {1}: انقر على «خروج» ثم أعد فتحه من سطح المكتب.",
+ "{} a été mis à jour. Redémarrez pour utiliser la nouvelle version.": "تم تحديث {}. أعد التشغيل لاستعمال النسخة الجديدة.",
+ "Erreur {}": "خطأ {}",
+ "Requête JSON attendue.": "يُنتظر طلب بصيغة JSON.",
+ "Aucun fichier reçu.": "لم يُستلم أي ملف.",
+ "Format non pris en charge. Formats acceptés : {}.": "صيغة غير مدعومة. الصيغ المقبولة: {}.",
+ "Ouvrir le dossier": "فتح المجلد",
+ "Changer…": "تغيير…",
+ "Automatique": "تلقائي",
+ "ou cliquer pour choisir": "أو انقر للاختيار",
+ "{} photos": "{} صور",
+ "{} s": "{} ث",
+ "Le serveur est fermé et la mémoire libérée. Vous pouvez fermer cet onglet.": "أُغلق الخادم وتحرّرت الذاكرة. يمكنك إغلاق هذه الصفحة.",
+ "Le redémarrage n'a pas abouti : cliquez sur Quitter, puis rouvrez {}.": "لم تنجح إعادة التشغيل: انقر على «خروج» ثم أعد فتح {}.",
+ "Redémarrage…": "جارٍ إعادة التشغيل…",
+ "chemin absolu attendu": "يجب إدخال مسار كامل",
+ "Attendez la fin du traitement en cours.": "انتظر انتهاء المعالجة الجارية."
+}

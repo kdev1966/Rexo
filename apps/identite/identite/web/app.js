@@ -1,24 +1,9 @@
 'use strict';
 
-const $ = (id) => document.getElementById(id);
 const state = { photos: [], photo: null, mode: 'auto', fond: [214, 214, 214], view: 'identite', result: null, busy: false };
 const SVG = 'http://www.w3.org/2000/svg';
 
-// ---------- utilitaires ----------
-const tr = (t) => I18N.tr(t);
-async function api(url, opts) {
-  opts = Object.assign({}, opts);
-  opts.headers = I18N.entetes(opts.headers);     // le serveur traduit ses messages
-  const r = await fetch(url, opts);
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || ('Erreur ' + r.status));
-  return data;
-}
-function toast(msg, isErr) {
-  const t = $('toast');
-  t.textContent = msg; t.className = 'toast' + (isErr ? ' err' : ''); t.hidden = false;
-  clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 4000);
-}
+// ---------- utilitaires ($, tr, api, toast, confirmer, jsonPost… : /commun/rexo.js) ----------
 const media = (zone, name, v) => `/media/${zone}/${encodeURIComponent(name)}?v=${v || Date.now()}`;
 const hexToRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const rgbToHex = (c) => '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('');
@@ -287,42 +272,8 @@ loadPhotos().then(() => {
   }
 }).catch((e) => toast(e.message, true));
 
-// ---------- quitter : arrête le serveur (et un traitement en cours) ----------
-(function quitter() {
-  const b = $('quitBtn');
-  let arme = null;
-  b.onclick = async () => {
-    const enCours = state.busy;
-    if (enCours && !arme) {           // un traitement tourne : second clic pour confirmer
-      b.classList.add('is-confirm'); b.querySelector('span').textContent = 'Arrêter le traitement ?';
-      arme = setTimeout(() => { arme = null; b.classList.remove('is-confirm'); b.querySelector('span').textContent = 'Quitter'; }, 4000);
-      return;
-    }
-    clearTimeout(arme);
-    try {
-      await fetch('/api/quitter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    } catch (e) { /* serveur déjà arrêté */ }
-    $('stopped').hidden = false;
-    window.close();                    // ne ferme que les onglets ouverts par un script ; sinon l'écran reste
-  };
-})();
-
-// ---------- confirmation par second clic (pas de fenêtre bloquante) ----------
-function confirmer(bouton, question) {
-  if (bouton._arme) {
-    clearTimeout(bouton._arme); bouton._arme = null;
-    bouton.classList.remove('is-confirm'); bouton.querySelector('span').textContent = bouton._libelle;
-    return true;
-  }
-  const span = bouton.querySelector('span');
-  bouton._libelle = span.textContent;
-  span.textContent = question; bouton.classList.add('is-confirm');
-  bouton._arme = setTimeout(() => {
-    bouton._arme = null; bouton.classList.remove('is-confirm'); span.textContent = bouton._libelle;
-  }, 4000);
-  return false;
-}
-const jsonPost = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+// ---------- communs : Quitter (second clic si une fabrication tourne) ----------
+Rexo.quitter({ occupe: () => state.busy, question: 'Arrêter le traitement ?' });
 
 // ---------- liste de travail : retirer un portrait ----------
 $('removeBtn').onclick = () => { if (state.photo) supprimerPortrait(state.photo, $('removeBtn')); };
@@ -452,7 +403,7 @@ $('ficheForm').onsubmit = async (e) => {
       toast('Portrait ajouté : ' + I18N.iso(nom));
     } else {
       nom = cible.nom;
-      await api('/api/travail/' + encodeURIComponent(nom), jsonPost('PUT', fiche));
+      await api('/api/travail/' + encodeURIComponent(nom), jsonPost(fiche, 'PUT'));
       toast('Client enregistré pour ' + I18N.iso(nom));
     }
     fermerFiche();
@@ -482,7 +433,7 @@ $('saveBtn').onclick = async () => {
   if (!state.photo || !state.result) return;
   $('saveBtn').disabled = true;
   try {
-    const r = await api('/api/enregistrer', jsonPost('POST', { photo: state.photo, retirer: $('retirerApres').checked }));
+    const r = await api('/api/enregistrer', jsonPost({ photo: state.photo, retirer: $('retirerApres').checked }));
     toast('Enregistrée dans l\'archive du client.');
     if (r.retire) await oublierPhoto(); else await loadPhotos();
   } catch (e) { toast(e.message, true); }
@@ -573,7 +524,7 @@ async function ouvrirClient(id) {
     if (p.present) {
       ac.append(bouton('Imprimer 8', 'btn btn-small', () => imprimer(`/archive/${p.id}/planche_8?v=1`)),
         bouton('Imprimer 4 + portrait', 'btn btn-small', () => imprimer(`/archive/${p.id}/planche_4_portrait?v=1`)),
-        bouton('Dossier', 'btn btn-small', () => api('/api/archive/ouvrir', jsonPost('POST', { photo_id: p.id })).catch((e) => toast(e.message, true))));
+        bouton('Dossier', 'btn btn-small', () => api('/api/archive/ouvrir', jsonPost({ photo_id: p.id })).catch((e) => toast(e.message, true))));
     }
     const sup = bouton('Supprimer', 'btn-danger', async () => {
       if (!confirmer(sup, 'À la Corbeille ?')) return;
@@ -599,7 +550,7 @@ function modifierClient(c) {
   const n = champ(c.nom, 'Nom'), p = champ(c.prenom, 'Prénom'), t = champ(c.telephone, 'Téléphone : 20 123 456');
   const ok = bouton('Enregistrer', 'btn btn-primary btn-small', async () => {
     try {
-      await api('/api/clients/' + c.id, jsonPost('PUT', { nom: n.value, prenom: p.value, telephone: t.value }));
+      await api('/api/clients/' + c.id, jsonPost({ nom: n.value, prenom: p.value, telephone: t.value }, 'PUT'));
       toast('Fiche mise à jour.'); ouvrirClient(c.id);
     } catch (err) { toast(err.message, true); }
   });
@@ -610,12 +561,12 @@ function modifierClient(c) {
 $('archiveChoose').onclick = async () => {
   toast('Choisissez le dossier dans la fenêtre qui vient de s\'ouvrir.');
   try {
-    const r = await api('/api/archive/choisir', jsonPost('POST', {}));
+    const r = await api('/api/archive/choisir', jsonPost({}));
     $('archivePath').textContent = r.dossier;
     if (!r.annule) toast('Les prochaines photos seront rangées dans ' + I18N.iso(r.dossier));
   } catch (e) { toast(e.message, true); }
 };
-$('archiveOpen').onclick = () => api('/api/archive/ouvrir', jsonPost('POST', {})).catch((e) => toast(e.message, true));
+$('archiveOpen').onclick = () => api('/api/archive/ouvrir', jsonPost({})).catch((e) => toast(e.message, true));
 
 chargerLiens().catch((e) => toast(e.message, true));
 function ongletDepuisAdresse() {                 // #onglet=clients[&client=12] : ouvre la vue Clients
@@ -628,44 +579,6 @@ function ongletDepuisAdresse() {                 // #onglet=clients[&client=12] 
 ongletDepuisAdresse();
 window.addEventListener('hashchange', ongletDepuisAdresse);
 
-// ---------- serveur à jour ? (page relue sur le disque, code Python lu au démarrage) ----------
-(function versionServeur() {
-  const nom = document.title;
-  const bandeau = document.createElement('div');
-  bandeau.className = 'update'; bandeau.hidden = true;
-  bandeau.innerHTML = '<span></span><button class="update-btn">Redémarrer</button>';
-  document.body.appendChild(bandeau);
-  const texte = bandeau.querySelector('span'), btn = bandeau.querySelector('button');
-  async function etat() {
-    try {
-      const r = await fetch('/api/version', { cache: 'no-store' });
-      if (r.status === 404) return { a_jour: false, ancien: true };     // serveur d'avant ce contrôle
-      return await r.json();
-    } catch (e) { return null; }
-  }
-  async function verifier() {
-    const r = await etat();
-    if (!r || r.a_jour) { bandeau.hidden = true; return; }
-    texte.textContent = r.ancien
-      ? nom + ' a été mis à jour : cliquez sur Quitter, puis rouvrez ' + nom + ' depuis le Bureau.'
-      : nom + ' a été mis à jour. Redémarrez pour utiliser la nouvelle version.';
-    btn.hidden = !!r.ancien;
-    bandeau.hidden = false;
-  }
-  btn.onclick = async () => {
-    btn.disabled = true; texte.textContent = 'Redémarrage…';
-    try {
-      await fetch('/api/redemarrer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    } catch (e) { /* le serveur s'arrête déjà */ }
-    for (let i = 0; i < 40; i++) {                                    // 20 s au plus
-      await new Promise((ok) => setTimeout(ok, 500));
-      const r = await etat();
-      if (r && r.a_jour) { location.reload(); return; }
-    }
-    btn.disabled = false; texte.textContent = 'Le redémarrage n\'a pas abouti : cliquez sur Quitter, puis rouvrez ' + nom + '.';
-  };
-  verifier();
-  window.addEventListener('focus', verifier);
-})();
+// ---------- serveur à jour ? (commun : /commun/rexo.js) ----------
+Rexo.versionServeur();
 
-I18N.bouton($('langBtn'));                       // العربية / Français

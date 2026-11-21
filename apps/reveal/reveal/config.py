@@ -14,4 +14,3 @@ APERCUS = DONNEES / '.apercus'        # aperçus JPEG des formats que le navigat
 from shared.images import FORMATS as IMAGES  # noqa: E402  formats acceptés (convertis si besoin)
 
 # Formats affichés tels quels par les navigateurs (Safari 15 sous macOS 12 compris)
-WEB_NATIF = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'}

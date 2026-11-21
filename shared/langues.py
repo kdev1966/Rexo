@@ -12,7 +12,9 @@ elles-mêmes traduites si elles figurent au catalogue (« enfant » dans « Yous
 y compris une liste séparée par des virgules.
 
 Le même catalogue sert à la page (shared/web/langues.js) et au serveur (ce module), qui
-traduit ses messages quand la page envoie l'en-tête « X-Langue: ar ».
+traduit ses messages quand la page envoie l'en-tête « X-Langue: ar ». Il réunit le catalogue
+commun du hub (shared/web/ar.json : boutons et messages des outils communs, phrases générales)
+et celui de l'application, qui l'emporte pour un même texte.
 """
 
 import json
@@ -23,16 +25,27 @@ LANGUES = ('fr', 'ar')
 VIRGULE_AR = '، '
 
 
+def fusionner(chemins):
+    """Catalogues réunis dans l'ordre (le dernier l'emporte pour un même texte) ; un catalogue
+    absent est ignoré."""
+    cat = {}
+    for c in chemins:
+        c = Path(c)
+        if c.is_file():
+            cat.update(json.loads(c.read_text(encoding='utf-8')))
+    return cat
+
+
 class Catalogue:
-    def __init__(self, chemin):
-        self.chemin = Path(chemin)
+    def __init__(self, chemins):
+        self.chemins = [Path(c) for c in (chemins if isinstance(chemins, (list, tuple)) else [chemins])]
         self._exact, self._modeles, self._date = {}, [], None
 
     def _charger(self):
-        date = self.chemin.stat().st_mtime_ns
+        date = tuple(c.stat().st_mtime_ns if c.is_file() else 0 for c in self.chemins)
         if date == self._date:
             return
-        cat = json.loads(self.chemin.read_text(encoding='utf-8'))
+        cat = fusionner(self.chemins)
         self._exact = {k: v for k, v in cat.items() if '{}' not in k}
         modeles = []
         for k, v in cat.items():
