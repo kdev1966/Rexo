@@ -79,11 +79,11 @@ class TestClasser(unittest.TestCase):
 
 class TestDecouperSeances(unittest.TestCase):
     def test_ecarts(self):
-        e = coeur.catalogue([FichierAppareil(n, 1, T0 + timedelta(hours=h))
+        e = coeur.catalogue([FichierAppareil(n + '.jpg', 1, T0 + timedelta(hours=h))
                              for n, h in (('a', 0), ('b', 1), ('c', 5), ('d', 5.5), ('e', 30))])
-        e.append(coeur.Entree(FichierAppareil('x', 1), coeur.PHOTO))
+        e.append(coeur.Entree(FichierAppareil('x.jpg', 1), coeur.PHOTO))
         s = coeur.decouper_seances(e)
-        self.assertEqual([[x.fichier.nom for x in g] for g in s], [['a', 'b'], ['c', 'd'], ['e', 'x']])
+        self.assertEqual([[x.fichier.nom[0] for x in g] for g in s], [['a', 'b'], ['c', 'd'], ['e', 'x']])
 
 
 class TestSeances(unittest.TestCase):

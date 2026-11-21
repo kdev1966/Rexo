@@ -26,7 +26,8 @@ from pathlib import Path
 
 BLOC = 4 * 1024 * 1024        # lecture par blocs de 4 Mo : les vidéos font plusieurs Go
 
-PHOTO, RAW, VIDEO, RETOUCHE = 'photo', 'raw', 'video', 'retouche'
+PHOTO, RAW, VIDEO, RETOUCHE, AUTRE = 'photo', 'raw', 'video', 'retouche', 'autre'
+_PHOTOS = {'.heic', '.heif', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.tif', '.tiff', '.bmp', '.avif'}
 _VIDEOS = {'.mov', '.mp4', '.m4v', '.avi', '.3gp'}
 _RAWS = {'.dng', '.raw', '.cr2', '.cr3', '.nef', '.arw'}
 
@@ -113,7 +114,9 @@ def genre(nom):
         return VIDEO
     if ext in _RAWS:
         return RAW
-    return PHOTO
+    if ext in _PHOTOS:
+        return PHOTO
+    return AUTRE          # dossier vu comme un fichier (Android), .nomedia, base de miniatures…
 
 
 def noms_retouche(nom):
@@ -154,7 +157,7 @@ def catalogue(fichiers, registre=None, appareil=''):
     entrees = []
     for f in fichiers:
         g = genre(f.nom)
-        if g == RETOUCHE:
+        if g in (RETOUCHE, AUTRE):
             continue
         liees = tuple(retouches[n] for n in noms_retouche(f.nom) if n in retouches)
         importe = bool(registre and registre.contient(f, appareil))

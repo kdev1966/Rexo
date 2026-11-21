@@ -71,6 +71,11 @@ class TestNoms(Base):
         self.assertEqual(coeur.genre('IMG_1.mov'), coeur.VIDEO)
         self.assertEqual(coeur.genre('IMG_1.DNG'), coeur.RAW)
         self.assertEqual(coeur.genre('IMG_O1.AAE'), coeur.RETOUCHE)
+        self.assertEqual(coeur.genre('IMG_20261121_143005.jpg'), coeur.PHOTO)
+        self.assertEqual(coeur.genre('DCIM'), coeur.AUTRE)          # dossier Android vu comme un fichier
+        self.assertEqual(coeur.genre('.nomedia'), coeur.AUTRE)
+        f = coeur.FichierAppareil('DCIM', 0, None)
+        self.assertEqual(coeur.catalogue([f]), [])
 
     def test_retouches(self):
         self.assertEqual(coeur.noms_retouche('IMG_1234.HEIC'), ['IMG_1234.AAE', 'IMG_O1234.AAE'])
