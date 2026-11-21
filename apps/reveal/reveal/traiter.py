@@ -4,7 +4,7 @@
 Portraits (photos couleur)   : visages par IA (GFPGAN, calque à 50 %), lissage de la peau
                                + maquillage
                                (lèvres, blush, paupières) placés grâce aux repères du visage
-                               (PhotoCraft image.detectFaces).
+                               (détecteur commun du hub, shared/vision).
 Photos anciennes (N&B/sépia) : agrandissement x2 si petite (Real-ESRGAN), puis
                                restauration complète (recadrage du tirage, gris neutre,
                                stries, rayures, bruit, voile, contraste, netteté ; fichier
@@ -142,7 +142,7 @@ class Job:
 def portrait(job):
     pc = job.pc
     job.extras.append(('_avant', export_current(job, 'avant')))
-    faces = analyse.faces_from(pc.cmd('image.detectFaces', minScore=0.5), min_score=0.8)
+    faces = analyse.visages(job.img, min_score=0.8)          # détecteur commun du hub (shared/vision)
     if not faces:
         log('  aucun visage net détecté : portrait ignoré')
         return False
@@ -355,12 +355,11 @@ def ancienne(job):
 
     # 6. Visages restaurés par IA (GFPGAN), sur un calque séparé réglable
     if ia.available('gfpgan-1.4'):
-        faces = [f for f in analyse.faces_from(pc.cmd('image.detectFaces', minScore=0.5), min_score=0.6)
-                 if f.eye_dist >= 8]
+        cur = export_current(job, 'avant_visages')
+        faces = [f for f in analyse.visages(cur, min_score=0.6) if f.eye_dist >= 8]
         faces = faces_for_ai(job, faces)
         if faces:
             t = time.time()
-            cur = export_current(job, 'avant_visages')
             try:
                 fixed = ia.restore_faces(cur, faces)
             except Exception as e:

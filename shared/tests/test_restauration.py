@@ -75,5 +75,22 @@ class Grain(unittest.TestCase):
         self.assertLess(col[440:520].max(), col.mean() * 4)
 
 
+
+class VisagesPourGFPGAN(unittest.TestCase):
+    """restore_faces accepte les visages du détecteur commun (shared/vision.visages)."""
+
+    def test_reperes_dans_l_ordre(self):
+        from types import SimpleNamespace
+
+        from shared.ia.photo import _face_points
+        v = {'cadre': (0, 0, 10, 10), 'score': 0.9,
+             'points': [[10, 20], [30, 20], [20, 30], [28, 40], [12, 40]]}   # bouche : droite puis gauche
+        p = _face_points(v)
+        self.assertEqual(p[3].tolist(), [12, 40])
+        self.assertEqual(p[4].tolist(), [28, 40])
+        o = SimpleNamespace(eye_l=p[0], eye_r=p[1], nose=p[2], mouth_l=p[3], mouth_r=p[4])
+        self.assertTrue(np.array_equal(_face_points(o), p))
+
+
 if __name__ == '__main__':
     unittest.main()

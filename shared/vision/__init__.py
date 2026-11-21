@@ -89,11 +89,13 @@ def _session(model_id):
 _LONGUEUR_DETECTION = 640      # YuNet travaille sur une copie réduite (côté long 640)
 
 
-def visages(img, seuil=0.8):
+def visages(img, seuil=0.8, longueur=None):
     """Liste de dicts {cadre (x, y, l, h), points (5 × 2 : œil gauche et droit de l'image, nez,
-    coins de la bouche), score}, du plus grand visage au plus petit."""
+    coins de la bouche), score}, du plus grand visage au plus petit. `longueur` : côté long de
+    la copie où l'on cherche (640 par défaut, rapide pour un portrait) ; plus grand pour une
+    photo de groupe aux petits visages (mesuré : 6 visages sur 7 trouvés à 640, 7 à 1280)."""
     h, w = img.shape[:2]
-    f = min(1.0, _LONGUEUR_DETECTION / max(h, w))
+    f = min(1.0, (longueur or _LONGUEUR_DETECTION) / max(h, w))
     petite = cv2.resize(img, (round(w * f), round(h * f)), interpolation=cv2.INTER_AREA) if f < 1 else img
     with _verrou:
         det = cv2.FaceDetectorYN.create(str(_chemin('yunet-2023mar')), '',

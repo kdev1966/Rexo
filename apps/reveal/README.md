@@ -12,6 +12,11 @@ ne quitte la machine.
 | **Effacer** | Objets ou personnes indésirables : on trace un cadre serré autour, ou on clique dessus (Alt-clic exclut une partie) ; plusieurs zones par photo. MobileSAM détoure, MI-GAN reconstitue le décor ; calque « Effacement (IA) » masqué à la seule zone reconstituée |
 | **Améliorer** | Amélioration automatique (exposition, ombres, vivacité, balance des blancs sur les blancs, relief, réglée sur celle d'Apple), puis rendu de couleur au choix : chaud, froid, vintage chaud, noir et blanc, lumineux, contrasté, doux |
 
+Les visages sont trouvés par le détecteur commun du hub (YuNet, `shared/vision`), le même que
+pour Rexo ID et Rexo Dock : mesuré sur les photos de test, il trouve les mêmes visages que
+PhotoCraft (7 sur 7 sur une photo de groupe ancienne), avec des repères à quelques pourcents
+près, et 2 à 7 fois plus vite.
+
 Pour les portraits, le lissage est limité à la peau **des personnes** détectées :
 un fond couleur chair n'est plus lissé.
 

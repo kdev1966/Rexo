@@ -40,6 +40,13 @@ _FFHQ_512 = np.array([[0.37691676, 0.46864664], [0.62285697, 0.46912813], [0.501
 
 
 def _face_points(face):
+    """Cinq repères (œil gauche et droit de l'image, nez, coins gauche et droit de la bouche)
+    d'un visage de shared.vision.visages (dict) ou d'un objet qui les porte (eye_l…)."""
+    if isinstance(face, dict):
+        p = np.asarray(face['points'], np.float32).copy()
+        if p[3, 0] > p[4, 0]:
+            p[[3, 4]] = p[[4, 3]]
+        return p
     return np.array([face.eye_l, face.eye_r, face.nose, face.mouth_l, face.mouth_r], np.float32)
 
 
@@ -57,9 +64,8 @@ def _box_mask(size, blur=0.3, padding=0.05):
 
 
 def restore_faces(img, faces, blend=0.8):
-    """GFPGAN 1.4 sur chaque visage, recollé avec un masque doux. `faces` : objets ayant les
-    repères eye_l, eye_r, nose, mouth_l, mouth_r en pixels (visages de PhotoCraft dans Reveal,
-    ou repères de shared.vision.visages)."""
+    """GFPGAN 1.4 sur chaque visage, recollé avec un masque doux. `faces` : visages de
+    shared.vision.visages, ou objets portant les repères eye_l, eye_r, nose, mouth_l, mouth_r."""
     out = img.astype(np.float32)
     for f in faces:
         M, _ = cv2.estimateAffinePartial2D(_face_points(f), _FFHQ_512, method=cv2.LMEDS)

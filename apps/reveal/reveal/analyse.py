@@ -34,18 +34,18 @@ def _ellipse(shape, center, axes, angle_deg, value=1.0):
 
 
 class Face:
-    """Repères d'un visage renvoyés par image.detectFaces de PhotoCraft."""
+    """Visage détecté par le détecteur commun du hub (shared/vision.visages : YuNet), avec la
+    géométrie dont Reveal a besoin (peau, maquillage). Mesuré : mêmes visages que
+    image.detectFaces de PhotoCraft sur les photos de test, repères à 0-9 % de l'écart des yeux."""
 
-    def __init__(self, d):
-        lm = d['landmarks']
-        self.rect = d['rect']
-        self.score = d['score']
-        # « rightEye » est l'œil situé à gauche de l'image
-        self.eye_l = np.array(lm['rightEye'], np.float32)   # gauche de l'image
-        self.eye_r = np.array(lm['leftEye'], np.float32)    # droite de l'image
-        a, b = np.array(lm['mouthRight'], np.float32), np.array(lm['mouthLeft'], np.float32)
+    def __init__(self, v):
+        pts = np.asarray(v['points'], np.float32)
+        self.rect = tuple(v['cadre'])                        # (x, y, largeur, hauteur)
+        self.score = float(v['score'])
+        self.eye_l, self.eye_r = pts[0], pts[1]              # gauche, droite de l'image
+        a, b = pts[3], pts[4]
         self.mouth_l, self.mouth_r = (a, b) if a[0] <= b[0] else (b, a)
-        self.nose = np.array(lm['nose'], np.float32)
+        self.nose = pts[2]
         v = self.eye_r - self.eye_l
         self.eye_dist = float(np.linalg.norm(v))
         self.angle = math.degrees(math.atan2(v[1], v[0]))
@@ -55,9 +55,13 @@ class Face:
         self.mouth_w = float(np.linalg.norm(self.mouth_r - self.mouth_l))
 
 
-def faces_from(result, min_score=0.8):
-    faces = [Face(f) for f in result.get('faces', []) if f.get('score', 0) >= min_score]
-    return faces
+LONGUEUR_VISAGES = 1280       # photos de groupe : petits visages (à 640, un visage sur 7 manquait)
+
+
+def visages(img, min_score=0.8):
+    """Visages de l'image (BGR), du plus grand au plus petit, par le détecteur commun."""
+    from shared import vision
+    return [Face(v) for v in vision.visages(img, seuil=min_score, longueur=LONGUEUR_VISAGES)]
 
 
 # ---------- peau ----------
