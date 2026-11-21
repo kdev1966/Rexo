@@ -55,8 +55,18 @@ _a_la_sortie = []
 
 def a_la_sortie(fn):
     """Enregistre `fn`, appelée avant que le serveur ne s'arrête ou ne se relance (Quitter,
-    Redémarrer) : os._exit et os.execv ne laissent rien se fermer de lui-même (ex. la session
-    avec un téléphone, qui resterait bloqué)."""
+    Redémarrer, et arrêt par le système : SIGTERM, envoyé par l'application du Bureau quand on
+    la quitte, et SIGHUP) : os._exit et os.execv ne laissent rien se fermer de lui-même (ex. la
+    session avec un téléphone, qui resterait bloqué). À appeler depuis le fil principal."""
+    if not _a_la_sortie and threading.current_thread() is threading.main_thread():
+        import signal
+
+        def arret(signum, frame):
+            _sortie()
+            os._exit(0)
+        for sig in ('SIGTERM', 'SIGHUP'):
+            if hasattr(signal, sig):
+                signal.signal(getattr(signal, sig), arret)
     _a_la_sortie.append(fn)
     return fn
 
