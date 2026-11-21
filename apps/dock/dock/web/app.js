@@ -32,11 +32,11 @@ function nomDossier(nom, d) {
 
 // ---------- état de l'appareil ----------
 const TEXTES = {
-  attente: ['Aucun appareil', 'Branchez un iPhone', 'Avec son câble USB, sur cet ordinateur.'],
+  attente: ['Aucun appareil', 'Branchez un téléphone', 'iPhone ou Android, avec son câble USB. Sur Android, choisissez ensuite « Transfert de photos » (PTP) dans la notification USB du téléphone.'],
   lecture: ['Lecture de {}…', 'Lecture du téléphone…', 'La liste des photos arrive.'],
-  verrouille: ['{} : déverrouillez-le', 'Déverrouillez l\'iPhone', 'Puis touchez « Se fier » sur l\'écran du téléphone si la question s\'affiche.'],
+  verrouille: ['{} : déverrouillez-le', 'Déverrouillez le téléphone', 'Puis touchez « Se fier » sur l\'écran du téléphone si la question s\'affiche.'],
   pret: ['{}', '', ''],
-  indisponible: ['Système non pris en charge', 'Pas encore disponible sur ce système', 'Rexo Dock lit pour l\'instant les iPhone sous macOS.'],
+  indisponible: ['Système non pris en charge', 'Pas encore disponible sur ce système', 'Rexo Dock lit pour l\'instant les téléphones sous macOS.'],
 };
 
 async function rafraichir() {
@@ -45,7 +45,7 @@ async function rafraichir() {
   state.etat = e;
   const a = e.appareil, t = TEXTES[a.etat] || TEXTES.attente;
   $('device').className = 'device ' + a.etat;
-  $('deviceText').textContent = remplir(t[0], I18N.iso(a.nom || 'iPhone'));
+  $('deviceText').textContent = remplir(t[0], I18N.iso(a.nom || tr('Téléphone')));
   if (a.etat !== 'pret') {
     $('videTitre').textContent = tr(t[1]); $('videTexte').textContent = tr(t[2]);
   }
@@ -123,8 +123,11 @@ function afficher() {
   const pret = state.etat && state.etat.appareil.etat === 'pret';
   $('vide').hidden = pret && liste.length > 0;
   if (pret && !liste.length) {
+    // Android verrouillé, ou en « Transfert de fichiers » : il ne montre aucune photo
+    const android = !tous.length && state.etat.appareil.marque === 'autre';
     $('videTitre').textContent = tr(tous.length ? 'Tout est déjà importé' : 'Aucune photo sur l\'appareil');
-    $('videTexte').textContent = tr(tous.length ? 'Choisissez « Tous » pour revoir les photos déjà importées.' : '');
+    $('videTexte').textContent = tr(tous.length ? 'Choisissez « Tous » pour revoir les photos déjà importées.'
+      : android ? 'Android ne montre ses photos qu\'une fois déverrouillé, en « Transfert de photos » (PTP). Déverrouillez-le, puis cliquez sur Actualiser.' : '');
   }
   if (!pret) { resume(); return; }
 

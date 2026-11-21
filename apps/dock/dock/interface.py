@@ -80,7 +80,8 @@ def api_etat():
     m = config.dossier_miroir()
     with _verrou:
         tri_etat = dict(_tri)
-    return jsonify(appareil={'etat': appareil['etat'], 'nom': appareil['nom']},
+    return jsonify(appareil={'etat': appareil['etat'], 'nom': appareil['nom'],
+                             'marque': appareil.get('marque', '')},
                    tri=tri_etat,
                    signature='%s|%s|%d|%d' % (appareil['etat'], appareil['identifiant'], nb, importes),
                    import_=imp,

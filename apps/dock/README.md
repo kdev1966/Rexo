@@ -1,6 +1,6 @@
 # Rexo Dock
 
-Import des photos et vidéos d'un iPhone pour un studio, puis **aide au tri par IA**,
+Import des photos et vidéos d'un téléphone (**iPhone** ou **Android**) pour un studio, puis **aide au tri par IA**,
 **100 % local** : aucune photo ne quitte la machine, et **rien n'est jamais supprimé du
 téléphone**. Fonctionne aujourd'hui **sous macOS** ; la version Windows est prévue (voir
 « Windows »). Choix techniques : [ADR 0005](../../docs/adr/0005-rexo-dock.md).
@@ -78,6 +78,17 @@ Méthode : visages par YuNet (48 pixels de large au moins), empreinte par SFace,
 liaison moyenne au seuil d'OpenCV (cosinus 0,363). Mesuré : même photo 0,99 ; même personne
 entre un portrait de studio et un selfie 0,39 à 0,64 ; personnes différentes 0,27 au plus.
 
+## iPhone et Android
+
+macOS lit les deux par ImageCaptureCore, comme un appareil photo (protocole PTP) : le même
+code les importe, et un appareil photo branché en USB est lu de la même façon.
+
+| | iPhone | Android |
+|---|---|---|
+| Réglage du téléphone | aucun ; toucher « Se fier » à la première connexion | dans la notification « USB », choisir **Transfert de photos** (PTP). En « Transfert de fichiers » (MTP, le réglage habituel), macOS ne voit pas le téléphone |
+| Téléphone verrouillé | Rexo Dock le signale (« déverrouillez-le ») | aucune photo n'est montrée : Rexo Dock le rappelle, puis « Actualiser » |
+| Fichiers lus | photos (HEIC, JPEG, RAW), vidéos, retouches `.AAE`, rafales | photos et vidéos que le téléphone expose en PTP (JPEG, MP4…) ; pas de rafale marquée |
+
 ## Vignettes du téléphone
 
 L'iPhone ne fournit que des vignettes de 120 × 160 pixels, quelle que soit la taille demandée :
@@ -144,8 +155,9 @@ cd apps/dock
 .venv/bin/python -m dock.interface        # puis ouvrir http://127.0.0.1:8767
 ```
 
-1. Brancher l'iPhone en USB, le **déverrouiller**, et toucher « Se fier » si la question
-   s'affiche. La barre du haut indique l'état du téléphone.
+1. Brancher le téléphone en USB et le **déverrouiller**. iPhone : toucher « Se fier » si la
+   question s'affiche. Android : choisir « Transfert de photos » (PTP) dans la notification
+   USB. La barre du haut indique l'état du téléphone.
 2. Onglet **Téléphone** : choisir les photos (filtre « Nouveaux » par défaut), nommer les
    séances proposées, puis **Importer**. « Marquer comme déjà importées » sert aux photos
    copiées auparavant par un autre moyen : elles ne sont plus proposées, sans être copiées.
@@ -193,6 +205,9 @@ Restent à faire et à essayer sur un PC : l'accès au téléphone par Windows P
 - **Séances** : l'écart de 3 h convient à une journée de prises de vue ; deux séances le même
   après-midi peuvent être réunies (les renommer ou importer en deux fois).
 - Un seul téléphone à la fois.
+- Android : seulement en « Transfert de photos » (PTP) ; le mode « Transfert de fichiers »
+  (MTP) demanderait un pilote en plus sous macOS. Sous Windows, les deux modes passeront par
+  Windows Portable Devices.
 
 ## Tests
 

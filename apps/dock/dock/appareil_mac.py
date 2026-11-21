@@ -1,11 +1,14 @@
-"""Accès à un iPhone sous macOS par ImageCaptureCore (pyobjc), comme le prototype Import Studio.
+"""Accès à un téléphone sous macOS par ImageCaptureCore (pyobjc), comme le prototype Import Studio :
+iPhone, et Android réglé sur « Transfert de photos (PTP) » (en mode « Transfert de fichiers »,
+MTP, macOS ne le voit pas). Un appareil photo en USB (PTP) est lu de la même façon.
 
 ImageCaptureCore répond par des rappels sur le fil principal : celui-ci doit faire tourner la
 boucle d'événements (`tourner`). Les autres fils (serveur web) passent leurs demandes par
 `vignette` et `copier`, qui sont exécutées sur le fil principal et attendues ici.
 
     AppareilsMac().demarrer()     cherche les appareils branchés en USB
-    .etat()                       {'etat': attente|verrouille|lecture|pret, 'nom', 'identifiant'}
+    .etat()                       {'etat': attente|verrouille|lecture|pret, 'nom', 'identifiant',
+                                   'marque': apple|autre}
     .fichiers()                   FichierAppareil de l'appareil (photos, vidéos, retouches .AAE)
     .vignette(fichier)            JPEG réduit (octets)
     .copier(fichier, dossier, nom) -> Path      l'original (HEIC, RAW, MOV), jamais converti
@@ -13,7 +16,8 @@ boucle d'événements (`tourner`). Les autres fils (serveur web) passent leurs d
 
 Rien n'est jamais supprimé de l'appareil : aucun appel de suppression n'existe dans ce module.
 
-Essai en ligne de commande (iPhone branché, déverrouillé, « Se fier à cet ordinateur ») :
+Essai en ligne de commande (iPhone branché, déverrouillé, « Se fier à cet ordinateur » ; ou
+Android déverrouillé, en « Transfert de photos ») :
     .venv/bin/python -m dock.appareil_mac [--copier N --vers DOSSIER]
 """
 
@@ -34,6 +38,7 @@ from .importer import ErreurAppareil
 ATTENTE, VERROUILLE, LECTURE, PRET = 'attente', 'verrouille', 'lecture', 'pret'
 TAILLE_VIGNETTE = 320          # pixels, côté le plus long
 DELAI_RELECTURE = 2.0          # ajouts ou retraits regroupés sur 2 s avant de relire la liste
+APPLE = 0x05AC                 # identifiant USB du fabricant
 
 
 def _date(nsdate):
@@ -236,8 +241,9 @@ class AppareilsMac:
             if not el.isKindOfClass_(IC.ICCameraFile):
                 continue
             nom = str(el.name() or 'sans-nom')
+            duree = float(el.duration() or 0) if genre(nom) == VIDEO else 0
             f = FichierAppareil(nom, int(el.fileSize()), _date(el.creationDate()),
-                                duree=float(el.duration()) if genre(nom) == VIDEO else None,
+                                duree=duree or None,          # Android en PTP : durée souvent absente
                                 rafale=str(el.burstUUID()) if el.burstUUID() else None)
             fichiers[f.cle] = el
             liste.append(f)
@@ -252,7 +258,8 @@ class AppareilsMac:
             etat = self._etat
         return {'etat': etat,
                 'nom': str(cam.name()) if cam is not None and cam.name() else '',
-                'identifiant': self.identifiant}
+                'identifiant': self.identifiant,
+                'marque': self.marque}
 
     @property
     def identifiant(self):
@@ -263,8 +270,19 @@ class AppareilsMac:
         return str(cam.serialNumberString() or cam.persistentIDString() or cam.name() or 'iphone')
 
     @property
+    def marque(self):
+        """« apple » (iPhone, iPad) ou « autre » (Android, appareil photo) ; « » sans appareil."""
+        cam = self._camera
+        if cam is None:
+            return ''
+        try:
+            return 'apple' if int(cam.usbVendorID()) == APPLE else 'autre'
+        except Exception:          # noqa: BLE001 — propriété absente : on le reconnaît autrement
+            return 'apple' if cam.isAccessRestrictedAppleDevice() or 'iP' in str(cam.name() or '') else 'autre'
+
+    @property
     def nom(self):
-        return self.etat()['nom'] or 'iPhone'
+        return self.etat()['nom'] or 'Téléphone'
 
     def fichiers(self):
         with self._verrou:
@@ -332,7 +350,7 @@ def _essai():
     from . import coeur
     from .importer import importer
 
-    p = argparse.ArgumentParser(description='Essai de lecture d\'un iPhone (rien n\'est supprimé de l\'appareil).')
+    p = argparse.ArgumentParser(description='Essai de lecture d\'un téléphone (rien n\'est supprimé de l\'appareil).')
     p.add_argument('--attendre', type=float, default=60, help='secondes d\'attente de l\'appareil')
     p.add_argument('--copier', type=int, default=0, help='copie les N fichiers les plus récents')
     p.add_argument('--vers', type=Path, help='dossier où copier (registre d\'essai à part)')
@@ -345,9 +363,12 @@ def _essai():
     debut = time.monotonic()
     pilote.tourner(duree=a.attendre, jusqua=lambda: pilote.etat()['etat'] == PRET)
     e = pilote.etat()
-    print('État : %s  appareil : %s  (%.1f s)' % (e['etat'], e['nom'] or '-', time.monotonic() - debut))
+    print('État : %s  appareil : %s  marque : %s  (%.1f s)' % (e['etat'], e['nom'] or '-', e['marque'] or '-',
+                                                             time.monotonic() - debut))
     if e['etat'] == VERROUILLE:
         print('Déverrouiller l\'iPhone et accepter « Se fier à cet ordinateur », puis relancer.')
+    if e['etat'] == ATTENTE:
+        print('Aucun appareil. Android : choisir « Transfert de photos (PTP) » dans la notification USB.')
     if e['etat'] != PRET:
         pilote.arreter()
         return 1
